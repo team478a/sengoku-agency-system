@@ -1,3 +1,7 @@
+## Documentation (2026-07-21)
+- Added the Common Customer HUB external integration contract for partner developers.
+- Added the Common Customer HUB acceptance test checklist for pre-production integration checks.
+
 ## v3.6.79 (2026-07-21)
 - Restored the admin update screen labels and title to Japanese.
 - Restricted the update screen to super administrators and made CSRF validation fail closed.

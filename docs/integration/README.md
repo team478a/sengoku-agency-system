@@ -3,6 +3,8 @@
 外部開発会社へ最初に共有する資料は、以下のガイドです。
 
 - [千ノ国 代理店システム 外部開発者向け連携ガイド](EXTERNAL_DEVELOPER_GUIDE.md)
+- [千ノ国 代理店システム 共通顧客HUB 外部連携契約](COMMON_HUB_EXTERNAL_CONTRACT_2026-07-21.md)
+- [千ノ国 代理店システム 共通顧客HUB 受入テスト表](COMMON_HUB_ACCEPTANCE_TESTS_2026-07-21.md)
 - [AIアート教室 連携フロー・実装ガイド](AI_ART_SCHOOL_INTEGRATION_GUIDE.md)
 
 このガイドでは、APIキーの考え方、通信方向、代理店階層API、共通顧客ID、紹介URL、外部送信イベント、SSO/JWT検証方法をまとめています。
