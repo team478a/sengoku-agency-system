@@ -91,49 +91,69 @@ function commonUsersApiResolve(array $data, array $auth): array {
         if (!$createIfMissing) {
             apiV2Error('COMMON_USER_NOT_FOUND', 'No matching common user was found.', 404);
         }
-        $commonUserId = ensureCommonUser($commonUserId ?: null, $data);
-        $created = true;
-        $matchedBy = 'created';
-    } else {
-        ensureCommonUser($commonUserId, $data);
     }
 
-    $agentId = apiV2AgentIdFromInput($data);
-    updateCommonUserHubFields($commonUserId, [
-        'acquisition_channel' => $data['acquisition_channel'] ?? null,
-        'acquisition_source' => $data['acquisition_source'] ?? $systemKey,
-        'campaign_id' => $data['campaign_id'] ?? null,
-        'registration_referrer_agent_id' => $data['registration_referrer_agent_id'] ?? $agentId,
-        'assigned_agent_id' => $data['assigned_agent_id'] ?? null,
-        'agent_link_status' => $data['agent_link_status'] ?? null,
-        'management_status' => $data['management_status'] ?? null,
-        'first_touch_at' => $data['first_touch_at'] ?? null,
-        'last_touch_at' => $data['last_touch_at'] ?? null,
-        'metadata_json' => is_array($data['metadata'] ?? null) ? $data['metadata'] : null,
-    ]);
-
-    if ($systemKey !== '' && $externalUserId !== '') {
-        saveSystemAccountLink(array_merge($data, [
-            'common_user_id' => $commonUserId,
-            'system_key' => $systemKey,
-            'external_user_id' => $externalUserId,
-            'agent_id' => $agentId,
-        ]));
-    } else {
-        foreach ($identityChecks as [$type, $value, $provider]) {
-            if ($value === '') {
-                continue;
-            }
-            saveUserIdentity([
-                'common_user_id' => $commonUserId,
-                'identity_type' => $type,
-                'provider' => $provider,
-                'identity_value' => $value,
-                'verified' => in_array($type, ['line'], true) || !empty($data[$type . '_verified']),
-                'source_system_key' => $systemKey ?: null,
-                'source_external_user_id' => $externalUserId ?: null,
-            ]);
+    $txStarted = false;
+    try {
+        if (!$db->inTransaction()) {
+            $db->beginTransaction();
+            $txStarted = true;
         }
+
+        if ($matchedBy === null) {
+            $commonUserId = ensureCommonUser($commonUserId ?: null, $data);
+            $created = true;
+            $matchedBy = 'created';
+        } else {
+            ensureCommonUser($commonUserId, $data);
+        }
+
+        $agentId = apiV2AgentIdFromInput($data);
+        updateCommonUserHubFields($commonUserId, [
+            'acquisition_channel' => $data['acquisition_channel'] ?? null,
+            'acquisition_source' => $data['acquisition_source'] ?? $systemKey,
+            'campaign_id' => $data['campaign_id'] ?? null,
+            'registration_referrer_agent_id' => $data['registration_referrer_agent_id'] ?? $agentId,
+            'assigned_agent_id' => $data['assigned_agent_id'] ?? null,
+            'agent_link_status' => $data['agent_link_status'] ?? null,
+            'management_status' => $data['management_status'] ?? null,
+            'first_touch_at' => $data['first_touch_at'] ?? null,
+            'last_touch_at' => $data['last_touch_at'] ?? null,
+            'metadata_json' => is_array($data['metadata'] ?? null) ? $data['metadata'] : null,
+        ]);
+
+        if ($systemKey !== '' && $externalUserId !== '') {
+            saveSystemAccountLink(array_merge($data, [
+                'common_user_id' => $commonUserId,
+                'system_key' => $systemKey,
+                'external_user_id' => $externalUserId,
+                'agent_id' => $agentId,
+            ]));
+        } else {
+            foreach ($identityChecks as [$type, $value, $provider]) {
+                if ($value === '') {
+                    continue;
+                }
+                saveUserIdentity([
+                    'common_user_id' => $commonUserId,
+                    'identity_type' => $type,
+                    'provider' => $provider,
+                    'identity_value' => $value,
+                    'verified' => in_array($type, ['line'], true) || !empty($data[$type . '_verified']),
+                    'source_system_key' => $systemKey ?: null,
+                    'source_external_user_id' => $externalUserId ?: null,
+                ]);
+            }
+        }
+
+        if ($txStarted) {
+            $db->commit();
+        }
+    } catch (Throwable $e) {
+        if ($txStarted && $db->inTransaction()) {
+            $db->rollBack();
+        }
+        throw $e;
     }
 
     $profile = loadCommonUserHubProfile($commonUserId);

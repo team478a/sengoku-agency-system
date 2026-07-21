@@ -1,5 +1,7 @@
 <?php
 $pageTitle = 'システムアップデート';
+require_once __DIR__ . '/../includes/functions.php';
+requireSuperAdmin();
 require_once __DIR__ . '/header.php';
 
 $BASE_DIR = dirname(__DIR__);
@@ -42,7 +44,7 @@ function updaterPendingMigrations(PDO $db, string $dir): array {
             $pending[] = ['version' => $version, 'file' => $file];
         }
     }
-    usort($pending, function($a, $b) {
+    usort($pending, static function ($a, $b) {
         return version_compare($a['version'], $b['version']);
     });
     return $pending;
@@ -243,7 +245,9 @@ function updaterInstallZip(string $zipPath, string $baseDir, array &$log): void 
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        verifyCsrfToken($_POST['csrf_token'] ?? '');
+        if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
+            throw new RuntimeException('操作トークンが無効です。ページを再読み込みしてからもう一度お試しください。');
+        }
         $action = $_POST['action'] ?? '';
 
         if ($action === 'migrate') {
@@ -252,7 +256,7 @@ try {
                 $count = updaterRunSqlFile($db, $migration['file']);
                 $log[] = $migration['version'] . ': ' . $count . '件実行';
             }
-            $message = $pending ? 'DBマイグレーションを適用しました。' : '未適用のマイグレーションはありません。';
+            $message = $pending ? 'DBマイグレーションを適用しました。' : '未適用のDBマイグレーションはありません。';
         } elseif ($action === 'file_update') {
             if (empty($_FILES['update_zip']['tmp_name']) || !is_uploaded_file($_FILES['update_zip']['tmp_name'])) {
                 throw new RuntimeException('更新ZIPファイルを選択してください。');
@@ -348,7 +352,7 @@ $envCheck = [
                 <label>更新ZIPファイル</label>
                 <input type="file" name="update_zip" accept=".zip" required>
             </div>
-            <button type="submit" class="btn btn-primary" onclick="return confirm('このZIPを適用しますか？');">更新を適用</button>
+            <button type="submit" class="btn btn-primary" onclick="return confirm('このZIPを適用します。よろしいですか？');">更新を適用</button>
         </form>
     </div>
 
@@ -363,7 +367,7 @@ $envCheck = [
             <form method="post">
                 <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>">
                 <input type="hidden" name="action" value="migrate">
-                <button type="submit" class="btn btn-primary" onclick="return confirm('未適用のDBマイグレーションを適用しますか？');">マイグレーションを適用</button>
+                <button type="submit" class="btn btn-primary" onclick="return confirm('未適用のDBマイグレーションを適用します。よろしいですか？');">マイグレーションを適用</button>
             </form>
         <?php else: ?>
             <p>すべてのマイグレーションは適用済みです。</p>
@@ -403,7 +407,7 @@ $envCheck = [
                                 <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>">
                                 <input type="hidden" name="action" value="delete_backup">
                                 <input type="hidden" name="backup" value="<?= h(basename($file)) ?>">
-                                <button type="submit" class="btn btn-danger" onclick="return confirm('このバックアップを削除しますか？');">削除</button>
+                                <button type="submit" class="btn btn-danger" onclick="return confirm('このバックアップを削除します。よろしいですか？');">削除</button>
                             </form>
                         </td>
                     </tr>

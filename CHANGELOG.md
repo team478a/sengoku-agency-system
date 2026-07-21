@@ -1,3 +1,10 @@
+## v3.6.79 (2026-07-21)
+- Restored the admin update screen labels and title to Japanese.
+- Restricted the update screen to super administrators and made CSRF validation fail closed.
+- Masked sensitive values in integration event logs and outbound attempt logs.
+- Fixed a legacy external partner sender path that could trigger a server error.
+- Wrapped common user resolution writes and referral confirmation writes in database transactions.
+
 ## v3.6.78 (2026-07-21)
 - Hardened Common Customer HUB identity matching so unverified email, phone, and wallet identities are not auto-merged.
 - Added `agency_id` compatibility fields to hierarchy and agency integration APIs while preserving existing `external_id` fields.

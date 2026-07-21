@@ -601,19 +601,84 @@ function saveAgencyCustomerRelation(array $data): array {
     return $load->fetch(PDO::FETCH_ASSOC) ?: [];
 }
 
+function maskSensitiveScalarForLog(string $key, $value) {
+    if ($value === null || $value === '') {
+        return $value;
+    }
+    $lowerKey = strtolower($key);
+    $stringValue = (string)$value;
+    $sensitiveKeyPatterns = [
+        'password',
+        'api_key',
+        'apikey',
+        'access_token',
+        'refresh_token',
+        'token',
+        'secret',
+        'signature',
+        'authorization',
+        'jwt',
+        'line_user_id',
+        'wallet_address',
+    ];
+    foreach ($sensitiveKeyPatterns as $pattern) {
+        if (strpos($lowerKey, $pattern) !== false) {
+            return strlen($stringValue) > 10
+                ? substr($stringValue, 0, 4) . '***' . substr($stringValue, -4)
+                : '***';
+        }
+    }
+    if (strpos($lowerKey, 'email') !== false || filter_var($stringValue, FILTER_VALIDATE_EMAIL)) {
+        return preg_replace('/(^.).*(@.*$)/', '$1***$2', $stringValue) ?: '***';
+    }
+    if (strpos($lowerKey, 'phone') !== false || strpos($lowerKey, 'tel') !== false) {
+        $digits = preg_replace('/\D+/', '', $stringValue) ?? '';
+        return strlen($digits) > 4 ? '***' . substr($digits, -4) : '***';
+    }
+    if (in_array($lowerKey, ['name', 'full_name', 'contact_name', 'person_name', 'display_name'], true)) {
+        return mb_substr($stringValue, 0, 1, 'UTF-8') . '***';
+    }
+    return $value;
+}
+
+function maskIntegrationPayloadForLog($payload, string $parentKey = '') {
+    if (is_array($payload)) {
+        $masked = [];
+        foreach ($payload as $key => $value) {
+            $masked[$key] = maskIntegrationPayloadForLog($value, (string)$key);
+        }
+        return $masked;
+    }
+    if (is_object($payload)) {
+        return maskIntegrationPayloadForLog((array)$payload, $parentKey);
+    }
+    return maskSensitiveScalarForLog($parentKey, $payload);
+}
+
+function encodeMaskedIntegrationBodyForLog($body): ?string {
+    if ($body === null) {
+        return null;
+    }
+    if (is_array($body) || is_object($body)) {
+        $encoded = json_encode(maskIntegrationPayloadForLog($body), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        return $encoded === false ? null : $encoded;
+    }
+    $stringBody = (string)$body;
+    $decoded = json_decode($stringBody, true);
+    if (is_array($decoded)) {
+        $encoded = json_encode(maskIntegrationPayloadForLog($decoded), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        return $encoded === false ? $stringBody : $encoded;
+    }
+    return $stringBody;
+}
+
 function logIntegrationEvent(array $data): void {
     if (empty(tableColumns('integration_event_logs'))) {
         return;
     }
     try {
-        $requestBody = $data['request_body'] ?? null;
-        if (is_array($requestBody)) {
-            $requestBody = json_encode($requestBody, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        }
-        $responseBody = $data['response_body'] ?? null;
-        if (is_array($responseBody)) {
-            $responseBody = json_encode($responseBody, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        }
+        $requestBody = encodeMaskedIntegrationBodyForLog($data['request_body'] ?? null);
+        $responseBody = encodeMaskedIntegrationBodyForLog($data['response_body'] ?? null);
         $stmt = getDB()->prepare("
             INSERT INTO integration_event_logs
                 (direction, site_key, event_type, endpoint, http_status, success, common_user_id, agent_id, request_body, response_body, error_message)
@@ -2128,7 +2193,7 @@ function recordIntegrationEventAttempt(array $data): void {
                 (event_id, site_key, endpoint, http_status, success, request_headers_json, response_body, error_message, attempted_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
         ");
-        $headersJson = json_encode($data['headers'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $headersJson = json_encode(maskIntegrationPayloadForLog($data['headers'] ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $stmt->execute([
             trim((string)($data['event_id'] ?? '')) ?: null,
             trim((string)($data['site_key'] ?? '')) ?: null,
@@ -2136,7 +2201,7 @@ function recordIntegrationEventAttempt(array $data): void {
             isset($data['http_status']) ? (int)$data['http_status'] : null,
             !empty($data['success']) ? 1 : 0,
             $headersJson ?: null,
-            trim((string)($data['response_body'] ?? '')) ?: null,
+            encodeMaskedIntegrationBodyForLog($data['response_body'] ?? null),
             trim((string)($data['error_message'] ?? '')) ?: null,
         ]);
     } catch (Throwable $e) {
@@ -2232,12 +2297,7 @@ function postJsonToExternalPartnerWithResult(string $endpoint, string $apiKey, a
 }
 
 function postJsonToExternalPartner(string $endpoint, string $apiKey, array $payload): bool {
-    $result = postJsonToExternalPartnerWithResult($endpoint, $apiKey, $payload, [
-        'site_key' => $log['site_key'] ?? '',
-        'hmac_secret' => trim((string)($site['hmac_secret'] ?? '')),
-        'hmac_key_id' => trim((string)($site['hmac_key_id'] ?? $log['site_key'] ?? '')),
-        'idempotency_key' => (string)($payload['event_id'] ?? ('retry_' . (int)($log['id'] ?? 0))),
-    ]);
+    $result = postJsonToExternalPartnerWithResult($endpoint, $apiKey, $payload);
     return !empty($result['ok']);
 }
 
@@ -2273,7 +2333,12 @@ function retryExternalIntegrationLogRow(array $log): array {
         'source_log_id' => (int)($log['id'] ?? 0),
         'retried_at' => date('c'),
     ];
-    $result = postJsonToExternalPartnerWithResult($endpoint, $apiKey, $payload);
+    $result = postJsonToExternalPartnerWithResult($endpoint, $apiKey, $payload, [
+        'site_key' => (string)($log['site_key'] ?? ''),
+        'hmac_secret' => (getSystemSettingValue('external_partner_hmac_enabled', '1') === '1') ? trim((string)($site['hmac_secret'] ?? '')) : '',
+        'hmac_key_id' => trim((string)($site['hmac_key_id'] ?? $log['site_key'] ?? '')),
+        'idempotency_key' => (string)($payload['event_id'] ?? ('retry_' . (int)($log['id'] ?? 0))),
+    ]);
     logIntegrationEvent([
         'direction' => 'outbound',
         'site_key' => $log['site_key'] ?? null,

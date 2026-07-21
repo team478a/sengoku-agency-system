@@ -189,70 +189,93 @@ if ($method === 'POST' && ($tail === 'confirm' || (($_GET['action'] ?? '') === '
         $tokenRow = $validation['token'];
     }
 
-    $commonUserId = referralsApiResolveCommonUser($data, $auth);
     $systemKey = trim((string)($data['system_key'] ?? $data['service_key'] ?? ''));
     if ($systemKey === '') {
         $systemKey = (string)($auth['site_key'] ?? '');
     }
     $externalUserId = trim((string)($data['external_user_id'] ?? $data['service_user_id'] ?? ''));
 
-    if ($sessionKey !== '') {
-        getDB()->prepare("UPDATE referral_sessions SET common_user_id=COALESCE(common_user_id, ?), service_user_id=COALESCE(service_user_id, ?), event_type='confirmed' WHERE session_key=?")
-            ->execute([$commonUserId, $externalUserId ?: null, $sessionKey]);
+    $db = getDB();
+    try {
+        $db->beginTransaction();
+        $commonUserId = referralsApiResolveCommonUser($data, $auth);
+
+        if ($sessionKey !== '') {
+            $db->prepare("UPDATE referral_sessions SET common_user_id=COALESCE(common_user_id, ?), service_user_id=COALESCE(service_user_id, ?), event_type='confirmed' WHERE session_key=?")
+                ->execute([$commonUserId, $externalUserId ?: null, $sessionKey]);
+        }
+
+        $relation = saveAgencyCustomerRelation([
+            'common_user_id' => $commonUserId,
+            'agent_id' => (int)$tokenRow['agent_id'],
+            'project_id' => (int)($tokenRow['project_id'] ?? 0),
+            'relation_type' => $data['relation_type'] ?? 'referral',
+            'source_service_key' => $systemKey,
+            'source_service_user_id' => $externalUserId,
+            'referral_token_id' => (int)$tokenRow['id'],
+            'referral_source' => $data['referral_source'] ?? 'referral_confirm',
+            'locked' => array_key_exists('locked', $data) ? !empty($data['locked']) : true,
+        ]);
+        updateCommonUserHubFields($commonUserId, [
+            'registration_referrer_agent_id' => (int)$tokenRow['agent_id'],
+            'agent_link_status' => 'linked',
+            'management_status' => 'agency_referred',
+            'last_touch_at' => date('Y-m-d H:i:s'),
+        ]);
+        $touchpoint = referralsApiRecordTouchpoint([
+            'common_user_id' => $commonUserId,
+            'agent_id' => (int)$tokenRow['agent_id'],
+            'project_id' => (int)($tokenRow['project_id'] ?? 0),
+            'referral_token_id' => (int)$tokenRow['id'],
+            'referral_session_key' => $sessionKey,
+            'touchpoint_type' => $data['touchpoint_type'] ?? 'confirm',
+            'source_system_key' => $systemKey,
+            'source_external_user_id' => $externalUserId,
+            'source_url' => $data['referrer_url'] ?? '',
+            'landing_url' => $data['landing_url'] ?? '',
+            'locked' => true,
+            'confirmed_at' => date('Y-m-d H:i:s'),
+            'metadata' => is_array($data['metadata'] ?? null) ? $data['metadata'] : [],
+        ]);
+        $transaction = saveCustomerTransaction([
+            'common_user_id' => $commonUserId,
+            'source_system_key' => $systemKey,
+            'source_user_id' => $externalUserId,
+            'order_id' => $data['order_id'] ?? $data['transaction_id'] ?? '',
+            'order_item_id' => $data['order_item_id'] ?? '',
+            'product_code' => $data['product_code'] ?? '',
+            'registration_referrer_agency_id' => $tokenRow['agent_code'] ?? '',
+            'assigned_agency_id' => $data['assigned_agency_id'] ?? $data['agency_id'] ?? ($tokenRow['agent_code'] ?? ''),
+            'sales_agent_id' => $data['sales_agent_id'] ?? '',
+            'closing_agent_id' => $data['closing_agent_id'] ?? '',
+            'referral_session_key' => $sessionKey,
+            'payment_status' => $data['payment_status'] ?? '',
+            'entitlement_status' => $data['entitlement_status'] ?? '',
+            'amount' => $data['amount'] ?? null,
+            'currency' => $data['currency'] ?? 'JPY',
+            'occurred_at' => $data['occurred_at'] ?? date('Y-m-d H:i:s'),
+            'metadata' => is_array($data['metadata'] ?? null) ? $data['metadata'] : [],
+        ]);
+        $db->commit();
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        logIntegrationEvent([
+            'direction' => 'inbound',
+            'site_key' => $auth['site_key'] ?? null,
+            'event_type' => 'referral.confirm_failed',
+            'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+            'http_status' => 500,
+            'success' => 0,
+            'agent_id' => (int)$tokenRow['agent_id'],
+            'request_body' => $data,
+            'error_message' => $e->getMessage(),
+        ]);
+        apiV2Error('SERVER_ERROR', 'Failed to confirm referral.', 500);
     }
 
-    $relation = saveAgencyCustomerRelation([
-        'common_user_id' => $commonUserId,
-        'agent_id' => (int)$tokenRow['agent_id'],
-        'project_id' => (int)($tokenRow['project_id'] ?? 0),
-        'relation_type' => $data['relation_type'] ?? 'referral',
-        'source_service_key' => $systemKey,
-        'source_service_user_id' => $externalUserId,
-        'referral_token_id' => (int)$tokenRow['id'],
-        'referral_source' => $data['referral_source'] ?? 'referral_confirm',
-        'locked' => array_key_exists('locked', $data) ? !empty($data['locked']) : true,
-    ]);
-    updateCommonUserHubFields($commonUserId, [
-        'registration_referrer_agent_id' => (int)$tokenRow['agent_id'],
-        'agent_link_status' => 'linked',
-        'management_status' => 'agency_referred',
-        'last_touch_at' => date('Y-m-d H:i:s'),
-    ]);
-    $touchpoint = referralsApiRecordTouchpoint([
-        'common_user_id' => $commonUserId,
-        'agent_id' => (int)$tokenRow['agent_id'],
-        'project_id' => (int)($tokenRow['project_id'] ?? 0),
-        'referral_token_id' => (int)$tokenRow['id'],
-        'referral_session_key' => $sessionKey,
-        'touchpoint_type' => $data['touchpoint_type'] ?? 'confirm',
-        'source_system_key' => $systemKey,
-        'source_external_user_id' => $externalUserId,
-        'source_url' => $data['referrer_url'] ?? '',
-        'landing_url' => $data['landing_url'] ?? '',
-        'locked' => true,
-        'confirmed_at' => date('Y-m-d H:i:s'),
-        'metadata' => is_array($data['metadata'] ?? null) ? $data['metadata'] : [],
-    ]);
     $profile = loadCommonUserHubProfile($commonUserId);
-    $transaction = saveCustomerTransaction([
-        'common_user_id' => $commonUserId,
-        'source_system_key' => $systemKey,
-        'source_user_id' => $externalUserId,
-        'order_id' => $data['order_id'] ?? $data['transaction_id'] ?? '',
-        'order_item_id' => $data['order_item_id'] ?? '',
-        'product_code' => $data['product_code'] ?? '',
-        'registration_referrer_agency_id' => $tokenRow['agent_code'] ?? '',
-        'assigned_agency_id' => $data['assigned_agency_id'] ?? $data['agency_id'] ?? ($tokenRow['agent_code'] ?? ''),
-        'sales_agent_id' => $data['sales_agent_id'] ?? '',
-        'closing_agent_id' => $data['closing_agent_id'] ?? '',
-        'referral_session_key' => $sessionKey,
-        'payment_status' => $data['payment_status'] ?? '',
-        'entitlement_status' => $data['entitlement_status'] ?? '',
-        'amount' => $data['amount'] ?? null,
-        'currency' => $data['currency'] ?? 'JPY',
-        'occurred_at' => $data['occurred_at'] ?? date('Y-m-d H:i:s'),
-        'metadata' => is_array($data['metadata'] ?? null) ? $data['metadata'] : [],
-    ]);
     $response = [
         'ok' => true,
         'common_user_id' => $commonUserId,
