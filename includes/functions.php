@@ -2419,6 +2419,250 @@ function retryFailedExternalIntegrationLogs(string $siteKey = '', int $limit = 1
     return $summary;
 }
 
+function getIntegrationOutboxStatusLabels(): array {
+    return [
+        'pending' => '送信待ち',
+        'failed' => '再送待ち',
+        'succeeded' => '送信済み',
+        'dlq' => '要確認',
+    ];
+}
+
+function updateIntegrationOutboxEventAfterAttempt(array $event, array $result): void {
+    if (empty(tableColumns('integration_outbox_events'))) {
+        return;
+    }
+    $db = getDB();
+    $id = (int)($event['id'] ?? 0);
+    if ($id <= 0) {
+        return;
+    }
+
+    $attemptsAfter = (int)($event['attempt_count'] ?? 0) + 1;
+    $maxAttempts = max(1, (int)($event['max_attempts'] ?? 8));
+    $ok = !empty($result['ok']);
+    $error = trim((string)($result['error'] ?? ''));
+    if ($error === '' && !$ok) {
+        $error = 'HTTP ' . (int)($result['status'] ?? 0);
+    }
+
+    if ($ok) {
+        $stmt = $db->prepare("
+            UPDATE integration_outbox_events
+            SET status='succeeded',
+                attempt_count=?,
+                last_attempt_at=NOW(),
+                next_attempt_at=NULL,
+                last_error=NULL,
+                processed_at=NOW(),
+                updated_at=NOW()
+            WHERE id=?
+        ");
+        $stmt->execute([$attemptsAfter, $id]);
+        return;
+    }
+
+    if ($attemptsAfter >= $maxAttempts) {
+        $stmt = $db->prepare("
+            UPDATE integration_outbox_events
+            SET status='dlq',
+                attempt_count=?,
+                last_attempt_at=NOW(),
+                next_attempt_at=NULL,
+                last_error=?,
+                updated_at=NOW()
+            WHERE id=?
+        ");
+        $stmt->execute([$attemptsAfter, $error, $id]);
+        return;
+    }
+
+    $delayMinutes = min(1440, max(5, (int)(5 * (2 ** min(8, max(0, $attemptsAfter - 1))))));
+    $stmt = $db->prepare("
+        UPDATE integration_outbox_events
+        SET status='failed',
+            attempt_count=?,
+            last_attempt_at=NOW(),
+            next_attempt_at=DATE_ADD(NOW(), INTERVAL {$delayMinutes} MINUTE),
+            last_error=?,
+            updated_at=NOW()
+        WHERE id=?
+    ");
+    $stmt->execute([$attemptsAfter, $error, $id]);
+}
+
+function retryIntegrationOutboxEventRow(array $event): array {
+    if (empty(tableColumns('integration_outbox_events'))) {
+        throw new RuntimeException('integration_outbox_events table is not ready.');
+    }
+
+    $payload = json_decode((string)($event['payload_json'] ?? ''), true);
+    if (!is_array($payload)) {
+        throw new RuntimeException('Outbox payload JSON could not be parsed.');
+    }
+
+    $siteKey = trim((string)($event['target_site_key'] ?? ''));
+    $site = findExternalPartnerSiteByKey($siteKey);
+    if (!$site) {
+        throw new RuntimeException('The external partner site was not found: ' . $siteKey);
+    }
+
+    $endpoint = trim((string)($event['endpoint'] ?? ''));
+    if ($endpoint === '') {
+        $endpoint = buildExternalPartnerEndpoint((string)($site['base_url'] ?? ''));
+    }
+    if ($endpoint === '') {
+        throw new RuntimeException('The endpoint is missing.');
+    }
+
+    $apiKey = trim((string)($site['api_key'] ?? ''));
+    if ($apiKey === '') {
+        throw new RuntimeException('The partner receive API key is missing.');
+    }
+
+    $payload['_retry'] = [
+        'source_outbox_id' => (int)($event['id'] ?? 0),
+        'retried_at' => date('c'),
+    ];
+
+    $sendOptions = [
+        'site_key' => $siteKey,
+        'hmac_secret' => (getSystemSettingValue('external_partner_hmac_enabled', '1') === '1') ? trim((string)($site['hmac_secret'] ?? '')) : '',
+        'hmac_key_id' => trim((string)($site['hmac_key_id'] ?? $event['hmac_key_id'] ?? $siteKey)),
+        'idempotency_key' => trim((string)($event['idempotency_key'] ?? $payload['event_id'] ?? $event['event_id'] ?? '')),
+        'correlation_id' => trim((string)($event['correlation_id'] ?? $payload['correlation_id'] ?? '')),
+    ];
+    $result = postJsonToExternalPartnerWithResult($endpoint, $apiKey, $payload, $sendOptions);
+    $eventId = (string)($event['event_id'] ?? $payload['event_id'] ?? '');
+
+    recordIntegrationEventAttempt([
+        'event_id' => $eventId,
+        'site_key' => $siteKey,
+        'endpoint' => $endpoint,
+        'http_status' => $result['status'] ?? null,
+        'success' => !empty($result['ok']),
+        'headers' => $result['request_headers'] ?? [],
+        'response_body' => $result['response'] ?? '',
+        'error_message' => $result['error'] ?? '',
+    ]);
+
+    logIntegrationEvent([
+        'direction' => 'outbound',
+        'site_key' => $siteKey,
+        'event_type' => (string)($event['event_type'] ?? $payload['event_type'] ?? 'outbox_retry'),
+        'endpoint' => $endpoint,
+        'http_status' => $result['status'] ?? null,
+        'success' => !empty($result['ok']),
+        'common_user_id' => $payload['common_user_id'] ?? null,
+        'agent_id' => $payload['source_agent_id'] ?? null,
+        'request_body' => $payload,
+        'response_body' => $result['response'] ?? '',
+        'error_message' => $result['error'] ?? '',
+    ]);
+
+    updateIntegrationOutboxEventAfterAttempt($event, $result);
+    return $result;
+}
+
+function retryDueIntegrationOutboxEvents(string $siteKey = '', int $limit = 10, bool $includeDlq = false): array {
+    $summary = [
+        'target_count' => 0,
+        'success_count' => 0,
+        'failed_count' => 0,
+        'dlq_count' => 0,
+        'errors' => [],
+    ];
+    if (empty(tableColumns('integration_outbox_events'))) {
+        $summary['errors'][] = 'integration_outbox_events table is not ready.';
+        return $summary;
+    }
+
+    $limit = min(50, max(1, $limit));
+    $statuses = $includeDlq ? "'pending','failed','dlq'" : "'pending','failed'";
+    $where = "status IN ($statuses) AND (next_attempt_at IS NULL OR next_attempt_at <= NOW())";
+    $params = [];
+    $siteKey = trim($siteKey);
+    if ($siteKey !== '') {
+        $where .= " AND target_site_key=?";
+        $params[] = $siteKey;
+    }
+
+    $stmt = getDB()->prepare("
+        SELECT *
+        FROM integration_outbox_events
+        WHERE $where
+        ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'failed' THEN 1 ELSE 2 END,
+                 COALESCE(next_attempt_at, created_at) ASC,
+                 id ASC
+        LIMIT $limit
+    ");
+    $stmt->execute($params);
+    $targets = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    $summary['target_count'] = count($targets);
+
+    foreach ($targets as $event) {
+        try {
+            $result = retryIntegrationOutboxEventRow($event);
+            if (!empty($result['ok'])) {
+                $summary['success_count']++;
+            } else {
+                $summary['failed_count']++;
+                $summary['errors'][] = 'Outbox #' . (int)($event['id'] ?? 0) . ': HTTP ' . (int)($result['status'] ?? 0) . ' ' . (string)($result['error'] ?? '');
+            }
+        } catch (Throwable $e) {
+            $summary['failed_count']++;
+            $summary['errors'][] = 'Outbox #' . (int)($event['id'] ?? 0) . ': ' . $e->getMessage();
+            $result = [
+                'ok' => false,
+                'status' => 0,
+                'error' => $e->getMessage(),
+            ];
+            try {
+                updateIntegrationOutboxEventAfterAttempt($event, $result);
+            } catch (Throwable $inner) {
+                $summary['errors'][] = 'Outbox #' . (int)($event['id'] ?? 0) . ' update failed: ' . $inner->getMessage();
+            }
+        }
+    }
+
+    if (!empty(tableColumns('integration_outbox_events'))) {
+        $stmt = getDB()->query("SELECT COUNT(*) FROM integration_outbox_events WHERE status='dlq'");
+        $summary['dlq_count'] = (int)$stmt->fetchColumn();
+    }
+    return $summary;
+}
+
+function resetIntegrationOutboxEventForRetry(int $id): void {
+    if ($id <= 0 || empty(tableColumns('integration_outbox_events'))) {
+        return;
+    }
+    $stmt = getDB()->prepare("
+        UPDATE integration_outbox_events
+        SET status='failed',
+            next_attempt_at=NOW(),
+            last_error=NULL,
+            processed_at=NULL,
+            updated_at=NOW()
+        WHERE id=?
+    ");
+    $stmt->execute([$id]);
+}
+
+function moveIntegrationOutboxEventToDlq(int $id, string $reason = ''): void {
+    if ($id <= 0 || empty(tableColumns('integration_outbox_events'))) {
+        return;
+    }
+    $stmt = getDB()->prepare("
+        UPDATE integration_outbox_events
+        SET status='dlq',
+            next_attempt_at=NULL,
+            last_error=?,
+            updated_at=NOW()
+        WHERE id=?
+    ");
+    $stmt->execute([$reason !== '' ? $reason : 'Moved to DLQ manually.', $id]);
+}
+
 function dispatchExternalPartnerEvent(string $eventType, array $payload, array $options = []): array {
     $sites = getExternalPartnerSites(true);
     $results = [];
@@ -2448,8 +2692,9 @@ function dispatchExternalPartnerEvent(string $eventType, array $payload, array $
         $result['site_key'] = $siteKey;
         $results[] = $result;
 
+        $outboxEventId = substr((string)($payload['event_id'] ?? '') . ':' . $siteKey, 0, 100);
         recordIntegrationOutboxEvent([
-            'event_id' => substr((string)($payload['event_id'] ?? '') . ':' . $siteKey, 0, 100),
+            'event_id' => $outboxEventId,
             'event_type' => $eventType,
             'event_version' => (string)($payload['event_version'] ?? '1.0'),
             'source_system_key' => (string)($payload['source_system_key'] ?? 'agency-system'),
@@ -2467,7 +2712,7 @@ function dispatchExternalPartnerEvent(string $eventType, array $payload, array $
             'processed_at' => !empty($result['ok']) ? date('Y-m-d H:i:s') : null,
         ]);
         recordIntegrationEventAttempt([
-            'event_id' => (string)($payload['event_id'] ?? ''),
+            'event_id' => $outboxEventId,
             'site_key' => $siteKey,
             'endpoint' => $endpoint,
             'http_status' => $result['status'] ?? null,

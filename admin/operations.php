@@ -46,6 +46,7 @@ function opsStatusBadge(string $label, string $type = 'ok'): string {
 
 $hasPartners = opsTableReady('external_partner_sites');
 $hasIntegrationLogs = opsTableReady('integration_event_logs');
+$hasOutbox = opsTableReady('integration_outbox_events');
 $hasAgents = opsTableReady('agents');
 $hasLeads = opsTableReady('leads');
 $hasLoginLogs = opsTableReady('login_logs');
@@ -63,6 +64,9 @@ if ($hasPartners) {
 $failedOutbound = $hasIntegrationLogs ? opsCount("SELECT COUNT(*) FROM integration_event_logs WHERE direction='outbound' AND success=0") : 0;
 $failedOutbound24h = $hasIntegrationLogs ? opsCount("SELECT COUNT(*) FROM integration_event_logs WHERE direction='outbound' AND success=0 AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)") : 0;
 $lastIntegrationEvent = $hasIntegrationLogs ? (opsRows("SELECT MAX(created_at) AS last_at FROM integration_event_logs")[0]['last_at'] ?? null) : null;
+$outboxPending = $hasOutbox ? opsCount("SELECT COUNT(*) FROM integration_outbox_events WHERE status IN ('pending','failed')") : 0;
+$outboxDue = $hasOutbox ? opsCount("SELECT COUNT(*) FROM integration_outbox_events WHERE status IN ('pending','failed') AND (next_attempt_at IS NULL OR next_attempt_at <= NOW())") : 0;
+$outboxDlq = $hasOutbox ? opsCount("SELECT COUNT(*) FROM integration_outbox_events WHERE status='dlq'") : 0;
 
 $inactiveAgents = $hasAgents ? opsRows("\n    SELECT a.id, a.agent_code, a.agent_name, a.person_name, a.email, MAX(l.created_at) AS last_login\n    FROM agents a\n    LEFT JOIN login_logs l ON l.user_type='agent' AND l.user_id=a.id AND l.success=1\n    WHERE a.status='active'\n    GROUP BY a.id, a.agent_code, a.agent_name, a.person_name, a.email\n    HAVING last_login IS NULL OR last_login < DATE_SUB(NOW(), INTERVAL 30 DAY)\n    ORDER BY last_login IS NULL DESC, last_login ASC\n    LIMIT 20\n") : [];
 
@@ -92,12 +96,18 @@ if (is_dir($backupDir)) {
 
 $criticalCount = 0;
 if ($failedOutbound24h > 0) $criticalCount++;
+if ($outboxDlq > 0) $criticalCount++;
 if ($staleLeads > 0) $criticalCount++;
 if ($failedLogins24h >= 10) $criticalCount++;
 $warnCount = count($inactiveAgents) + ($backupCount === 0 ? 1 : 0);
 ?>
 
 <div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-sub">外部連携Outbox</div>
+        <div class="stat-val"><?= number_format($outboxPending) ?></div>
+        <div class="stat-sub">要確認 <?= number_format($outboxDlq) ?> 件 / 今すぐ再送 <?= number_format($outboxDue) ?> 件</div>
+    </div>
     <div class="stat-card">
         <div class="stat-sub">要確認</div>
         <div class="stat-val"><?= number_format($criticalCount) ?></div>

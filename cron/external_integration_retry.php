@@ -19,19 +19,52 @@ if ($savedToken === '' || $token === '' || !hash_equals($savedToken, $token)) {
 $siteKey = trim((string)($_GET['site_key'] ?? $_POST['site_key'] ?? ''));
 $limit = min(50, max(1, (int)($_GET['limit'] ?? $_POST['limit'] ?? 10)));
 $notify = (string)($_GET['notify'] ?? $_POST['notify'] ?? '') === '1';
+$source = trim((string)($_GET['source'] ?? $_POST['source'] ?? 'both'));
 
-$summary = retryFailedExternalIntegrationLogs($siteKey, $limit);
-$ok = (int)$summary['failed_count'] === 0;
+$summary = [
+    'outbox' => [
+        'target_count' => 0,
+        'success_count' => 0,
+        'failed_count' => 0,
+        'dlq_count' => 0,
+        'errors' => [],
+    ],
+    'legacy_logs' => [
+        'target_count' => 0,
+        'success_count' => 0,
+        'failed_count' => 0,
+        'errors' => [],
+    ],
+];
 
-if ($notify && (int)$summary['failed_count'] > 0) {
+if ($source === 'outbox' || $source === 'both' || $source === '') {
+    $summary['outbox'] = retryDueIntegrationOutboxEvents($siteKey, $limit, false);
+}
+
+$legacyLimit = $limit;
+if ($source === 'both') {
+    $legacyLimit = max(1, $limit - (int)($summary['outbox']['target_count'] ?? 0));
+}
+if (($source === 'legacy' || $source === 'both') && $legacyLimit > 0) {
+    $summary['legacy_logs'] = retryFailedExternalIntegrationLogs($siteKey, $legacyLimit);
+}
+
+$failedCount = (int)($summary['outbox']['failed_count'] ?? 0) + (int)($summary['legacy_logs']['failed_count'] ?? 0);
+$ok = $failedCount === 0 && (int)($summary['outbox']['dlq_count'] ?? 0) === 0;
+
+if ($notify && (!$ok || $failedCount > 0)) {
     $adminEmail = getSystemSettingValue('admin_email', '');
     if ($adminEmail !== '') {
         $subject = '[Sengoku] External integration retry still has failures';
         $body = "External integration retry result.\n\n"
-            . 'Target: ' . (int)$summary['target_count'] . "\n"
-            . 'Success: ' . (int)$summary['success_count'] . "\n"
-            . 'Failed: ' . (int)$summary['failed_count'] . "\n\n"
-            . implode("\n", array_slice($summary['errors'] ?? [], 0, 20));
+            . 'Outbox Target: ' . (int)($summary['outbox']['target_count'] ?? 0) . "\n"
+            . 'Outbox Success: ' . (int)($summary['outbox']['success_count'] ?? 0) . "\n"
+            . 'Outbox Failed: ' . (int)($summary['outbox']['failed_count'] ?? 0) . "\n"
+            . 'Outbox DLQ: ' . (int)($summary['outbox']['dlq_count'] ?? 0) . "\n"
+            . 'Legacy Target: ' . (int)($summary['legacy_logs']['target_count'] ?? 0) . "\n"
+            . 'Legacy Success: ' . (int)($summary['legacy_logs']['success_count'] ?? 0) . "\n"
+            . 'Legacy Failed: ' . (int)($summary['legacy_logs']['failed_count'] ?? 0) . "\n\n"
+            . implode("\n", array_slice(array_merge($summary['outbox']['errors'] ?? [], $summary['legacy_logs']['errors'] ?? []), 0, 20));
         @mail($adminEmail, $subject, $body, "Content-Type: text/plain; charset=UTF-8\r\n");
     }
 }

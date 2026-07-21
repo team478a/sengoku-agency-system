@@ -1,3 +1,9 @@
+## v3.6.80 (2026-07-21)
+- Added an external integration Outbox management screen for retry queue and DLQ operations.
+- Added retry helpers that resend due Outbox events, record each attempt, and move exhausted events to DLQ.
+- Updated the integration retry cron endpoint to process Outbox events first while keeping the legacy failed-log retry path.
+- Added Outbox/DLQ counts to the admin operations checklist.
+
 ## Documentation (2026-07-21)
 - Added the Common Customer HUB external integration contract for partner developers.
 - Added the Common Customer HUB acceptance test checklist for pre-production integration checks.

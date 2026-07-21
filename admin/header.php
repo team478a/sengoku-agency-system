@@ -548,6 +548,7 @@ window.toggleTheme = toggleTheme;
         navLink('/admin/operations.php', '&#128680;', '運用チェック', $current);
         navLink('/admin/sso_settings.php', '&#128274;', 'SSO連携', $current);
         navLink('/admin/external_partners.php', '&#128268;', '外部API連携', $current);
+        navLink('/admin/integration_outbox.php', '&#128230;', '外部連携Outbox', $current);
         navLink('/admin/integration_logs.php', '&#128225;', '外部連携ログ', $current);
         navLink('/admin/common_id.php', '&#128279;', '共通ID連携', $current);
         navLink('/admin/common_id_mappings.php', '&#128269;', '共通ID検索', $current);
