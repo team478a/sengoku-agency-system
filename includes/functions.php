@@ -119,6 +119,9 @@ function getCommonIdFeatureFlags(): array {
         'shopping_integration_enabled' => getSystemSettingValue('shopping_integration_enabled', '0') === '1',
         'wallet_integration_enabled' => getSystemSettingValue('wallet_integration_enabled', '0') === '1',
         'ai_art_integration_enabled' => getSystemSettingValue('ai_art_integration_enabled', '0') === '1',
+        'common_hub_verified_identity_only' => getSystemSettingValue('common_hub_verified_identity_only', '1') === '1',
+        'external_partner_outbox_enabled' => getSystemSettingValue('external_partner_outbox_enabled', '1') === '1',
+        'external_partner_hmac_enabled' => getSystemSettingValue('external_partner_hmac_enabled', '1') === '1',
     ];
 }
 
@@ -291,7 +294,7 @@ function findSystemAccountLink(string $systemKey, string $externalUserId): ?arra
     return $row ?: null;
 }
 
-function findCommonUserByIdentity(string $identityType, string $identityValue, string $provider = ''): ?array {
+function findCommonUserByIdentity(string $identityType, string $identityValue, string $provider = '', ?bool $verifiedOnly = null): ?array {
     if (empty(tableColumns('user_identities'))) {
         return null;
     }
@@ -299,11 +302,15 @@ function findCommonUserByIdentity(string $identityType, string $identityValue, s
     if ($hash === null) {
         return null;
     }
+    if ($verifiedOnly === null) {
+        $verifiedOnly = getSystemSettingValue('common_hub_verified_identity_only', '1') === '1';
+    }
+    $verifiedSql = $verifiedOnly ? " AND i.verified=1" : "";
     $stmt = getDB()->prepare("
         SELECT u.*, i.identity_type, i.provider, i.verified, i.confidence_score
         FROM user_identities i
         LEFT JOIN common_users u ON u.common_user_id=i.common_user_id
-        WHERE i.identity_type=? AND i.provider=? AND i.identity_hash=? AND i.status='active'
+        WHERE i.identity_type=? AND i.provider=? AND i.identity_hash=? AND i.status='active' $verifiedSql
         LIMIT 1
     ");
     $stmt->execute([$identityType, $provider, $hash]);
@@ -764,6 +771,116 @@ function validateReferralToken(string $token): array {
     return ['valid' => true, 'reason' => 'ok', 'token' => $row];
 }
 
+function referralAliasHash(string $aliasType, string $aliasValue): string {
+    return hash('sha256', mb_strtolower(trim($aliasType)) . ':' . trim($aliasValue));
+}
+
+function maskReferralAliasValue(string $value): string {
+    $value = trim($value);
+    if ($value === '') {
+        return '';
+    }
+    if (strlen($value) <= 10) {
+        return substr($value, 0, 2) . '***';
+    }
+    return substr($value, 0, 6) . '***' . substr($value, -4);
+}
+
+function findReferralAlias(string $aliasType, string $aliasValue): ?array {
+    if (empty(tableColumns('referral_aliases'))) {
+        return null;
+    }
+    $aliasType = trim($aliasType);
+    $aliasValue = trim($aliasValue);
+    if ($aliasType === '' || $aliasValue === '') {
+        return null;
+    }
+    $stmt = getDB()->prepare("
+        SELECT ra.*, rt.token AS canonical_token
+        FROM referral_aliases ra
+        INNER JOIN referral_tokens rt ON rt.id=ra.canonical_token_id
+        WHERE ra.alias_type=? AND ra.alias_value_hash=? AND ra.status='active'
+        LIMIT 1
+    ");
+    $stmt->execute([$aliasType, referralAliasHash($aliasType, $aliasValue)]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ?: null;
+}
+
+function saveReferralAlias(array $data): array {
+    if (empty(tableColumns('referral_aliases'))) {
+        throw new RuntimeException('referral_aliases table is not migrated.');
+    }
+    $aliasType = trim((string)($data['alias_type'] ?? ''));
+    $aliasValue = trim((string)($data['alias_value'] ?? ''));
+    $canonicalTokenId = (int)($data['canonical_token_id'] ?? 0);
+    if ($aliasType === '' || $aliasValue === '' || $canonicalTokenId <= 0) {
+        throw new InvalidArgumentException('alias_type, alias_value and canonical_token_id are required.');
+    }
+    $metadataJson = null;
+    if (is_array($data['metadata'] ?? null)) {
+        $metadataJson = json_encode($data['metadata'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+    $stmt = getDB()->prepare("
+        INSERT INTO referral_aliases
+            (alias_type, alias_value_hash, alias_value_masked, canonical_token_id, source_system_key, status, metadata_json)
+        VALUES (?, ?, ?, ?, ?, 'active', ?)
+        ON DUPLICATE KEY UPDATE
+            canonical_token_id=VALUES(canonical_token_id),
+            source_system_key=COALESCE(VALUES(source_system_key), source_system_key),
+            status='active',
+            metadata_json=COALESCE(VALUES(metadata_json), metadata_json),
+            updated_at=NOW()
+    ");
+    $stmt->execute([
+        $aliasType,
+        referralAliasHash($aliasType, $aliasValue),
+        maskReferralAliasValue($aliasValue),
+        $canonicalTokenId,
+        trim((string)($data['source_system_key'] ?? '')) ?: null,
+        $metadataJson,
+    ]);
+    return findReferralAlias($aliasType, $aliasValue) ?: [];
+}
+
+function resolveReferralTokenInput(string $value, string $aliasType = ''): array {
+    $value = trim($value);
+    if ($value === '') {
+        return ['valid' => false, 'reason' => 'empty'];
+    }
+    $direct = validateReferralToken($value);
+    if (!empty($direct['valid'])) {
+        $direct['resolved_by'] = 'canonical_token';
+        $direct['canonical_referral_token'] = $direct['token']['token'] ?? $value;
+        return $direct;
+    }
+
+    $types = [];
+    if (trim($aliasType) !== '') {
+        $types[] = trim($aliasType);
+    }
+    foreach (['ref', 'referral_code', 'shopping_referral_code', 'wallet_invite_token', 'passport_ref'] as $type) {
+        if (!in_array($type, $types, true)) {
+            $types[] = $type;
+        }
+    }
+    foreach ($types as $type) {
+        $alias = findReferralAlias($type, $value);
+        if (!$alias || empty($alias['canonical_token'])) {
+            continue;
+        }
+        $validation = validateReferralToken((string)$alias['canonical_token']);
+        if (!empty($validation['valid'])) {
+            $validation['resolved_by'] = 'alias:' . $type;
+            $validation['referral_alias'] = $alias;
+            $validation['canonical_referral_token'] = $validation['token']['token'] ?? $alias['canonical_token'];
+            return $validation;
+        }
+        return $validation + ['resolved_by' => 'alias:' . $type, 'referral_alias' => $alias];
+    }
+    return ['valid' => false, 'reason' => $direct['reason'] ?? 'not_found'];
+}
+
 function recordReferralSession(array $data): array {
     if (!referralTokenTablesReady()) {
         throw new RuntimeException('紹介トークンテーブルが未適用です。');
@@ -821,6 +938,67 @@ function recordReferralSession(array $data): array {
     $load = getDB()->prepare("SELECT * FROM referral_sessions WHERE session_key=? LIMIT 1");
     $load->execute([$sessionKey]);
     return $load->fetch(PDO::FETCH_ASSOC) ?: ['session_key' => $sessionKey];
+}
+
+function saveCustomerTransaction(array $data): array {
+    if (empty(tableColumns('customer_transactions'))) {
+        return [];
+    }
+    $commonUserId = trim((string)($data['common_user_id'] ?? ''));
+    $systemKey = trim((string)($data['source_system_key'] ?? $data['system_key'] ?? $data['service_key'] ?? ''));
+    $orderId = trim((string)($data['order_id'] ?? $data['transaction_id'] ?? ''));
+    if ($commonUserId === '' || $systemKey === '' || $orderId === '') {
+        return [];
+    }
+    $orderItemId = trim((string)($data['order_item_id'] ?? '')) ?: 'default';
+    $metadataJson = null;
+    if (is_array($data['metadata'] ?? null)) {
+        $metadataJson = json_encode($data['metadata'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+    $stmt = getDB()->prepare("
+        INSERT INTO customer_transactions
+            (common_user_id, source_system_key, source_user_id, order_id, order_item_id, product_code,
+             registration_referrer_agency_id, assigned_agency_id, sales_agent_id, closing_agent_id,
+             referral_session_key, payment_status, entitlement_status, amount, currency, occurred_at, metadata_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+            common_user_id=VALUES(common_user_id),
+            source_user_id=COALESCE(VALUES(source_user_id), source_user_id),
+            product_code=COALESCE(VALUES(product_code), product_code),
+            registration_referrer_agency_id=COALESCE(registration_referrer_agency_id, VALUES(registration_referrer_agency_id)),
+            assigned_agency_id=COALESCE(VALUES(assigned_agency_id), assigned_agency_id),
+            sales_agent_id=COALESCE(VALUES(sales_agent_id), sales_agent_id),
+            closing_agent_id=COALESCE(VALUES(closing_agent_id), closing_agent_id),
+            referral_session_key=COALESCE(VALUES(referral_session_key), referral_session_key),
+            payment_status=COALESCE(VALUES(payment_status), payment_status),
+            entitlement_status=COALESCE(VALUES(entitlement_status), entitlement_status),
+            amount=COALESCE(VALUES(amount), amount),
+            currency=COALESCE(VALUES(currency), currency),
+            metadata_json=COALESCE(VALUES(metadata_json), metadata_json),
+            updated_at=NOW()
+    ");
+    $stmt->execute([
+        $commonUserId,
+        $systemKey,
+        trim((string)($data['source_user_id'] ?? $data['external_user_id'] ?? $data['service_user_id'] ?? '')) ?: null,
+        $orderId,
+        $orderItemId,
+        trim((string)($data['product_code'] ?? '')) ?: null,
+        trim((string)($data['registration_referrer_agency_id'] ?? '')) ?: null,
+        trim((string)($data['assigned_agency_id'] ?? '')) ?: null,
+        trim((string)($data['sales_agent_id'] ?? '')) ?: null,
+        trim((string)($data['closing_agent_id'] ?? '')) ?: null,
+        trim((string)($data['referral_session_key'] ?? $data['session_key'] ?? '')) ?: null,
+        trim((string)($data['payment_status'] ?? '')) ?: null,
+        trim((string)($data['entitlement_status'] ?? '')) ?: null,
+        array_key_exists('amount', $data) && $data['amount'] !== '' ? (float)$data['amount'] : null,
+        trim((string)($data['currency'] ?? 'JPY')) ?: 'JPY',
+        trim((string)($data['occurred_at'] ?? '')) ?: date('Y-m-d H:i:s'),
+        $metadataJson,
+    ]);
+    $load = getDB()->prepare("SELECT * FROM customer_transactions WHERE source_system_key=? AND order_id=? AND order_item_id=? LIMIT 1");
+    $load->execute([$systemKey, $orderId, $orderItemId]);
+    return $load->fetch(PDO::FETCH_ASSOC) ?: [];
 }
 
 function getProjects(bool $activeOnly = false): array {
@@ -1840,7 +2018,10 @@ function buildExternalPartnerAgencyPayload(array $agent, string $event = 'upsert
         'event' => $event,
         'source' => 'sengoku-ai',
         'source_agent_id' => (int)($agent['id'] ?? 0),
+        'internal_agent_id' => (int)($agent['id'] ?? 0),
+        'agency_id' => (string)($agent['agent_code'] ?? ''),
         'external_id' => (string)($agent['agent_code'] ?? ''),
+        'parent_agency_id' => $parentCode,
         'parent_external_id' => $parentCode,
         'name' => (string)($agent['agent_name'] ?? ''),
         'contact_name' => (string)($agent['person_name'] ?? ''),
@@ -1859,7 +2040,111 @@ function buildExternalPartnerAgencyPayload(array $agent, string $event = 'upsert
     ];
 }
 
-function postJsonToExternalPartnerWithResult(string $endpoint, string $apiKey, array $payload): array {
+function buildExternalPartnerHmacHeaders(string $body, array $options = []): array {
+    $secret = trim((string)($options['hmac_secret'] ?? ''));
+    if ($secret === '') {
+        return [];
+    }
+    $timestamp = (string)time();
+    $nonce = bin2hex(random_bytes(12));
+    $keyId = trim((string)($options['hmac_key_id'] ?? $options['site_key'] ?? ''));
+    $signature = hash_hmac('sha256', $timestamp . "\n" . $nonce . "\n" . $body, $secret);
+    return [
+        'X-SenNoKuni-Key-Id: ' . $keyId,
+        'X-SenNoKuni-Timestamp: ' . $timestamp,
+        'X-SenNoKuni-Nonce: ' . $nonce,
+        'X-SenNoKuni-Signature: sha256=' . $signature,
+    ];
+}
+
+function normalizeExternalPartnerEventPayload(string $eventType, array $payload, array $options = []): array {
+    $payload['event'] = $payload['event'] ?? $eventType;
+    $payload['event_type'] = $payload['event_type'] ?? $eventType;
+    $payload['event_version'] = $payload['event_version'] ?? '1.0';
+    $payload['event_id'] = $payload['event_id'] ?? ('evt_' . bin2hex(random_bytes(16)));
+    $payload['source_system_key'] = $payload['source_system_key'] ?? 'agency-system';
+    $payload['source'] = $payload['source'] ?? 'sengoku-ai';
+    $payload['correlation_id'] = $payload['correlation_id'] ?? ($options['correlation_id'] ?? ('corr_' . bin2hex(random_bytes(12))));
+    $payload['occurred_at'] = $payload['occurred_at'] ?? date('c');
+    $payload['updated_at'] = $payload['updated_at'] ?? date('c');
+    return $payload;
+}
+
+function recordIntegrationOutboxEvent(array $data): void {
+    if (empty(tableColumns('integration_outbox_events'))) {
+        return;
+    }
+    try {
+        $payloadJson = is_string($data['payload_json'] ?? null)
+            ? (string)$data['payload_json']
+            : json_encode($data['payload'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $payloadJson = $payloadJson ?: '{}';
+        $eventId = trim((string)($data['event_id'] ?? '')) ?: ('evt_' . bin2hex(random_bytes(16)));
+        $stmt = getDB()->prepare("
+            INSERT INTO integration_outbox_events
+                (event_id, event_type, event_version, source_system_key, target_site_key, endpoint, payload_json, payload_hash,
+                 hmac_key_id, status, attempt_count, max_attempts, next_attempt_at, last_attempt_at, last_error, correlation_id, idempotency_key, processed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                status=VALUES(status),
+                attempt_count=VALUES(attempt_count),
+                last_attempt_at=VALUES(last_attempt_at),
+                last_error=VALUES(last_error),
+                processed_at=VALUES(processed_at),
+                updated_at=NOW()
+        ");
+        $stmt->execute([
+            $eventId,
+            trim((string)($data['event_type'] ?? 'unknown')),
+            trim((string)($data['event_version'] ?? '1.0')),
+            trim((string)($data['source_system_key'] ?? 'agency-system')),
+            trim((string)($data['target_site_key'] ?? '')) ?: null,
+            trim((string)($data['endpoint'] ?? '')) ?: null,
+            $payloadJson,
+            hash('sha256', $payloadJson),
+            trim((string)($data['hmac_key_id'] ?? '')) ?: null,
+            trim((string)($data['status'] ?? 'pending')) ?: 'pending',
+            (int)($data['attempt_count'] ?? 0),
+            (int)($data['max_attempts'] ?? 8),
+            $data['next_attempt_at'] ?? null,
+            $data['last_attempt_at'] ?? null,
+            trim((string)($data['last_error'] ?? '')) ?: null,
+            trim((string)($data['correlation_id'] ?? '')) ?: null,
+            trim((string)($data['idempotency_key'] ?? '')) ?: null,
+            $data['processed_at'] ?? null,
+        ]);
+    } catch (Throwable $e) {
+        error_log('Integration outbox record failed: ' . $e->getMessage());
+    }
+}
+
+function recordIntegrationEventAttempt(array $data): void {
+    if (empty(tableColumns('integration_event_attempts'))) {
+        return;
+    }
+    try {
+        $stmt = getDB()->prepare("
+            INSERT INTO integration_event_attempts
+                (event_id, site_key, endpoint, http_status, success, request_headers_json, response_body, error_message, attempted_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        ");
+        $headersJson = json_encode($data['headers'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $stmt->execute([
+            trim((string)($data['event_id'] ?? '')) ?: null,
+            trim((string)($data['site_key'] ?? '')) ?: null,
+            trim((string)($data['endpoint'] ?? '')) ?: null,
+            isset($data['http_status']) ? (int)$data['http_status'] : null,
+            !empty($data['success']) ? 1 : 0,
+            $headersJson ?: null,
+            trim((string)($data['response_body'] ?? '')) ?: null,
+            trim((string)($data['error_message'] ?? '')) ?: null,
+        ]);
+    } catch (Throwable $e) {
+        error_log('Integration event attempt record failed: ' . $e->getMessage());
+    }
+}
+
+function postJsonToExternalPartnerWithResult(string $endpoint, string $apiKey, array $payload, array $options = []): array {
     $body = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     if ($body === false) {
         error_log('External agency sync failed: json_encode failed');
@@ -1878,6 +2163,17 @@ function postJsonToExternalPartnerWithResult(string $endpoint, string $apiKey, a
         'x-api-key: ' . $apiKey,
         'Authorization: Bearer ' . $apiKey,
     ];
+    if (!empty($payload['event_version'])) {
+        $headers[] = 'X-Event-Version: ' . (string)$payload['event_version'];
+    }
+    if (!empty($payload['correlation_id'])) {
+        $headers[] = 'X-Correlation-Id: ' . (string)$payload['correlation_id'];
+    }
+    $idempotencyKey = trim((string)($options['idempotency_key'] ?? $payload['event_id'] ?? ''));
+    if ($idempotencyKey !== '') {
+        $headers[] = 'Idempotency-Key: ' . $idempotencyKey;
+    }
+    $headers = array_merge($headers, buildExternalPartnerHmacHeaders($body, $options));
 
     if (function_exists('curl_init')) {
         $ch = curl_init($endpoint);
@@ -1902,6 +2198,7 @@ function postJsonToExternalPartnerWithResult(string $endpoint, string $apiKey, a
             'endpoint' => $endpoint,
             'error' => $error,
             'response' => substr((string)$response, 0, 1000),
+            'request_headers' => $headers,
         ];
     }
 
@@ -1930,11 +2227,17 @@ function postJsonToExternalPartnerWithResult(string $endpoint, string $apiKey, a
         'endpoint' => $endpoint,
         'error' => $ok ? '' : $statusLine,
         'response' => substr((string)$response, 0, 1000),
+        'request_headers' => $headers,
     ];
 }
 
 function postJsonToExternalPartner(string $endpoint, string $apiKey, array $payload): bool {
-    $result = postJsonToExternalPartnerWithResult($endpoint, $apiKey, $payload);
+    $result = postJsonToExternalPartnerWithResult($endpoint, $apiKey, $payload, [
+        'site_key' => $log['site_key'] ?? '',
+        'hmac_secret' => trim((string)($site['hmac_secret'] ?? '')),
+        'hmac_key_id' => trim((string)($site['hmac_key_id'] ?? $log['site_key'] ?? '')),
+        'idempotency_key' => (string)($payload['event_id'] ?? ('retry_' . (int)($log['id'] ?? 0))),
+    ]);
     return !empty($result['ok']);
 }
 
@@ -2058,9 +2361,7 @@ function dispatchExternalPartnerEvent(string $eventType, array $payload, array $
         return $results;
     }
 
-    $payload['event'] = $payload['event'] ?? $eventType;
-    $payload['source'] = $payload['source'] ?? 'sengoku-ai';
-    $payload['updated_at'] = $payload['updated_at'] ?? date('c');
+    $payload = normalizeExternalPartnerEventPayload($eventType, $payload, $options);
     $agentId = isset($options['agent_id']) ? (int)$options['agent_id'] : (isset($payload['source_agent_id']) ? (int)$payload['source_agent_id'] : null);
     $commonUserId = trim((string)($options['common_user_id'] ?? $payload['common_user_id'] ?? '')) ?: null;
 
@@ -2071,9 +2372,45 @@ function dispatchExternalPartnerEvent(string $eventType, array $payload, array $
         if ($endpoint === '' || $apiKey === '') {
             continue;
         }
-        $result = postJsonToExternalPartnerWithResult($endpoint, $apiKey, $payload);
+        $sendOptions = [
+            'site_key' => $siteKey,
+            'hmac_secret' => (getSystemSettingValue('external_partner_hmac_enabled', '1') === '1') ? trim((string)($site['hmac_secret'] ?? '')) : '',
+            'hmac_key_id' => trim((string)($site['hmac_key_id'] ?? $siteKey)),
+            'idempotency_key' => (string)($payload['event_id'] ?? ''),
+            'correlation_id' => (string)($payload['correlation_id'] ?? ''),
+        ];
+        $result = postJsonToExternalPartnerWithResult($endpoint, $apiKey, $payload, $sendOptions);
         $result['site_key'] = $siteKey;
         $results[] = $result;
+
+        recordIntegrationOutboxEvent([
+            'event_id' => substr((string)($payload['event_id'] ?? '') . ':' . $siteKey, 0, 100),
+            'event_type' => $eventType,
+            'event_version' => (string)($payload['event_version'] ?? '1.0'),
+            'source_system_key' => (string)($payload['source_system_key'] ?? 'agency-system'),
+            'target_site_key' => $siteKey,
+            'endpoint' => $endpoint,
+            'payload' => $payload,
+            'hmac_key_id' => $sendOptions['hmac_key_id'],
+            'status' => !empty($result['ok']) ? 'succeeded' : 'failed',
+            'attempt_count' => 1,
+            'next_attempt_at' => !empty($result['ok']) ? null : date('Y-m-d H:i:s', strtotime('+5 minutes')),
+            'last_attempt_at' => date('Y-m-d H:i:s'),
+            'last_error' => $result['error'] ?? '',
+            'correlation_id' => (string)($payload['correlation_id'] ?? ''),
+            'idempotency_key' => (string)($payload['event_id'] ?? ''),
+            'processed_at' => !empty($result['ok']) ? date('Y-m-d H:i:s') : null,
+        ]);
+        recordIntegrationEventAttempt([
+            'event_id' => (string)($payload['event_id'] ?? ''),
+            'site_key' => $siteKey,
+            'endpoint' => $endpoint,
+            'http_status' => $result['status'] ?? null,
+            'success' => !empty($result['ok']),
+            'headers' => $result['request_headers'] ?? [],
+            'response_body' => $result['response'] ?? '',
+            'error_message' => $result['error'] ?? '',
+        ]);
 
         logIntegrationEvent([
             'direction' => 'outbound',

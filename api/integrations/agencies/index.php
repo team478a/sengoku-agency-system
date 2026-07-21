@@ -91,6 +91,39 @@ function agencyApiKeyIsValid(string $requestKey): bool
     return false;
 }
 
+function agencyApiPartnerByKey(string $requestKey): ?array
+{
+    if ($requestKey === '' || !function_exists('tableHasColumn') || !tableHasColumn('external_partner_sites', 'inbound_api_key')) {
+        return null;
+    }
+    try {
+        $rows = getDB()->query("SELECT * FROM external_partner_sites WHERE status='active' AND COALESCE(inbound_api_key, '') <> ''")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $row) {
+            if (hash_equals((string)$row['inbound_api_key'], $requestKey)) {
+                return $row;
+            }
+        }
+    } catch (Throwable $e) {
+        return null;
+    }
+    return null;
+}
+
+function agencyApiRequireScope(?array $partner, string $scope): void
+{
+    if (!$partner || !function_exists('tableHasColumn') || !tableHasColumn('external_partner_sites', 'inbound_scopes')) {
+        return;
+    }
+    $raw = trim((string)($partner['inbound_scopes'] ?? ''));
+    if ($raw === '') {
+        return;
+    }
+    $scopes = array_filter(array_map('trim', preg_split('/[\s,]+/', $raw)));
+    if (!in_array($scope, $scopes, true) && !in_array('*', $scopes, true)) {
+        agencyApiError('SCOPE_FORBIDDEN', 'API key does not have the required scope: ' . $scope, 403);
+    }
+}
+
 function agencyApiColumnExists(PDO $db, string $table, string $column): bool
 {
     try {
@@ -170,6 +203,8 @@ function agencyApiMapAgent(array $agent, bool $withChildren = false): array
 {
     $mapped = [
         'id' => (string)$agent['id'],
+        'agency_id' => (string)($agent['agent_code'] ?? ''),
+        'internal_agent_id' => (int)($agent['id'] ?? 0),
         'external_id' => (string)($agent['external_id'] ?? ''),
         'name' => (string)($agent['agent_name'] ?? ''),
         'code' => (string)($agent['agent_code'] ?? ''),
@@ -180,6 +215,7 @@ function agencyApiMapAgent(array $agent, bool $withChildren = false): array
         'contact_name' => (string)($agent['person_name'] ?? ''),
         'contact_email' => (string)($agent['email'] ?? ''),
         'login_email' => (string)($agent['login_email'] ?? ''),
+        'parent_agency_id' => $agent['parent_agent_code'] ?? null,
         'parent_external_id' => $agent['parent_external_id'] ?? null,
     ];
     if ($withChildren) {
@@ -191,13 +227,13 @@ function agencyApiMapAgent(array $agent, bool $withChildren = false): array
 function agencyApiFindByExternalId(PDO $db, string $externalId): ?array
 {
     $stmt = $db->prepare("
-        SELECT a.*, p.external_id AS parent_external_id
+        SELECT a.*, p.external_id AS parent_external_id, p.agent_code AS parent_agent_code
         FROM agents a
         LEFT JOIN agents p ON a.parent_id = p.id
-        WHERE a.external_id=?
+        WHERE a.external_id=? OR a.agent_code=?
         LIMIT 1
     ");
-    $stmt->execute([$externalId]);
+    $stmt->execute([$externalId, $externalId]);
     $agent = $stmt->fetch(PDO::FETCH_ASSOC);
     return $agent ?: null;
 }
@@ -212,17 +248,19 @@ if ($requestKey === '') {
 if (!agencyApiKeyIsValid($requestKey)) {
     agencyApiError('INVALID_API_KEY', 'API key is invalid.', 401);
 }
+$agencyApiPartner = agencyApiPartnerByKey($requestKey);
 
 $db = getDB();
 agencyApiEnsureSchema($db);
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 if ($method === 'POST') {
+    agencyApiRequireScope($agencyApiPartner, 'agencies:write');
     $data = agencyApiReadBody();
-    $externalId = trim((string)($data['external_id'] ?? ''));
+    $externalId = trim((string)($data['external_id'] ?? $data['agency_id'] ?? ''));
     $name = trim((string)($data['name'] ?? ''));
-    $parentSpecified = array_key_exists('parent_external_id', $data);
-    $parentExternalId = $parentSpecified ? trim((string)($data['parent_external_id'] ?? '')) : null;
+    $parentSpecified = array_key_exists('parent_external_id', $data) || array_key_exists('parent_agency_id', $data);
+    $parentExternalId = $parentSpecified ? trim((string)($data['parent_external_id'] ?? $data['parent_agency_id'] ?? '')) : null;
     $rate = array_key_exists('default_commission_rate', $data) && $data['default_commission_rate'] !== null && $data['default_commission_rate'] !== ''
         ? (float)$data['default_commission_rate']
         : null;
@@ -373,6 +411,7 @@ if ($method === 'POST') {
 }
 
 if ($method === 'GET') {
+    agencyApiRequireScope($agencyApiPartner, 'agencies:read');
     $externalId = agencyApiExternalIdFromPath();
     if ($externalId !== '') {
         $agent = agencyApiFindByExternalId($db, $externalId);
@@ -386,7 +425,7 @@ if ($method === 'GET') {
     }
 
     $rows = $db->query("
-        SELECT a.*, p.external_id AS parent_external_id
+        SELECT a.*, p.external_id AS parent_external_id, p.agent_code AS parent_agent_code
         FROM agents a
         LEFT JOIN agents p ON a.parent_id = p.id
         WHERE a.external_id IS NOT NULL

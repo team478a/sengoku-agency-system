@@ -5,7 +5,7 @@ require_once __DIR__ . '/../../includes/functions.php';
 header('Content-Type: application/json; charset=UTF-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: x-api-key, X-API-Key, Authorization, Content-Type, Idempotency-Key');
+header('Access-Control-Allow-Headers: x-api-key, X-API-Key, Authorization, Content-Type, Idempotency-Key, X-SenNoKuni-Key-Id, X-SenNoKuni-Timestamp, X-SenNoKuni-Nonce, X-SenNoKuni-Signature, X-Event-Version, X-Correlation-Id');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     http_response_code(204);
@@ -78,6 +78,16 @@ function apiV2Authenticate(): array {
             $stmt->execute();
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $site) {
                 if (hash_equals((string)$site['inbound_api_key'], $key)) {
+                    if (tableHasColumn('external_partner_sites', 'api_key_expires_at') && !empty($site['api_key_expires_at']) && strtotime((string)$site['api_key_expires_at']) <= time()) {
+                        apiV2Error('API_KEY_EXPIRED', 'API key is expired.', 401);
+                    }
+                    if (tableHasColumn('external_partner_sites', 'inbound_ip_allowlist') && trim((string)($site['inbound_ip_allowlist'] ?? '')) !== '') {
+                        $remoteIp = trim((string)($_SERVER['REMOTE_ADDR'] ?? ''));
+                        $allowed = array_filter(array_map('trim', preg_split('/[\r\n,]+/', (string)$site['inbound_ip_allowlist'])));
+                        if ($remoteIp === '' || !in_array($remoteIp, $allowed, true)) {
+                            apiV2Error('IP_NOT_ALLOWED', 'This IP address is not allowed for the API key.', 403);
+                        }
+                    }
                     return [
                         'auth_type' => 'partner_inbound_key',
                         'site_key' => (string)($site['site_key'] ?? ''),
@@ -102,6 +112,21 @@ function apiV2Authenticate(): array {
     }
 
     apiV2Error('INVALID_API_KEY', 'API key is invalid.', 401);
+}
+
+function apiV2RequireScope(array $auth, string $scope): void {
+    $partner = $auth['partner'] ?? null;
+    if (!is_array($partner) || !tableHasColumn('external_partner_sites', 'inbound_scopes')) {
+        return;
+    }
+    $raw = trim((string)($partner['inbound_scopes'] ?? ''));
+    if ($raw === '') {
+        return;
+    }
+    $scopes = array_filter(array_map('trim', preg_split('/[\s,]+/', $raw)));
+    if (!in_array($scope, $scopes, true) && !in_array('*', $scopes, true)) {
+        apiV2Error('SCOPE_FORBIDDEN', 'API key does not have the required scope: ' . $scope, 403);
+    }
 }
 
 function apiV2RequireTables(): void {
@@ -148,6 +173,13 @@ function apiV2IdempotencyLookup(string $key): ?array {
     ");
     $stmt->execute([$hash]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($row) {
+        $currentHash = hash('sha256', apiV2RawBody());
+        $storedHash = trim((string)($row['request_hash'] ?? ''));
+        if ($storedHash !== '' && !hash_equals($storedHash, $currentHash)) {
+            apiV2Error('IDEMPOTENCY_CONFLICT', 'Idempotency-Key was already used with a different request body.', 409);
+        }
+    }
     return $row ?: null;
 }
 
@@ -190,7 +222,7 @@ function apiV2AgentIdFromInput(array $data): ?int {
     if (!empty($data['agent_id'])) {
         return (int)$data['agent_id'];
     }
-    $agentCode = trim((string)($data['agent_code'] ?? ''));
+    $agentCode = trim((string)($data['agency_id'] ?? $data['agent_code'] ?? ''));
     if ($agentCode === '') {
         return null;
     }

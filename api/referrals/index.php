@@ -105,9 +105,11 @@ $tail = referralsApiTail();
 
 if ($method === 'POST' && ($tail === 'capture' || (($_GET['action'] ?? '') === 'capture'))) {
     apiV2RequireFlag('referral_v2_enabled');
+    apiV2RequireScope($auth, 'referrals:write');
     $data = apiV2ReadJson();
-    $tokenValue = trim((string)($data['referral_token'] ?? $data['token'] ?? ''));
-    $validation = validateReferralToken($tokenValue);
+    $tokenValue = trim((string)($data['referral_token'] ?? $data['token'] ?? $data['ref'] ?? $data['referral_code'] ?? $data['invite_token'] ?? ''));
+    $aliasType = trim((string)($data['alias_type'] ?? ''));
+    $validation = resolveReferralTokenInput($tokenValue, $aliasType);
     if (empty($validation['valid'])) {
         apiV2Error('INVALID_REFERRAL_TOKEN', 'Referral token is invalid: ' . ($validation['reason'] ?? 'unknown'), 422);
     }
@@ -140,11 +142,16 @@ if ($method === 'POST' && ($tail === 'capture' || (($_GET['action'] ?? '') === '
     $response = [
         'ok' => true,
         'referral_token' => $tokenRow['token'],
+        'canonical_referral_token' => $tokenRow['token'],
         'referral_session_key' => $session['session_key'] ?? null,
         'agent_id' => (int)$tokenRow['agent_id'],
+        'agency_id' => $tokenRow['agent_code'] ?? null,
         'agent_code' => $tokenRow['agent_code'] ?? null,
         'project_id' => (int)($tokenRow['project_id'] ?? 0),
         'project_slug' => $tokenRow['project_slug'] ?? null,
+        'status' => 'captured',
+        'expires_at' => $tokenRow['expires_at'] ?? null,
+        'resolved_by' => $validation['resolved_by'] ?? 'canonical_token',
         'touchpoint' => $touchpoint,
     ];
     logIntegrationEvent([
@@ -165,6 +172,7 @@ if ($method === 'POST' && ($tail === 'capture' || (($_GET['action'] ?? '') === '
 if ($method === 'POST' && ($tail === 'confirm' || (($_GET['action'] ?? '') === 'confirm'))) {
     apiV2RequireFlag('referral_v2_enabled');
     apiV2RequireFlag('common_hub_write_enabled');
+    apiV2RequireScope($auth, 'referrals:write');
     $data = apiV2ReadJson();
     $sessionKey = trim((string)($data['referral_session_key'] ?? $data['session_key'] ?? ''));
     $session = referralsApiLoadSession($sessionKey);
@@ -173,8 +181,8 @@ if ($method === 'POST' && ($tail === 'confirm' || (($_GET['action'] ?? '') === '
         $tokenRow = findReferralToken((string)$session['token']);
     }
     if (!$tokenRow) {
-        $tokenValue = trim((string)($data['referral_token'] ?? $data['token'] ?? ''));
-        $validation = validateReferralToken($tokenValue);
+        $tokenValue = trim((string)($data['referral_token'] ?? $data['token'] ?? $data['ref'] ?? $data['referral_code'] ?? $data['invite_token'] ?? ''));
+        $validation = resolveReferralTokenInput($tokenValue, trim((string)($data['alias_type'] ?? '')));
         if (empty($validation['valid'])) {
             apiV2Error('INVALID_REFERRAL_TOKEN', 'Referral token is invalid: ' . ($validation['reason'] ?? 'unknown'), 422);
         }
@@ -226,10 +234,33 @@ if ($method === 'POST' && ($tail === 'confirm' || (($_GET['action'] ?? '') === '
         'metadata' => is_array($data['metadata'] ?? null) ? $data['metadata'] : [],
     ]);
     $profile = loadCommonUserHubProfile($commonUserId);
+    $transaction = saveCustomerTransaction([
+        'common_user_id' => $commonUserId,
+        'source_system_key' => $systemKey,
+        'source_user_id' => $externalUserId,
+        'order_id' => $data['order_id'] ?? $data['transaction_id'] ?? '',
+        'order_item_id' => $data['order_item_id'] ?? '',
+        'product_code' => $data['product_code'] ?? '',
+        'registration_referrer_agency_id' => $tokenRow['agent_code'] ?? '',
+        'assigned_agency_id' => $data['assigned_agency_id'] ?? $data['agency_id'] ?? ($tokenRow['agent_code'] ?? ''),
+        'sales_agent_id' => $data['sales_agent_id'] ?? '',
+        'closing_agent_id' => $data['closing_agent_id'] ?? '',
+        'referral_session_key' => $sessionKey,
+        'payment_status' => $data['payment_status'] ?? '',
+        'entitlement_status' => $data['entitlement_status'] ?? '',
+        'amount' => $data['amount'] ?? null,
+        'currency' => $data['currency'] ?? 'JPY',
+        'occurred_at' => $data['occurred_at'] ?? date('Y-m-d H:i:s'),
+        'metadata' => is_array($data['metadata'] ?? null) ? $data['metadata'] : [],
+    ]);
     $response = [
         'ok' => true,
         'common_user_id' => $commonUserId,
+        'agency_id' => $tokenRow['agent_code'] ?? null,
+        'canonical_referral_token' => $tokenRow['token'] ?? null,
+        'referral_session_key' => $sessionKey ?: null,
         'relation' => $relation,
+        'transaction' => $transaction,
         'touchpoint' => $touchpoint,
         'common_user' => $profile['common_user'] ?? null,
         'agency_relations' => $profile['agency_relations'] ?? [],

@@ -85,6 +85,8 @@ function apiAgentPayload(array $agent, array $projects, array $labels, bool $inc
     $level = (int)($agent['level'] ?? 1);
     $payload = [
         'id' => (int)$agent['id'],
+        'agency_id' => (string)($agent['agent_code'] ?? ''),
+        'internal_agent_id' => (int)$agent['id'],
         'code' => (string)($agent['agent_code'] ?? ''),
         'name' => (string)($agent['agent_name'] ?? ''),
         'person_name' => (string)($agent['person_name'] ?? ''),
@@ -95,6 +97,7 @@ function apiAgentPayload(array $agent, array $projects, array $labels, bool $inc
         'position_type' => (string)($agent['position_type'] ?? ''),
         'position_label' => (string)($agent['position_label'] ?? ''),
         'parent_id' => !empty($agent['parent_id']) ? (int)$agent['parent_id'] : null,
+        'parent_agency_id' => $agent['parent_code'] ?? null,
         'parent_code' => $agent['parent_code'] ?? null,
         'status' => (string)($agent['status'] ?? ''),
         'lp_urls' => [],

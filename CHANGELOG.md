@@ -1,3 +1,10 @@
+## v3.6.78 (2026-07-21)
+- Hardened Common Customer HUB identity matching so unverified email, phone, and wallet identities are not auto-merged.
+- Added `agency_id` compatibility fields to hierarchy and agency integration APIs while preserving existing `external_id` fields.
+- Added referral alias resolution for legacy referral codes, wallet invite tokens, and shopping/passport ref values.
+- Added customer transaction and assignment history tables for registration referrer, assigned agency, sales agent, and closing agent tracking.
+- Added per-partner API scopes, expiry/IP metadata, outbound HMAC headers, idempotency conflict checks, and outbox/attempt tracking tables.
+
 ## v3.6.77 (2026-07-20)
 - Added CSV export for the Common Customer HUB alert screen.
 - Added outbound partner notifications for manual common user merges.

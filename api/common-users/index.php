@@ -39,6 +39,7 @@ function commonUsersApiResolve(array $data, array $auth): array {
     $commonUserId = trim((string)($data['common_user_id'] ?? ''));
     $created = false;
     $matchedBy = null;
+    $unverifiedIdentityCandidateCount = 0;
 
     if ($commonUserId !== '') {
         $stmt = $db->prepare("SELECT common_user_id FROM common_users WHERE common_user_id=? LIMIT 1");
@@ -77,6 +78,11 @@ function commonUsersApiResolve(array $data, array $auth): array {
         if ($identity && !empty($identity['common_user_id'])) {
             $commonUserId = (string)$identity['common_user_id'];
             $matchedBy = 'identity:' . $type;
+        } elseif (getSystemSettingValue('common_hub_verified_identity_only', '1') === '1') {
+            $unverifiedIdentity = findCommonUserByIdentity($type, $value, $provider, false);
+            if ($unverifiedIdentity && empty($unverifiedIdentity['verified'])) {
+                $unverifiedIdentityCandidateCount++;
+            }
         }
     }
 
@@ -136,6 +142,8 @@ function commonUsersApiResolve(array $data, array $auth): array {
         'common_user_id' => $commonUserId,
         'created' => $created,
         'matched_by' => $matchedBy,
+        'identity_match_status' => $unverifiedIdentityCandidateCount > 0 && $matchedBy === 'created' ? 'unverified_candidate_not_auto_merged' : 'ok',
+        'unverified_identity_candidates_count' => $unverifiedIdentityCandidateCount,
         'common_user' => $profile['common_user'] ?? null,
         'system_links' => $profile['system_links'] ?? [],
         'identities' => $profile['identities'] ?? [],
@@ -174,6 +182,7 @@ $tail = commonUsersApiTail();
 
 if ($method === 'POST' && ($tail === 'resolve' || (($_GET['action'] ?? '') === 'resolve'))) {
     apiV2RequireFlag('common_hub_write_enabled');
+    apiV2RequireScope($auth, 'common_users:write');
     $data = apiV2ReadJson();
     try {
         $response = commonUsersApiResolve($data, $auth);
@@ -207,6 +216,7 @@ if ($method === 'POST' && ($tail === 'resolve' || (($_GET['action'] ?? '') === '
 
 if ($method === 'POST' && (preg_match('#^([^/]+)/system-links$#', $tail, $m) || (($_GET['action'] ?? '') === 'system-links'))) {
     apiV2RequireFlag('common_hub_write_enabled');
+    apiV2RequireScope($auth, 'common_users:write');
     $data = apiV2ReadJson();
     $commonUserId = isset($m[1]) ? rawurldecode($m[1]) : trim((string)($_GET['common_user_id'] ?? $data['common_user_id'] ?? ''));
     try {
@@ -231,6 +241,7 @@ if ($method === 'POST' && (preg_match('#^([^/]+)/system-links$#', $tail, $m) || 
 
 if ($method === 'POST' && ($tail === '' || $tail === '/')) {
     apiV2RequireFlag('common_hub_write_enabled');
+    apiV2RequireScope($auth, 'common_users:write');
     $data = apiV2ReadJson();
     $data['create_if_missing'] = true;
     $response = commonUsersApiResolve($data, $auth);
@@ -239,6 +250,7 @@ if ($method === 'POST' && ($tail === '' || $tail === '/')) {
 
 if ($method === 'GET') {
     apiV2RequireFlag('common_hub_read_enabled');
+    apiV2RequireScope($auth, 'common_users:read');
     $commonUserId = trim((string)($_GET['common_user_id'] ?? ''));
     if ($commonUserId === '' && $tail !== '' && !str_contains($tail, '/')) {
         $commonUserId = rawurldecode($tail);
