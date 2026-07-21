@@ -1,0 +1,2 @@
+-- 2.6.0: LP template selection for advisors and update screen version refresh.
+-- No schema changes are required.

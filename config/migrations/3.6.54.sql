@@ -1,0 +1,4 @@
+ALTER TABLE admins ADD COLUMN IF NOT EXISTS reset_token VARCHAR(64) DEFAULT NULL AFTER status;
+ALTER TABLE admins ADD COLUMN IF NOT EXISTS reset_token_exp DATETIME DEFAULT NULL AFTER reset_token;
+
+INSERT IGNORE INTO schema_migrations (version) VALUES ('3.6.54');

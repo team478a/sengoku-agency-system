@@ -1,0 +1,2 @@
+-- 2.8.0: Cumulative role menus for agents/directors and direct advisor management for agents.
+-- No schema changes are required.

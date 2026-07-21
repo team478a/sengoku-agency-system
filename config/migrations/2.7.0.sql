@@ -1,0 +1,2 @@
+-- 2.7.0: Mobile drawer menu fixes for admin and advisor pages.
+-- No schema changes are required.

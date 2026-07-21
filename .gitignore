@@ -1,0 +1,30 @@
+# Runtime / local environment
+config/database.php
+config/installed.lock
+.env
+.env.*
+
+# User uploads and generated backups
+uploads/
+backups/
+*.zip
+
+# Logs and temporary files
+*.log
+tmp/
+temp/
+cache/
+
+# Secrets / keys
+*.pem
+*.key
+*.crt
+*secret*
+*private*
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/

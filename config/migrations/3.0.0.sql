@@ -1,0 +1,2 @@
+-- 3.0.0: Admin role-only updates and non-blocking LINE settings.
+-- No schema changes are required.

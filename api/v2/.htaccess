@@ -1,0 +1,5 @@
+RewriteEngine On
+RewriteRule ^user-mappings(?:/(.*))?$ user-mappings/index.php/$1 [L,QSA]
+RewriteRule ^referral-relations(?:/(.*))?$ referral-relations/index.php/$1 [L,QSA]
+RewriteRule ^referral-tokens(?:/(.*))?$ referral-tokens/index.php/$1 [L,QSA]
+RewriteRule ^referral-sessions(?:/(.*))?$ referral-sessions/index.php/$1 [L,QSA]

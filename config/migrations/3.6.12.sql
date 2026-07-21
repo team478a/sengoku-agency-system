@@ -1,0 +1,6 @@
+ALTER TABLE materials ADD COLUMN IF NOT EXISTS instagram_text MEDIUMTEXT DEFAULT NULL;
+ALTER TABLE materials ADD COLUMN IF NOT EXISTS x_text MEDIUMTEXT DEFAULT NULL;
+ALTER TABLE materials ADD COLUMN IF NOT EXISTS line_text MEDIUMTEXT DEFAULT NULL;
+
+INSERT IGNORE INTO schema_migrations (version, description)
+VALUES ('3.6.12', '紹介素材SNS別投稿文とマニュアル改善');
