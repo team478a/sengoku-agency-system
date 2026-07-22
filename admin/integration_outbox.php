@@ -19,6 +19,7 @@ function outboxStatusBadge(string $status): string {
     $labels = getIntegrationOutboxStatusLabels();
     $label = $labels[$status] ?? $status;
     $class = 'badge-new';
+    if ($status === 'processing') $class = 'badge-contacted';
     if ($status === 'succeeded') $class = 'badge-active';
     if ($status === 'failed') $class = 'badge-contacted';
     if ($status === 'dlq') $class = 'badge-inactive';
@@ -37,6 +38,8 @@ function outboxShort(?string $value, int $length = 120): string {
 if ($hasOutbox && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
         $error = '操作トークンが無効です。ページを再読み込みしてからもう一度お試しください。';
+    } elseif (!isSuperAdmin()) {
+        $error = 'Outbox manual operations are limited to super admins.';
     } else {
         $action = (string)($_POST['action'] ?? '');
         $id = (int)($_POST['id'] ?? 0);
@@ -68,7 +71,10 @@ if ($hasOutbox && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 $message = '再送待ちに戻しました。';
             } elseif ($action === 'move_dlq') {
                 moveIntegrationOutboxEventToDlq($id, 'Moved to DLQ manually by admin.');
-                $message = 'DLQ（要確認）へ移動しました。';
+                $message = 'Moved to DLQ.';
+            } elseif ($action === 'recover_stale_claims') {
+                $count = recoverStaleIntegrationOutboxClaims();
+                $message = '処理中の期限切れOutboxを回収しました。対象 ' . (int)$count . ' 件';
             }
         } catch (Throwable $e) {
             $error = $e->getMessage();
@@ -96,7 +102,7 @@ if ($hasOutbox) {
 
     $where = [];
     $params = [];
-    if (in_array($status, ['pending', 'failed', 'succeeded', 'dlq'], true)) {
+    if (in_array($status, ['pending', 'processing', 'failed', 'succeeded', 'dlq'], true)) {
         $where[] = 'status = ?';
         $params[] = $status;
     }
@@ -151,6 +157,7 @@ if ($hasOutbox) {
 <?php else: ?>
 
 <div class="stats-grid">
+    <div class="stat-card"><div class="stat-sub">処理中</div><div class="stat-val"><?= number_format((int)($stats['processing'] ?? 0)) ?></div></div>
     <div class="stat-card"><div class="stat-sub">送信待ち</div><div class="stat-val"><?= number_format((int)($stats['pending'] ?? 0)) ?></div></div>
     <div class="stat-card"><div class="stat-sub">再送待ち</div><div class="stat-val"><?= number_format((int)($stats['failed'] ?? 0)) ?></div></div>
     <div class="stat-card"><div class="stat-sub">要確認（DLQ）</div><div class="stat-val"><?= number_format((int)($stats['dlq'] ?? 0)) ?></div></div>
@@ -181,6 +188,11 @@ if ($hasOutbox) {
         </label>
         <button type="submit" class="btn btn-gold">一括再送</button>
         <a class="btn btn-outline" href="/admin/integration_logs.php">連携ログを見る</a>
+    </form>
+    <form method="post" style="margin-top:.75rem;">
+        <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>">
+        <input type="hidden" name="action" value="recover_stale_claims">
+        <button type="submit" class="btn btn-outline">処理中の期限切れを回収</button>
     </form>
 </div>
 

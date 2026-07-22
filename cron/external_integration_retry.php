@@ -2,7 +2,23 @@
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/functions.php';
 
-$token = trim((string)($_GET['token'] ?? $_POST['token'] ?? ''));
+$headerName = getSystemSettingValue('external_integration_retry_header_name', 'X-SenNoKuni-Cron-Token');
+$headerToken = '';
+if (function_exists('getallheaders')) {
+    foreach ((array)getallheaders() as $name => $value) {
+        if (strcasecmp((string)$name, $headerName) === 0) {
+            $headerToken = trim((string)$value);
+            break;
+        }
+    }
+}
+$authHeader = trim((string)($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? ''));
+if ($headerToken === '' && stripos($authHeader, 'Bearer ') === 0) {
+    $headerToken = trim(substr($authHeader, 7));
+}
+$allowQueryToken = getSystemSettingValue('external_integration_retry_allow_query_token', '1') === '1';
+$queryToken = $allowQueryToken ? trim((string)($_GET['token'] ?? $_POST['token'] ?? '')) : '';
+$token = $headerToken !== '' ? $headerToken : $queryToken;
 $savedToken = getSystemSettingValue('external_integration_retry_cron_token', '');
 
 header('Content-Type: application/json; charset=UTF-8');

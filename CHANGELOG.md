@@ -1,3 +1,9 @@
+## v3.6.81 (2026-07-22)
+- Added claim-token based processing locks for external integration Outbox retries.
+- Added stale `processing` Outbox recovery so interrupted workers can be returned to retry.
+- Updated the retry cron endpoint to prefer a header/Bearer token while keeping query-token compatibility by setting.
+- Added a processing count and stale recovery action to the Outbox management screen.
+
 ## v3.6.80 (2026-07-21)
 - Added an external integration Outbox management screen for retry queue and DLQ operations.
 - Added retry helpers that resend due Outbox events, record each attempt, and move exhausted events to DLQ.
