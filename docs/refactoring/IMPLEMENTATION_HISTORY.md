@@ -1,5 +1,11 @@
 # Implementation History
 
+## 2026-07-24 Phase 9
+
+- Added `LeadCsvExportService` for shared lead CSV row generation.
+- Routed admin and agent lead CSV exports through the service without changing CSV URLs, filenames, or column order.
+- Kept database schema unchanged.
+
 ## 2026-07-24 Phase 8
 
 - Routed activity CSV exports through the shared Activity query service.

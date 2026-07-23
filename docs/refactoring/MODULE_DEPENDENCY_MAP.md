@@ -47,6 +47,9 @@ src/Notification
 src/Activity
   -> ActivityQueryService
 
+src/Lead
+  -> LeadCsvExportService
+
 api/v2/bootstrap.php
   -> includes/shared_bootstrap.php
   -> src/Shared/Auth
@@ -100,6 +103,14 @@ agent/export_csv.php activity export
   -> includes/shared_bootstrap.php
   -> src/Activity
 
+admin/export_csv.php lead export
+  -> includes/shared_bootstrap.php
+  -> src/Lead
+
+agent/export_csv.php lead export
+  -> includes/shared_bootstrap.php
+  -> src/Lead
+
 admin/integration_outbox.php
   -> includes/shared_bootstrap.php
   -> src/Admin
@@ -112,3 +123,23 @@ admin/operations.php
 ## Rule
 
 New business logic should be placed under `src/` and legacy functions should remain as compatibility wrappers until a phase explicitly migrates their internals.
+
+## Lead CSV Foundation
+
+New dependency direction:
+
+```text
+admin/export_csv.php lead export
+  -> LeadCsvExportService
+  -> PDO
+
+agent/export_csv.php lead export
+  -> LeadCsvExportService
+  -> PDO
+```
+
+Notes:
+
+- CSV response formatting remains in the entrypoint files.
+- Lead query and row generation logic now lives in `src/Lead`.
+- No dependency is introduced from `src/Lead` back to admin or agent entrypoints.

@@ -1,5 +1,13 @@
 # Rollback Guide
 
+## v3.6.90
+
+Rollback is file-only:
+
+1. Revert the v3.6.90 commit.
+2. Confirm lead CSV exports use their previous inline SQL again.
+3. No database rollback is required.
+
 ## v3.6.89
 
 Rollback is file-only:

@@ -41,49 +41,12 @@ if ($type === 'leads') {
         'lost' => '失注',
         'closed' => '対応済',
     ];
-    $filterStatus = $_GET['status'] ?? '';
-    $filterAgent = (int)($_GET['agent_id'] ?? 0);
-    $search = sanitizeInput($_GET['q'] ?? '');
-    $wheres = [];
-    $params = [];
-    if ($filterStatus && array_key_exists($filterStatus, $statusLabels)) {
-        $wheres[] = 'l.status=?';
-        $params[] = $filterStatus;
-    }
-    if ($filterAgent) {
-        $wheres[] = 'l.agent_id=?';
-        $params[] = $filterAgent;
-    }
-    if ($search) {
-        $wheres[] = '(l.name LIKE ? OR l.email LIKE ?)';
-        $params[] = "%$search%";
-        $params[] = "%$search%";
-    }
-    $where = $wheres ? 'WHERE ' . implode(' AND ', $wheres) : '';
-    $stmt = $db->prepare("
-        SELECT l.*, a.agent_name, a.person_name, a.agent_code
-        FROM leads l
-        JOIN agents a ON a.id = l.agent_id
-        $where
-        ORDER BY l.created_at DESC
-    ");
-    $stmt->execute($params);
-    $cols = adminCsvColumns($db, 'leads');
-    $rows = [];
-    foreach ($stmt->fetchAll() as $lead) {
-        $rows[] = [
-            $lead['created_at'] ?? '',
-            $lead['agent_name'] ?? '',
-            $lead['agent_code'] ?? '',
-            $lead['name'] ?? '',
-            $lead['email'] ?? '',
-            $lead['phone'] ?? '',
-            $lead['message'] ?? '',
-            $statusLabels[$lead['status'] ?? ''] ?? ($lead['status'] ?? ''),
-            !empty($cols['next_action_at']) ? ($lead['next_action_at'] ?? '') : '',
-            !empty($cols['internal_note']) ? ($lead['internal_note'] ?? '') : '',
-        ];
-    }
+    $leadCsvService = new \SenNoKuni\Lead\LeadCsvExportService($db);
+    $rows = $leadCsvService->adminRows([
+        'status' => $_GET['status'] ?? '',
+        'agent_id' => (int)($_GET['agent_id'] ?? 0),
+        'q' => sanitizeInput($_GET['q'] ?? ''),
+    ], $statusLabels);
     adminCsvOutput('admin_leads_' . date('Ymd_His') . '.csv', ['日時','担当代理店','コード','名前','メール','電話','内容','状態','次回対応日','管理メモ'], $rows);
 }
 

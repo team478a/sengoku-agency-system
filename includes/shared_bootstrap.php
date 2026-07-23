@@ -34,6 +34,7 @@ $sharedFiles = [
     __DIR__ . '/../src/LandingPage/ResponsiveImageBuilder.php',
     __DIR__ . '/../src/Notification/TemplateVariableReplacer.php',
     __DIR__ . '/../src/Activity/ActivityQueryService.php',
+    __DIR__ . '/../src/Lead/LeadCsvExportService.php',
 ];
 
 foreach ($sharedFiles as $sharedFile) {

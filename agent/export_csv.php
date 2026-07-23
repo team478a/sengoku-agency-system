@@ -43,21 +43,7 @@ function visibleAgentIdsForExport(int $agentId, int $level): array {
     return array_values(array_unique($ids));
 }
 
-function tableColumnsForExport(PDO $db, string $table): array {
-    $columns = [];
-    try {
-        $rows = $db->query("SHOW COLUMNS FROM {$table}")->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($rows as $row) {
-            $columns[$row['Field']] = true;
-        }
-    } catch (Throwable $e) {
-        error_log('CSV column check failed: ' . $e->getMessage());
-    }
-    return $columns;
-}
-
 $visibleAgentIds = visibleAgentIdsForExport($aid, $myLv);
-$ph = implode(',', array_fill(0, count($visibleAgentIds), '?'));
 $labels = getLevelLabels();
 
 if ($type === 'leads') {
@@ -70,36 +56,8 @@ if ($type === 'leads') {
         'closed' => '完了',
     ];
     $status = $_GET['status'] ?? 'all';
-    $params = $visibleAgentIds;
-    $where = '';
-    if ($status !== 'all' && array_key_exists($status, $statusLabels)) {
-        $where = 'AND l.status=?';
-        $params[] = $status;
-    }
-    $cols = tableColumnsForExport($db, 'leads');
-    $stmt = $db->prepare("
-        SELECT l.*, a.agent_name AS source_agent_name, a.agent_code AS source_agent_code, a.person_name AS source_person_name
-        FROM leads l
-        LEFT JOIN agents a ON a.id = l.agent_id
-        WHERE l.agent_id IN ($ph) $where
-        ORDER BY l.created_at DESC
-    ");
-    $stmt->execute($params);
-    $rows = [];
-    foreach ($stmt->fetchAll() as $lead) {
-        $rows[] = [
-            $lead['created_at'] ?? '',
-            $lead['source_agent_name'] ?? '',
-            $lead['source_agent_code'] ?? '',
-            $lead['name'] ?? '',
-            $lead['email'] ?? '',
-            $lead['phone'] ?? '',
-            $lead['message'] ?? '',
-            $statusLabels[$lead['status'] ?? ''] ?? ($lead['status'] ?? ''),
-            !empty($cols['next_action_at']) ? ($lead['next_action_at'] ?? '') : '',
-            !empty($cols['internal_note']) ? ($lead['internal_note'] ?? '') : '',
-        ];
-    }
+    $leadCsvService = new \SenNoKuni\Lead\LeadCsvExportService($db);
+    $rows = $leadCsvService->agentRows($visibleAgentIds, (string)$status, $statusLabels);
     csvOutput('leads_' . date('Ymd_His') . '.csv', ['日時','流入LP','コード','名前','メール','電話','内容','状態','次回対応日','管理メモ'], $rows);
 }
 
