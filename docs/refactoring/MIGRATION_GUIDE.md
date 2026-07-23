@@ -1,5 +1,23 @@
 # Migration Guide
 
+## v3.6.95
+
+No database migration is required.
+
+CSV contract tests can be run against a MariaDB/MySQL test database by setting:
+
+- `CSV_CONTRACT_DSN`
+- `CSV_CONTRACT_USER`
+- `CSV_CONTRACT_PASS`
+
+Then run:
+
+```bash
+composer test:csv-contract
+```
+
+The test runner creates connection-local temporary tables only.
+
 ## v3.6.94
 
 No database migration is required.

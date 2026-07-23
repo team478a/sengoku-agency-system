@@ -1,5 +1,11 @@
 # Implementation History
 
+## 2026-07-24 Phase 14
+
+- Added a DB-backed CSV contract test runner for the extracted CSV services.
+- Used connection-local temporary tables so the test runner does not modify production tables.
+- Added `composer test:csv-contract`.
+
 ## 2026-07-24 Phase 13
 
 - Added `LoginLogCsvExportService` for shared login-log CSV row generation.

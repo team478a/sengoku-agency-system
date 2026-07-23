@@ -1,3 +1,8 @@
+## v3.6.95 (2026-07-24)
+- Added a DB-backed CSV contract test runner for the extracted CSV services.
+- Covered lead, sub-agent, recruitment-link, template report, and login-log CSV row contracts using connection-local temporary tables.
+- Added `composer test:csv-contract` while keeping production database schema, API contracts, and webhook behavior unchanged.
+
 ## v3.6.94 (2026-07-24)
 - Added the Phase 13 Audit CSV foundation service for login-log export row generation.
 - Routed `admin/export_csv.php?type=login_logs` through `LoginLogCsvExportService` while keeping CSV URL and column order stable.

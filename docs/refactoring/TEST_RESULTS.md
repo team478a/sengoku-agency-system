@@ -1,5 +1,24 @@
 # Test Results
 
+## v3.6.95
+
+Completed checks:
+
+- `php scripts/lint-php.php`: passed
+- `php scripts/run-csv-contract-tests.php`: skipped cleanly without `CSV_CONTRACT_DSN`
+
+Not run locally:
+
+- `composer test`
+- `composer analyse`
+- DB-backed CSV contract execution against MariaDB/MySQL
+
+Local limitation:
+
+- Composer is not installed in the current Windows environment.
+- The current PHP runtime does not include `pdo_mysql` or `pdo_sqlite`.
+- The local repository intentionally does not include production `config/database.php`.
+
 ## v3.6.94
 
 Completed checks:

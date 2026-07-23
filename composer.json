@@ -22,6 +22,7 @@
   },
   "scripts": {
     "lint": "php scripts/lint-php.php",
+    "test:csv-contract": "php scripts/run-csv-contract-tests.php",
     "test": "phpunit",
     "analyse": "phpstan analyse --memory-limit=512M"
   },
@@ -29,4 +30,3 @@
     "sort-packages": true
   }
 }
-

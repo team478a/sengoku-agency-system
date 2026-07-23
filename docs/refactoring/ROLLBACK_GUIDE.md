@@ -1,5 +1,13 @@
 # Rollback Guide
 
+## v3.6.95
+
+Rollback is file-only:
+
+1. Revert the v3.6.95 commit.
+2. Remove the `composer test:csv-contract` script entry if reverting manually.
+3. No database rollback is required.
+
 ## v3.6.94
 
 Rollback is file-only:

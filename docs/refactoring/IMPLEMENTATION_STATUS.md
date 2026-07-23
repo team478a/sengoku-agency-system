@@ -1,5 +1,30 @@
 # Implementation Status
 
+## v3.6.95 CSV Contract Test Foundation
+
+Status: completed
+
+Implemented in this phase:
+
+- Added `scripts/run-csv-contract-tests.php`.
+- Added `composer test:csv-contract`.
+- Covered DB-backed row contracts for:
+  - `LeadCsvExportService`
+  - `SubAgentCsvExportService`
+  - `RecruitmentLinkCsvExportService`
+  - `TemplateReportCsvExportService`
+  - `LoginLogCsvExportService`
+
+Runtime behavior changed: no
+
+Database changed: no
+
+Existing CSV URLs and CSV column order changed: no
+
+Remaining CSV foundation work:
+
+- Run `composer test:csv-contract` against a MariaDB/MySQL test database in an environment with a PDO MySQL driver.
+
 ## v3.6.94 Audit CSV Foundation
 
 Status: completed
@@ -18,7 +43,7 @@ Existing CSV URLs and CSV column order changed: no
 
 Remaining CSV foundation work:
 
-- Add DB-backed CSV contract tests once local test database configuration is available.
+- Run DB-backed CSV contract tests in an environment with a PDO MySQL driver.
 
 ## v3.6.93 Reporting CSV Foundation
 
@@ -38,7 +63,7 @@ Existing CSV URLs and CSV column order changed: no
 
 Remaining CSV foundation work:
 
-- Add DB-backed CSV contract tests once local test database configuration is available.
+- Run DB-backed CSV contract tests in an environment with a PDO MySQL driver.
 
 ## v3.6.92 Agency Recruitment Link CSV Foundation
 
@@ -58,7 +83,7 @@ Existing CSV URLs and CSV column order changed: no
 
 Remaining CSV foundation work:
 
-- Add DB-backed CSV contract tests once local test database configuration is available.
+- Run DB-backed CSV contract tests in an environment with a PDO MySQL driver.
 
 ## v3.6.91 Agency CSV Foundation
 
@@ -78,8 +103,8 @@ Existing CSV URLs and CSV column order changed: no
 
 Remaining CSV foundation work:
 
-- Extract template report CSV exports into a Reporting export service.
-- Add DB-backed CSV contract tests once local test database configuration is available.
+- Template report CSV extraction was completed in v3.6.93.
+- Run DB-backed CSV contract tests in an environment with a PDO MySQL driver.
 
 ## v3.6.90 Lead CSV Foundation
 
@@ -100,8 +125,8 @@ Existing CSV URLs and CSV column order changed: no
 
 Remaining CSV foundation work:
 
-- Extract template report CSV exports into a Reporting export service.
-- Add DB-backed CSV contract tests once local test database configuration is available.
+- Template report CSV extraction was completed in v3.6.93.
+- Run DB-backed CSV contract tests in an environment with a PDO MySQL driver.
 
 ## v3.6.89 Activity CSV Foundation
 
@@ -121,8 +146,8 @@ Existing CSV URLs and CSV column order changed: no
 
 Remaining CSV foundation work:
 
-- Extract sub-agent CSV exports into an Agency export service.
-- Add DB-backed CSV contract tests once local test database configuration is available.
+- Sub-agent CSV extraction was completed in v3.6.91.
+- Run DB-backed CSV contract tests in an environment with a PDO MySQL driver.
 
 ## v3.6.88 Activity Foundation
 

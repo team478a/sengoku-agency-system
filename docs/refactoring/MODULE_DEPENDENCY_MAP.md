@@ -144,6 +144,13 @@ admin/integration_outbox.php
 admin/operations.php
   -> includes/shared_bootstrap.php
   -> src/Admin
+
+scripts/run-csv-contract-tests.php
+  -> includes/shared_bootstrap.php
+  -> src/Lead
+  -> src/Agency
+  -> src/Reporting
+  -> src/Audit
 ```
 
 ## Rule
@@ -233,3 +240,23 @@ Notes:
 - CSV response formatting remains in `admin/export_csv.php`.
 - Login-log query and row generation logic now lives in `src/Audit`.
 - No dependency is introduced from `src/Audit` back to admin entrypoints.
+
+## CSV Contract Test Foundation
+
+New dependency direction:
+
+```text
+scripts/run-csv-contract-tests.php
+  -> LeadCsvExportService
+  -> SubAgentCsvExportService
+  -> RecruitmentLinkCsvExportService
+  -> TemplateReportCsvExportService
+  -> LoginLogCsvExportService
+  -> PDO
+```
+
+Notes:
+
+- The test runner uses connection-local temporary tables.
+- Production tables are not dropped, truncated, or altered by the test runner.
+- The runner is intentionally separate from legacy admin and agent entrypoints.
