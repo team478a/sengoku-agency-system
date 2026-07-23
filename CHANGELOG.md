@@ -1,3 +1,9 @@
+## v3.6.82 (2026-07-24)
+- Added the Phase 0/1 modular monolith foundation without changing runtime behavior.
+- Added Composer metadata, PSR-4 autoloading for `SenNoKuni\\`, PHPUnit, PHPStan, syntax lint, and GitHub Actions CI.
+- Added initial characterization tests for legacy entrypoints and critical compatibility functions.
+- Added initial `src/Shared` foundation classes and refactoring status documents.
+
 ## v3.6.81 (2026-07-22)
 - Added claim-token based processing locks for external integration Outbox retries.
 - Added stale `processing` Outbox recovery so interrupted workers can be returned to retry.
