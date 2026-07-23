@@ -1,8 +1,29 @@
 # Implementation Status
 
-## v3.6.91 Agency CSV Foundation
+## v3.6.92 Agency Recruitment Link CSV Foundation
 
 Status: in progress
+
+Implemented in this phase:
+
+- Added `src/Agency` class:
+  - `RecruitmentLinkCsvExportService`
+- Routed `agent/export_csv.php?type=recruitment_links` row generation through `RecruitmentLinkCsvExportService`.
+
+Runtime behavior changed: limited to internal query delegation
+
+Database changed: no
+
+Existing CSV URLs and CSV column order changed: no
+
+Remaining Phase 11 work:
+
+- Extract template report CSV exports into a Reporting export service.
+- Add DB-backed CSV contract tests once local test database configuration is available.
+
+## v3.6.91 Agency CSV Foundation
+
+Status: completed
 
 Implemented in this phase:
 
@@ -16,9 +37,8 @@ Database changed: no
 
 Existing CSV URLs and CSV column order changed: no
 
-Remaining Phase 10 work:
+Remaining CSV foundation work:
 
-- Extract recruitment-link CSV exports into an Agency export service.
 - Extract template report CSV exports into a Reporting export service.
 - Add DB-backed CSV contract tests once local test database configuration is available.
 

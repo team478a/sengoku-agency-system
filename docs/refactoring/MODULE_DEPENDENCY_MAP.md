@@ -52,6 +52,7 @@ src/Lead
 
 src/Agency
   -> SubAgentCsvExportService
+  -> RecruitmentLinkCsvExportService
 
 api/v2/bootstrap.php
   -> includes/shared_bootstrap.php
@@ -118,6 +119,10 @@ agent/export_csv.php sub-agent export
   -> includes/shared_bootstrap.php
   -> src/Agency
 
+agent/export_csv.php recruitment-link export
+  -> includes/shared_bootstrap.php
+  -> src/Agency
+
 admin/integration_outbox.php
   -> includes/shared_bootstrap.php
   -> src/Admin
@@ -165,4 +170,20 @@ Notes:
 
 - CSV response formatting remains in `agent/export_csv.php`.
 - Sub-agent query and row generation logic now lives in `src/Agency`.
+- No dependency is introduced from `src/Agency` back to agent entrypoints.
+
+## Agency Recruitment Link CSV Foundation
+
+New dependency direction:
+
+```text
+agent/export_csv.php recruitment-link export
+  -> RecruitmentLinkCsvExportService
+  -> PDO
+```
+
+Notes:
+
+- CSV response formatting remains in `agent/export_csv.php`.
+- Recruitment-link query and row generation logic now lives in `src/Agency`.
 - No dependency is introduced from `src/Agency` back to agent entrypoints.

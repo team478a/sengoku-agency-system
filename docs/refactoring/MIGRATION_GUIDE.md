@@ -1,5 +1,15 @@
 # Migration Guide
 
+## v3.6.92
+
+No database migration is required.
+
+Recruitment-link CSV exports now use `SenNoKuni\Agency\RecruitmentLinkCsvExportService` through `includes/shared_bootstrap.php`.
+
+Existing CSV URL and CSV column order remain unchanged:
+
+- `agent/export_csv.php?type=recruitment_links`
+
 ## v3.6.91
 
 No database migration is required.

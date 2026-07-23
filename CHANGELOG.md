@@ -1,3 +1,8 @@
+## v3.6.92 (2026-07-24)
+- Added the Phase 11 Agency recruitment-link CSV foundation service.
+- Routed `agent/export_csv.php?type=recruitment_links` through `RecruitmentLinkCsvExportService` while keeping CSV URL and column order stable.
+- Kept database schema, API contracts, webhook behavior, and recruitment-link management screens unchanged.
+
 ## v3.6.91 (2026-07-24)
 - Added the Phase 10 Agency CSV foundation service for sub-agent export row generation.
 - Routed `agent/export_csv.php?type=sub_agents` through `SubAgentCsvExportService` while keeping CSV URL and column order stable.

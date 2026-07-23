@@ -1,5 +1,11 @@
 # Implementation History
 
+## 2026-07-24 Phase 11
+
+- Added `RecruitmentLinkCsvExportService` for shared recruitment-link CSV row generation.
+- Routed `agent/export_csv.php?type=recruitment_links` through the service without changing CSV URL, filename, or column order.
+- Kept database schema unchanged.
+
 ## 2026-07-24 Phase 10
 
 - Added `SubAgentCsvExportService` for shared sub-agent CSV row generation.

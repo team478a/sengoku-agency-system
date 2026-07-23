@@ -73,37 +73,14 @@ if ($type === 'recruitment_links') {
         http_response_code(403);
         exit('Forbidden');
     }
-    $stmt = $db->prepare("
-        SELECT rl.*,
-               COUNT(ap.id) AS applicant_count,
-               SUM(CASE WHEN ap.status='pending' THEN 1 ELSE 0 END) AS pending_count,
-               SUM(CASE WHEN ap.status='approved' THEN 1 ELSE 0 END) AS approved_count
-        FROM recruitment_links rl
-        LEFT JOIN applicants ap ON ap.recruitment_link_id = rl.id
-        WHERE rl.agent_id=?
-        GROUP BY rl.id
-        ORDER BY rl.created_at DESC
-    ");
-    $stmt->execute([$aid]);
     $baseUrl = (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? '');
-    $rows = [];
-    foreach ($stmt->fetchAll() as $link) {
-        $target = (int)$link['target_level'] === 1
-            ? getAdvisorPositionLabel($link['position_type'] ?? null, $link['position_label'] ?? null)
-            : ($labels[(int)$link['target_level']] ?? '');
-        $rows[] = [
-            $link['name'] ?? '',
-            $target,
-            $baseUrl . '/join/' . ($link['token'] ?? ''),
-            (int)($link['click_count'] ?? 0),
-            (int)($link['applicant_count'] ?? 0),
-            (int)($link['pending_count'] ?? 0),
-            (int)($link['approved_count'] ?? 0),
-            $link['status'] ?? '',
-            $link['expires_at'] ?? '',
-            $link['created_at'] ?? '',
-        ];
-    }
+    $recruitmentLinkCsvService = new \SenNoKuni\Agency\RecruitmentLinkCsvExportService($db);
+    $rows = $recruitmentLinkCsvService->rows(
+        $aid,
+        $baseUrl,
+        $labels,
+        static fn($positionType, $positionLabel): string => getAdvisorPositionLabel($positionType, $positionLabel)
+    );
     csvOutput('recruitment_links_' . date('Ymd_His') . '.csv', ['募集名','対象','URL','クリック','応募','未承認','承認済','状態','期限','作成日'], $rows);
 }
 
