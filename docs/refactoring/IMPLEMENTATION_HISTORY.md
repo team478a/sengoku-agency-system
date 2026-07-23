@@ -1,5 +1,11 @@
 # Implementation History
 
+## 2026-07-24 Phase 8
+
+- Routed activity CSV exports through the shared Activity query service.
+- Preserved existing CSV endpoint URLs and column order.
+- Kept database schema unchanged.
+
 ## 2026-07-24 Phase 7
 
 - Added Activity foundation class for shared agent/downline activity aggregation.

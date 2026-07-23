@@ -25,6 +25,8 @@ final class ActivityQueryService
         $page = max(1, (int)($criteria['page'] ?? 1));
         $perPage = max(1, (int)($criteria['per_page'] ?? 50));
         $offset = ($page - 1) * $perPage;
+        $allRows = !empty($criteria['all']);
+        $limitSql = $allRows ? '' : "LIMIT $perPage OFFSET $offset";
         $labels = is_array($criteria['labels'] ?? null) ? $criteria['labels'] : [];
         $sort = (string)($criteria['sort'] ?? 'leads');
         $adminMode = !empty($criteria['admin_mode']);
@@ -85,7 +87,7 @@ final class ActivityQueryService
             $joinProject
             $whereSql
             ORDER BY $orderSql
-            LIMIT $perPage OFFSET $offset
+            $limitSql
         ");
         $stmt->execute($params);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];

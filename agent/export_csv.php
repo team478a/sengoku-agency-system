@@ -217,100 +217,23 @@ if ($type === 'downline_activity') {
     $projectId = (int)($_GET['project_id'] ?? 0);
     $sort = sanitizeInput($_GET['sort'] ?? 'leads');
 
-    $accessHasProject = tableHasColumn('access_logs', 'project_id');
-    $leadHasProject = tableHasColumn('leads', 'project_id');
-    $loginLogTableExists = false;
-    try {
-        $loginTableStmt = $db->prepare('SHOW TABLES LIKE ?');
-        $loginTableStmt->execute(['login_logs']);
-        $loginLogTableExists = (bool)$loginTableStmt->fetchColumn();
-    } catch (Throwable $e) {
-        error_log('Downline activity CSV table check failed: ' . $e->getMessage());
-    }
-
-    $dateSql = '';
-    $dateParams = [];
-    if ($period === 'today') {
-        $dateSql = ' AND created_at >= CURDATE()';
-    } elseif ($days !== null) {
-        $dateSql = ' AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)';
-        $dateParams[] = $days;
-    }
-
-    $accessProjectSql = ($accessHasProject && $projectId > 0) ? ' AND project_id=?' : '';
-    $accessProjectParams = ($accessHasProject && $projectId > 0) ? [$projectId] : [];
-    $leadProjectSql = ($leadHasProject && $projectId > 0) ? ' AND project_id=?' : '';
-    $leadProjectParams = ($leadHasProject && $projectId > 0) ? [$projectId] : [];
-
-    $where = ['a.id IN (' . implode(',', array_fill(0, count($descendantIds), '?')) . ')'];
-    $whereParams = $descendantIds;
-    if ($q !== '') {
-        $where[] = '(a.agent_name LIKE ? OR a.person_name LIKE ? OR a.agent_code LIKE ? OR a.email LIKE ? OR a.login_email LIKE ?)';
-        $kw = '%' . $q . '%';
-        array_push($whereParams, $kw, $kw, $kw, $kw, $kw);
-    }
-    if (isset($labels[$level])) {
-        $where[] = 'a.level=?';
-        $whereParams[] = $level;
-    }
-    if (in_array($status, ['active', 'inactive'], true)) {
-        $where[] = 'a.status=?';
-        $whereParams[] = $status;
-    }
-    $whereSql = 'WHERE ' . implode(' AND ', $where);
-
-    $sortMap = [
-        'leads' => 'leads DESC, pv DESC',
-        'pv' => 'pv DESC, leads DESC',
-        'line' => 'line_clicks DESC, pv DESC',
-        'new' => 'new_leads DESC, leads DESC',
-        'cv' => 'conversion DESC, leads DESC',
-        'last_access' => 'last_access DESC',
-        'last_login' => 'last_login DESC',
-        'name' => 'a.agent_name ASC',
-    ];
-    $orderSql = $sortMap[$sort] ?? $sortMap['leads'];
-
-    $pvSub = "SELECT agent_id, COUNT(*) AS pv, MAX(created_at) AS last_access FROM access_logs WHERE type='pv' $accessProjectSql $dateSql GROUP BY agent_id";
-    $lineSub = "SELECT agent_id, COUNT(*) AS line_clicks FROM access_logs WHERE type='line_click' $accessProjectSql $dateSql GROUP BY agent_id";
-    $leadSub = "SELECT agent_id, COUNT(*) AS leads, SUM(status='new') AS new_leads, SUM(status='prospect') AS prospects, SUM(status='won') AS won, MAX(created_at) AS last_lead FROM leads WHERE 1=1 $leadProjectSql $dateSql GROUP BY agent_id";
-    $loginSub = $loginLogTableExists
-        ? "SELECT user_id AS agent_id, MAX(created_at) AS last_login FROM login_logs WHERE user_type='agent' AND success=1 GROUP BY user_id"
-        : "SELECT NULL AS agent_id, NULL AS last_login WHERE 1=0";
-
-    $params = array_merge(
-        $accessProjectParams, $dateParams,
-        $accessProjectParams, $dateParams,
-        $leadProjectParams, $dateParams,
-        $whereParams
-    );
-    $stmt = $db->prepare("
-        SELECT
-            a.*,
-            parent.agent_name AS parent_name,
-            COALESCE(pv.pv, 0) AS pv,
-            COALESCE(lc.line_clicks, 0) AS line_clicks,
-            COALESCE(ld.leads, 0) AS leads,
-            COALESCE(ld.new_leads, 0) AS new_leads,
-            COALESCE(ld.prospects, 0) AS prospects,
-            COALESCE(ld.won, 0) AS won,
-            pv.last_access,
-            ld.last_lead,
-            lg.last_login,
-            CASE WHEN COALESCE(pv.pv,0) > 0 THEN ROUND((COALESCE(ld.leads,0) / COALESCE(pv.pv,0)) * 100, 2) ELSE NULL END AS conversion
-        FROM agents a
-        LEFT JOIN agents parent ON parent.id=a.parent_id
-        LEFT JOIN ($pvSub) pv ON pv.agent_id=a.id
-        LEFT JOIN ($lineSub) lc ON lc.agent_id=a.id
-        LEFT JOIN ($leadSub) ld ON ld.agent_id=a.id
-        LEFT JOIN ($loginSub) lg ON lg.agent_id=a.id
-        $whereSql
-        ORDER BY $orderSql
-    ");
-    $stmt->execute($params);
+    $activityService = new \SenNoKuni\Activity\ActivityQueryService($db);
+    $activityResult = $activityService->search([
+        'admin_mode' => false,
+        'agent_ids' => $descendantIds,
+        'all' => true,
+        'period' => $period,
+        'days' => $days,
+        'project_id' => $projectId,
+        'q' => $q,
+        'level' => $level,
+        'status' => $status,
+        'sort' => $sort,
+        'labels' => $labels,
+    ]);
 
     $rows = [];
-    foreach ($stmt->fetchAll() as $agent) {
+    foreach ($activityResult['rows'] as $agent) {
         $rows[] = [
             $agent['agent_name'] ?? '',
             $labels[(int)($agent['level'] ?? 1)] ?? '',

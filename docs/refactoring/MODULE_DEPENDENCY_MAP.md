@@ -92,6 +92,14 @@ agent/downline_activity.php
   -> includes/shared_bootstrap.php
   -> src/Activity
 
+admin/export_csv.php activity export
+  -> includes/shared_bootstrap.php
+  -> src/Activity
+
+agent/export_csv.php activity export
+  -> includes/shared_bootstrap.php
+  -> src/Activity
+
 admin/integration_outbox.php
   -> includes/shared_bootstrap.php
   -> src/Admin

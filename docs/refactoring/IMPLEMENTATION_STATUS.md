@@ -1,5 +1,27 @@
 # Implementation Status
 
+## v3.6.89 Activity CSV Foundation
+
+Status: in progress
+
+Implemented in this phase:
+
+- Added all-row export support to `ActivityQueryService`.
+- Routed `admin/export_csv.php?type=agent_activity` through `ActivityQueryService`.
+- Routed `agent/export_csv.php?type=downline_activity` through `ActivityQueryService`.
+
+Runtime behavior changed: limited to internal query delegation
+
+Database changed: no
+
+Existing CSV URLs and CSV column order changed: no
+
+Remaining Phase 8 work:
+
+- Extract lead CSV exports into a dedicated Lead export service.
+- Extract sub-agent CSV exports into an Agency export service.
+- Add DB-backed CSV contract tests once local test database configuration is available.
+
 ## v3.6.88 Activity Foundation
 
 Status: in progress
@@ -19,7 +41,6 @@ Existing page URLs, filters, sort options, CSV links, and display labels changed
 
 Remaining Phase 7 work:
 
-- Route activity CSV exports through `ActivityQueryService`.
 - Extract activity dashboard cards into presentation helpers.
 - Add dedicated activity trend and ranking query services.
 - Add DB-backed integration tests once local test database configuration is available.

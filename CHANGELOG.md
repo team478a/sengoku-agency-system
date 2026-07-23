@@ -1,3 +1,8 @@
+## v3.6.89 (2026-07-24)
+- Routed admin agent activity CSV and agent downline activity CSV through the shared Activity foundation service.
+- Added all-row export support to `ActivityQueryService` so activity screens and CSV exports use the same aggregation rules.
+- Kept database schema, CSV URLs, CSV column order, API contracts, and webhook behavior unchanged.
+
 ## v3.6.88 (2026-07-24)
 - Added the Phase 7 Activity foundation module for shared agent/downline activity aggregation.
 - Routed admin agent activity and agent downline activity pages through the shared activity query service while keeping page URLs, filters, sort options, and display output stable.

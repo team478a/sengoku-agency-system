@@ -1,5 +1,13 @@
 # Migration Guide
 
+## v3.6.89
+
+No database migration is required.
+
+Activity CSV exports now use `SenNoKuni\Activity\ActivityQueryService` through `includes/shared_bootstrap.php`.
+
+Existing CSV URLs and CSV column order remain unchanged.
+
 ## v3.6.88
 
 No database migration is required.
