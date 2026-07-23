@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/shared_bootstrap.php';
 
 header('Content-Type: application/json; charset=UTF-8');
 header('Access-Control-Allow-Origin: *');
@@ -31,54 +32,27 @@ function apiSetting(string $key): string {
 
 function apiRequestToken(): string {
     $headers = function_exists('getallheaders') ? getallheaders() : [];
-    $auth = $headers['Authorization'] ?? $headers['authorization'] ?? ($_SERVER['HTTP_AUTHORIZATION'] ?? '');
-    if (preg_match('/Bearer\s+(.+)/i', (string)$auth, $m)) {
-        return trim($m[1]);
+    return apiAuthenticator()->extractRequestKey($headers, $_SERVER, $_GET);
+}
+
+function apiAuthenticator(): \SenNoKuni\Shared\Auth\ApiKeyAuthenticator {
+    static $authenticator = null;
+    if ($authenticator === null) {
+        $authenticator = new \SenNoKuni\Shared\Auth\ApiKeyAuthenticator(
+            getDB(),
+            static fn(string $key, string $default = ''): string => apiSetting($key) !== '' ? apiSetting($key) : $default,
+            static fn(string $table, string $column): bool => function_exists('tableHasColumn') && tableHasColumn($table, $column),
+        );
     }
-    $apiKey = $headers['x-api-key'] ?? $headers['X-API-Key'] ?? $_SERVER['HTTP_X_API_KEY'] ?? '';
-    if (trim((string)$apiKey) !== '') {
-        return trim((string)$apiKey);
-    }
-    return trim((string)($_SERVER['HTTP_X_API_TOKEN'] ?? ($_GET['token'] ?? '')));
+    return $authenticator;
 }
 
 function apiHasConfiguredToken(): bool {
-    if (apiSetting('external_api_token') !== '') {
-        return true;
-    }
-    try {
-        if (!function_exists('tableHasColumn') || !tableHasColumn('external_partner_sites', 'inbound_api_key')) {
-            return false;
-        }
-        $count = (int)getDB()->query("SELECT COUNT(*) FROM external_partner_sites WHERE status='active' AND COALESCE(inbound_api_key, '') <> ''")->fetchColumn();
-        return $count > 0;
-    } catch (Throwable $e) {
-        return false;
-    }
+    return apiAuthenticator()->hasConfiguredKey();
 }
 
 function apiTokenIsValid(string $requestToken): bool {
-    if ($requestToken === '') {
-        return false;
-    }
-    $legacyToken = apiSetting('external_api_token');
-    if ($legacyToken !== '' && hash_equals($legacyToken, $requestToken)) {
-        return true;
-    }
-    try {
-        if (!function_exists('tableHasColumn') || !tableHasColumn('external_partner_sites', 'inbound_api_key')) {
-            return false;
-        }
-        $rows = getDB()->query("SELECT inbound_api_key FROM external_partner_sites WHERE status='active' AND COALESCE(inbound_api_key, '') <> ''")->fetchAll(PDO::FETCH_COLUMN);
-        foreach ($rows as $token) {
-            if (hash_equals((string)$token, $requestToken)) {
-                return true;
-            }
-        }
-    } catch (Throwable $e) {
-        return false;
-    }
-    return false;
+    return apiAuthenticator()->authenticate($requestToken)->authenticated;
 }
 
 function apiAgentPayload(array $agent, array $projects, array $labels, bool $includeContact, bool $includeSso): array {

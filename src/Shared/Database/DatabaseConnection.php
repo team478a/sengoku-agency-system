@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace SenNoKuni\Shared\Database;
 
+use Closure;
 use PDO;
 
 final class DatabaseConnection
 {
     /**
-     * @param callable(): PDO $factory
+     * @param Closure(): PDO $factory
      */
-    public function __construct(private readonly mixed $factory)
+    public function __construct(private readonly Closure $factory)
     {
     }
 
@@ -20,4 +21,3 @@ final class DatabaseConnection
         return ($this->factory)();
     }
 }
-

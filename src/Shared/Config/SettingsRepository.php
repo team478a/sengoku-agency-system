@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace SenNoKuni\Shared\Config;
 
+use Closure;
+
 final class SettingsRepository
 {
     /**
-     * @param callable(string, mixed=): mixed $reader
+     * @param Closure(string, mixed=): mixed $reader
      */
-    public function __construct(private readonly mixed $reader)
+    public function __construct(private readonly Closure $reader)
     {
     }
 
@@ -28,4 +30,3 @@ final class SettingsRepository
         return in_array(strtolower((string) $value), ['1', 'true', 'yes', 'on'], true);
     }
 }
-

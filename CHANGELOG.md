@@ -1,3 +1,8 @@
+## v3.6.83 (2026-07-24)
+- Added the Phase 2 Shared foundation for API key authentication, scope authorization, IP restrictions, schema checks, JSON helpers, HTTP dispatch, logging, and clock access.
+- Routed the existing hierarchy API, agency sync API, and API v2 bootstrap authentication wrappers through the shared API authenticator while keeping legacy function names and API URLs.
+- Added characterization tests for shared scope, IP, and JSON helper behavior.
+
 ## v3.6.82 (2026-07-24)
 - Added the Phase 0/1 modular monolith foundation without changing runtime behavior.
 - Added Composer metadata, PSR-4 autoloading for `SenNoKuni\\`, PHPUnit, PHPStan, syntax lint, and GitHub Actions CI.

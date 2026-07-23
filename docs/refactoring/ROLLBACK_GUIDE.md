@@ -1,5 +1,13 @@
 # Rollback Guide
 
+## v3.6.83
+
+Rollback is file-only:
+
+1. Revert the v3.6.83 commit.
+2. Confirm hierarchy API, agency sync API, and API v2 endpoints authenticate using their legacy inline functions again.
+3. No database rollback is required.
+
 ## v3.6.82
 
 Rollback is file-only:
@@ -7,4 +15,3 @@ Rollback is file-only:
 1. Revert the v3.6.82 commit.
 2. Remove generated `vendor/`, `.phpunit.cache/`, and `.phpstan-cache/` if they exist.
 3. No database rollback is required.
-

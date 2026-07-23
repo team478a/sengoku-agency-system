@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../includes/functions.php';
+require_once __DIR__ . '/../../includes/shared_bootstrap.php';
 
 header('Content-Type: application/json; charset=UTF-8');
 header('Access-Control-Allow-Origin: *');
@@ -50,15 +51,19 @@ function apiV2ReadJson(): array {
 
 function apiV2RequestKey(): string {
     $headers = function_exists('getallheaders') ? getallheaders() : [];
-    $apiKey = $headers['x-api-key'] ?? $headers['X-API-Key'] ?? ($_SERVER['HTTP_X_API_KEY'] ?? '');
-    if (trim((string)$apiKey) !== '') {
-        return trim((string)$apiKey);
+    return apiV2Authenticator()->extractRequestKey($headers, $_SERVER);
+}
+
+function apiV2Authenticator(): \SenNoKuni\Shared\Auth\ApiKeyAuthenticator {
+    static $authenticator = null;
+    if ($authenticator === null) {
+        $authenticator = new \SenNoKuni\Shared\Auth\ApiKeyAuthenticator(
+            getDB(),
+            static fn(string $key, string $default = ''): string => getSystemSettingValue($key, $default),
+            static fn(string $table, string $column): bool => function_exists('tableHasColumn') && tableHasColumn($table, $column),
+        );
     }
-    $auth = $headers['Authorization'] ?? $headers['authorization'] ?? ($_SERVER['HTTP_AUTHORIZATION'] ?? '');
-    if (preg_match('/Bearer\s+(.+)/i', (string)$auth, $m)) {
-        return trim($m[1]);
-    }
-    return '';
+    return $authenticator;
 }
 
 function apiV2Authenticate(): array {
@@ -67,51 +72,27 @@ function apiV2Authenticate(): array {
         apiV2Error('API_KEY_REQUIRED', 'x-api-key or Authorization: Bearer header is required.', 401);
     }
 
-    try {
-        if (tableHasColumn('external_partner_sites', 'inbound_api_key')) {
-            $stmt = getDB()->prepare("
-                SELECT *
-                FROM external_partner_sites
-                WHERE status='active' AND COALESCE(inbound_api_key, '') <> ''
-                ORDER BY id ASC
-            ");
-            $stmt->execute();
-            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $site) {
-                if (hash_equals((string)$site['inbound_api_key'], $key)) {
-                    if (tableHasColumn('external_partner_sites', 'api_key_expires_at') && !empty($site['api_key_expires_at']) && strtotime((string)$site['api_key_expires_at']) <= time()) {
-                        apiV2Error('API_KEY_EXPIRED', 'API key is expired.', 401);
-                    }
-                    if (tableHasColumn('external_partner_sites', 'inbound_ip_allowlist') && trim((string)($site['inbound_ip_allowlist'] ?? '')) !== '') {
-                        $remoteIp = trim((string)($_SERVER['REMOTE_ADDR'] ?? ''));
-                        $allowed = array_filter(array_map('trim', preg_split('/[\r\n,]+/', (string)$site['inbound_ip_allowlist'])));
-                        if ($remoteIp === '' || !in_array($remoteIp, $allowed, true)) {
-                            apiV2Error('IP_NOT_ALLOWED', 'This IP address is not allowed for the API key.', 403);
-                        }
-                    }
-                    return [
-                        'auth_type' => 'partner_inbound_key',
-                        'site_key' => (string)($site['site_key'] ?? ''),
-                        'site_name' => (string)($site['name'] ?? ''),
-                        'partner' => $site,
-                    ];
-                }
-            }
-        }
-
-        $legacy = trim(getSystemSettingValue('external_api_token', ''));
-        if ($legacy !== '' && hash_equals($legacy, $key)) {
-            return [
-                'auth_type' => 'legacy_external_api_token',
-                'site_key' => 'legacy',
-                'site_name' => 'legacy',
-                'partner' => null,
-            ];
-        }
-    } catch (Throwable $e) {
-        apiV2Error('AUTH_CHECK_FAILED', 'Failed to verify API key.', 500);
+    $result = apiV2Authenticator()->authenticate($key, trim((string)($_SERVER['REMOTE_ADDR'] ?? '')), true);
+    if (!$result->authenticated) {
+        apiV2Error($result->errorCode, $result->message, $result->statusCode);
     }
 
-    apiV2Error('INVALID_API_KEY', 'API key is invalid.', 401);
+    $partner = $result->partner;
+    if (is_array($partner)) {
+        return [
+            'auth_type' => $result->authType,
+            'site_key' => (string)($partner['site_key'] ?? ''),
+            'site_name' => (string)($partner['name'] ?? ''),
+            'partner' => $partner,
+        ];
+    }
+
+    return [
+        'auth_type' => $result->authType,
+        'site_key' => 'legacy',
+        'site_name' => 'legacy',
+        'partner' => null,
+    ];
 }
 
 function apiV2RequireScope(array $auth, string $scope): void {
@@ -119,12 +100,7 @@ function apiV2RequireScope(array $auth, string $scope): void {
     if (!is_array($partner) || !tableHasColumn('external_partner_sites', 'inbound_scopes')) {
         return;
     }
-    $raw = trim((string)($partner['inbound_scopes'] ?? ''));
-    if ($raw === '') {
-        return;
-    }
-    $scopes = array_filter(array_map('trim', preg_split('/[\s,]+/', $raw)));
-    if (!in_array($scope, $scopes, true) && !in_array('*', $scopes, true)) {
+    if (!(new \SenNoKuni\Shared\Auth\ApiScopeAuthorizer())->isAllowed($partner, $scope)) {
         apiV2Error('SCOPE_FORBIDDEN', 'API key does not have the required scope: ' . $scope, 403);
     }
 }

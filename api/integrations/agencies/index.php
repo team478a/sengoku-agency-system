@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../../config/database.php';
 require_once __DIR__ . '/../../../includes/functions.php';
+require_once __DIR__ . '/../../../includes/shared_bootstrap.php';
 require_once __DIR__ . '/../../../includes/mailer.php';
 
 header('Content-Type: application/json; charset=UTF-8');
@@ -39,74 +40,35 @@ function agencyApiSetting(string $key): string
 function agencyApiKey(): string
 {
     $headers = function_exists('getallheaders') ? getallheaders() : [];
-    $apiKey = $headers['x-api-key'] ?? $headers['X-API-Key'] ?? $_SERVER['HTTP_X_API_KEY'] ?? '';
-    if (trim((string)$apiKey) !== '') {
-        return trim((string)$apiKey);
+    return agencyApiAuthenticator()->extractRequestKey($headers, $_SERVER);
+}
+
+function agencyApiAuthenticator(): \SenNoKuni\Shared\Auth\ApiKeyAuthenticator
+{
+    static $authenticator = null;
+    if ($authenticator === null) {
+        $authenticator = new \SenNoKuni\Shared\Auth\ApiKeyAuthenticator(
+            getDB(),
+            static fn(string $key, string $default = ''): string => agencyApiSetting($key) !== '' ? agencyApiSetting($key) : $default,
+            static fn(string $table, string $column): bool => function_exists('tableHasColumn') && tableHasColumn($table, $column),
+        );
     }
-    $auth = $headers['Authorization'] ?? $headers['authorization'] ?? ($_SERVER['HTTP_AUTHORIZATION'] ?? '');
-    if (preg_match('/Bearer\s+(.+)/i', (string)$auth, $m)) {
-        return trim($m[1]);
-    }
-    return '';
+    return $authenticator;
 }
 
 function agencyApiHasConfiguredKey(): bool
 {
-    if (agencyApiSetting('external_api_token') !== '') {
-        return true;
-    }
-    try {
-        if (!function_exists('tableHasColumn') || !tableHasColumn('external_partner_sites', 'inbound_api_key')) {
-            return false;
-        }
-        $count = (int)getDB()->query("SELECT COUNT(*) FROM external_partner_sites WHERE status='active' AND COALESCE(inbound_api_key, '') <> ''")->fetchColumn();
-        return $count > 0;
-    } catch (Throwable $e) {
-        return false;
-    }
+    return agencyApiAuthenticator()->hasConfiguredKey();
 }
 
 function agencyApiKeyIsValid(string $requestKey): bool
 {
-    if ($requestKey === '') {
-        return false;
-    }
-    $legacyKey = agencyApiSetting('external_api_token');
-    if ($legacyKey !== '' && hash_equals($legacyKey, $requestKey)) {
-        return true;
-    }
-    try {
-        if (!function_exists('tableHasColumn') || !tableHasColumn('external_partner_sites', 'inbound_api_key')) {
-            return false;
-        }
-        $rows = getDB()->query("SELECT inbound_api_key FROM external_partner_sites WHERE status='active' AND COALESCE(inbound_api_key, '') <> ''")->fetchAll(PDO::FETCH_COLUMN);
-        foreach ($rows as $key) {
-            if (hash_equals((string)$key, $requestKey)) {
-                return true;
-            }
-        }
-    } catch (Throwable $e) {
-        return false;
-    }
-    return false;
+    return agencyApiAuthenticator()->authenticate($requestKey)->authenticated;
 }
 
 function agencyApiPartnerByKey(string $requestKey): ?array
 {
-    if ($requestKey === '' || !function_exists('tableHasColumn') || !tableHasColumn('external_partner_sites', 'inbound_api_key')) {
-        return null;
-    }
-    try {
-        $rows = getDB()->query("SELECT * FROM external_partner_sites WHERE status='active' AND COALESCE(inbound_api_key, '') <> ''")->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($rows as $row) {
-            if (hash_equals((string)$row['inbound_api_key'], $requestKey)) {
-                return $row;
-            }
-        }
-    } catch (Throwable $e) {
-        return null;
-    }
-    return null;
+    return agencyApiAuthenticator()->partnerByKey($requestKey);
 }
 
 function agencyApiRequireScope(?array $partner, string $scope): void
@@ -114,12 +76,7 @@ function agencyApiRequireScope(?array $partner, string $scope): void
     if (!$partner || !function_exists('tableHasColumn') || !tableHasColumn('external_partner_sites', 'inbound_scopes')) {
         return;
     }
-    $raw = trim((string)($partner['inbound_scopes'] ?? ''));
-    if ($raw === '') {
-        return;
-    }
-    $scopes = array_filter(array_map('trim', preg_split('/[\s,]+/', $raw)));
-    if (!in_array($scope, $scopes, true) && !in_array('*', $scopes, true)) {
+    if (!(new \SenNoKuni\Shared\Auth\ApiScopeAuthorizer())->isAllowed($partner, $scope)) {
         agencyApiError('SCOPE_FORBIDDEN', 'API key does not have the required scope: ' . $scope, 403);
     }
 }

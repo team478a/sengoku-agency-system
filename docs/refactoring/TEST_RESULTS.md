@@ -1,5 +1,20 @@
 # Test Results
 
+## v3.6.83
+
+Completed checks:
+
+- `php scripts/lint-php.php`: passed
+
+Planned CI checks:
+
+- `composer test`
+- `composer analyse`
+
+Local limitation:
+
+- Composer is not installed in the current Windows environment.
+
 ## v3.6.82
 
 Planned checks:
@@ -11,4 +26,3 @@ Planned checks:
 Local limitation:
 
 - Composer is not installed in the current Windows environment, so PHPUnit and PHPStan are expected to run in GitHub Actions after dependencies are installed.
-
