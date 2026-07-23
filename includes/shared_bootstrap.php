@@ -17,6 +17,10 @@ $sharedFiles = [
     __DIR__ . '/../src/Shared/Http/JsonResponse.php',
     __DIR__ . '/../src/Shared/Log/Logger.php',
     __DIR__ . '/../src/Shared/Time/Clock.php',
+    __DIR__ . '/../src/Integration/Outbox/RetryPolicy.php',
+    __DIR__ . '/../src/Integration/Outbox/OutboxClaimService.php',
+    __DIR__ . '/../src/Integration/Outbox/OutboxRepository.php',
+    __DIR__ . '/../src/Integration/Outbox/DeadLetterService.php',
 ];
 
 foreach ($sharedFiles as $sharedFile) {

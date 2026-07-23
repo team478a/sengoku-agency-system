@@ -1,5 +1,11 @@
 # Implementation History
 
+## 2026-07-24 Phase 3
+
+- Added Outbox module classes for claim locking, retry policy, retry state updates, and DLQ operations.
+- Preserved legacy function names so existing admin and cron screens continue to call the same functions.
+- Kept database schema unchanged.
+
 ## 2026-07-24 Phase 2
 
 - Added shared API authentication and authorization modules.

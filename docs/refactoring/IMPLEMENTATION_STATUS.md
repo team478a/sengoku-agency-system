@@ -1,5 +1,32 @@
 # Implementation Status
 
+## v3.6.84 Integration / Outbox Foundation
+
+Status: in progress
+
+Implemented in this phase:
+
+- Added `src/Integration/Outbox` classes:
+  - `RetryPolicy`
+  - `OutboxClaimService`
+  - `OutboxRepository`
+  - `DeadLetterService`
+- Kept existing compatibility functions and routed them through the new services:
+  - `integrationOutboxSupportsClaims`
+  - `getIntegrationOutboxClaimTimeoutSeconds`
+  - `recoverStaleIntegrationOutboxClaims`
+  - `claimIntegrationOutboxEventById`
+  - `claimDueIntegrationOutboxEvents`
+  - `updateIntegrationOutboxEventAfterAttempt`
+  - `resetIntegrationOutboxEventForRetry`
+  - `moveIntegrationOutboxEventToDlq`
+
+Runtime behavior changed: limited to Outbox internal delegation
+
+Database changed: no
+
+Existing admin/cron/API entrypoints changed: no
+
 ## v3.6.83 Shared Foundation
 
 Status: in progress

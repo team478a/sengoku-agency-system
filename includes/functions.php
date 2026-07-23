@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/shared_bootstrap.php';
 
 // =============================
 // 繧ｻ繝・す繝ｧ繝ｳ繝ｻ隱崎ｨｼ
@@ -2430,196 +2431,71 @@ function getIntegrationOutboxStatusLabels(): array {
 }
 
 function integrationOutboxSupportsClaims(): bool {
-    return tableHasColumn('integration_outbox_events', 'claim_token')
-        && tableHasColumn('integration_outbox_events', 'claimed_at')
-        && tableHasColumn('integration_outbox_events', 'claim_expires_at')
-        && tableHasColumn('integration_outbox_events', 'worker_id');
+    return integrationOutboxClaimService()->supportsClaims();
 }
 
 function getIntegrationOutboxClaimTimeoutSeconds(): int {
-    $seconds = (int)getSystemSettingValue('external_partner_outbox_claim_timeout_seconds', '300');
-    return min(3600, max(60, $seconds));
+    return integrationOutboxClaimService()->timeoutSeconds();
+}
+
+function integrationOutboxClaimService(): \SenNoKuni\Integration\Outbox\OutboxClaimService {
+    static $service = null;
+    if ($service === null) {
+        $service = new \SenNoKuni\Integration\Outbox\OutboxClaimService(
+            getDB(),
+            static fn(string $table, string $column): bool => tableHasColumn($table, $column),
+            static fn(string $key, string $default = ''): string => getSystemSettingValue($key, $default),
+        );
+    }
+    return $service;
+}
+
+function integrationOutboxRepository(): \SenNoKuni\Integration\Outbox\OutboxRepository {
+    static $repository = null;
+    if ($repository === null) {
+        $repository = new \SenNoKuni\Integration\Outbox\OutboxRepository(
+            getDB(),
+            integrationOutboxClaimService(),
+            new \SenNoKuni\Integration\Outbox\RetryPolicy(),
+        );
+    }
+    return $repository;
+}
+
+function integrationOutboxDeadLetterService(): \SenNoKuni\Integration\Outbox\DeadLetterService {
+    static $service = null;
+    if ($service === null) {
+        $service = new \SenNoKuni\Integration\Outbox\DeadLetterService(
+            getDB(),
+            integrationOutboxClaimService(),
+        );
+    }
+    return $service;
 }
 
 function recoverStaleIntegrationOutboxClaims(): int {
-    if (!integrationOutboxSupportsClaims()) {
-        return 0;
-    }
-    $stmt = getDB()->prepare("
-        UPDATE integration_outbox_events
-        SET status='failed',
-            claim_token=NULL,
-            claimed_at=NULL,
-            claim_expires_at=NULL,
-            worker_id=NULL,
-            next_attempt_at=NOW(),
-            last_error=CASE
-                WHEN last_error IS NULL OR last_error = '' THEN 'Outbox worker claim expired.'
-                ELSE CONCAT(last_error, '\nOutbox worker claim expired.')
-            END,
-            updated_at=NOW()
-        WHERE status='processing'
-          AND claim_expires_at IS NOT NULL
-          AND claim_expires_at < NOW()
-    ");
-    $stmt->execute();
-    return $stmt->rowCount();
+    return integrationOutboxClaimService()->recoverStaleClaims();
 }
 
 function claimIntegrationOutboxEventById(int $id, string $workerId = ''): ?array {
     if ($id <= 0 || empty(tableColumns('integration_outbox_events'))) {
         return null;
     }
-    if (!integrationOutboxSupportsClaims()) {
-        $stmt = getDB()->prepare("SELECT * FROM integration_outbox_events WHERE id=? LIMIT 1");
-        $stmt->execute([$id]);
-        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
-    }
-
-    recoverStaleIntegrationOutboxClaims();
-    $workerId = trim($workerId) ?: ('manual-' . getmypid());
-    $claimToken = 'clm_' . bin2hex(random_bytes(24));
-    $timeout = getIntegrationOutboxClaimTimeoutSeconds();
-    $stmt = getDB()->prepare("
-        UPDATE integration_outbox_events
-        SET status='processing',
-            claim_token=?,
-            claimed_at=NOW(),
-            claim_expires_at=DATE_ADD(NOW(), INTERVAL {$timeout} SECOND),
-            worker_id=?,
-            updated_at=NOW()
-        WHERE id=?
-          AND status IN ('pending','failed','dlq')
-          AND (claim_token IS NULL OR claim_expires_at IS NULL OR claim_expires_at < NOW())
-    ");
-    $stmt->execute([$claimToken, $workerId, $id]);
-    if ($stmt->rowCount() !== 1) {
-        return null;
-    }
-
-    $stmt = getDB()->prepare("SELECT * FROM integration_outbox_events WHERE id=? AND claim_token=? LIMIT 1");
-    $stmt->execute([$id, $claimToken]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$row) {
-        return null;
-    }
-    $row['_runtime_claim_token'] = $claimToken;
-    return $row;
+    return integrationOutboxClaimService()->claimById($id, $workerId);
 }
 
 function claimDueIntegrationOutboxEvents(string $siteKey = '', int $limit = 10, bool $includeDlq = false, string $workerId = ''): array {
     if (empty(tableColumns('integration_outbox_events')) || !integrationOutboxSupportsClaims()) {
         return [];
     }
-
-    recoverStaleIntegrationOutboxClaims();
-    $limit = min(50, max(1, $limit));
-    $statuses = $includeDlq ? "'pending','failed','dlq'" : "'pending','failed'";
-    $where = "status IN ($statuses) AND (next_attempt_at IS NULL OR next_attempt_at <= NOW() OR status='dlq')";
-    $params = [];
-    $siteKey = trim($siteKey);
-    if ($siteKey !== '') {
-        $where .= " AND target_site_key=?";
-        $params[] = $siteKey;
-    }
-
-    $stmt = getDB()->prepare("
-        SELECT id
-        FROM integration_outbox_events
-        WHERE $where
-          AND (claim_token IS NULL OR claim_expires_at IS NULL OR claim_expires_at < NOW())
-        ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'failed' THEN 1 ELSE 2 END,
-                 COALESCE(next_attempt_at, created_at) ASC,
-                 id ASC
-        LIMIT $limit
-    ");
-    $stmt->execute($params);
-    $ids = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
-
-    $claimed = [];
-    $workerId = trim($workerId) ?: ('cron-' . getmypid());
-    foreach ($ids as $id) {
-        $row = claimIntegrationOutboxEventById($id, $workerId);
-        if ($row) {
-            $claimed[] = $row;
-        }
-    }
-    return $claimed;
+    return integrationOutboxRepository()->claimDue($siteKey, $limit, $includeDlq, $workerId);
 }
 
 function updateIntegrationOutboxEventAfterAttempt(array $event, array $result): void {
     if (empty(tableColumns('integration_outbox_events'))) {
         return;
     }
-    $db = getDB();
-    $id = (int)($event['id'] ?? 0);
-    if ($id <= 0) {
-        return;
-    }
-
-    $hasClaim = integrationOutboxSupportsClaims();
-    $claimToken = trim((string)($event['_runtime_claim_token'] ?? $event['claim_token'] ?? ''));
-    $claimWhere = ($hasClaim && $claimToken !== '') ? ' AND claim_token=?' : '';
-    $claimParams = ($hasClaim && $claimToken !== '') ? [$claimToken] : [];
-    $claimClearSql = $hasClaim ? ",
-                claim_token=NULL,
-                claimed_at=NULL,
-                claim_expires_at=NULL,
-                worker_id=NULL" : '';
-    $attemptsAfter = (int)($event['attempt_count'] ?? 0) + 1;
-    $maxAttempts = max(1, (int)($event['max_attempts'] ?? 8));
-    $ok = !empty($result['ok']);
-    $error = trim((string)($result['error'] ?? ''));
-    if ($error === '' && !$ok) {
-        $error = 'HTTP ' . (int)($result['status'] ?? 0);
-    }
-
-    if ($ok) {
-        $stmt = $db->prepare("
-            UPDATE integration_outbox_events
-            SET status='succeeded',
-                attempt_count=?,
-                last_attempt_at=NOW(),
-                next_attempt_at=NULL,
-                last_error=NULL,
-                processed_at=NOW(),
-                updated_at=NOW()
-                $claimClearSql
-            WHERE id=?$claimWhere
-        ");
-        $stmt->execute(array_merge([$attemptsAfter, $id], $claimParams));
-        return;
-    }
-
-    if ($attemptsAfter >= $maxAttempts) {
-        $stmt = $db->prepare("
-            UPDATE integration_outbox_events
-            SET status='dlq',
-                attempt_count=?,
-                last_attempt_at=NOW(),
-                next_attempt_at=NULL,
-                last_error=?,
-                updated_at=NOW()
-                $claimClearSql
-            WHERE id=?$claimWhere
-        ");
-        $stmt->execute(array_merge([$attemptsAfter, $error, $id], $claimParams));
-        return;
-    }
-
-    $delayMinutes = min(1440, max(5, (int)(5 * (2 ** min(8, max(0, $attemptsAfter - 1))))));
-    $stmt = $db->prepare("
-        UPDATE integration_outbox_events
-        SET status='failed',
-            attempt_count=?,
-            last_attempt_at=NOW(),
-            next_attempt_at=DATE_ADD(NOW(), INTERVAL {$delayMinutes} MINUTE),
-            last_error=?,
-            updated_at=NOW()
-            $claimClearSql
-        WHERE id=?$claimWhere
-    ");
-    $stmt->execute(array_merge([$attemptsAfter, $error, $id], $claimParams));
+    integrationOutboxRepository()->updateAfterAttempt($event, $result);
 }
 
 function retryIntegrationOutboxEventRow(array $event): array {
@@ -2785,43 +2661,14 @@ function resetIntegrationOutboxEventForRetry(int $id): void {
     if ($id <= 0 || empty(tableColumns('integration_outbox_events'))) {
         return;
     }
-    $claimClearSql = integrationOutboxSupportsClaims() ? "
-            claim_token=NULL,
-            claimed_at=NULL,
-            claim_expires_at=NULL,
-            worker_id=NULL," : '';
-    $stmt = getDB()->prepare("
-        UPDATE integration_outbox_events
-        SET status='failed',
-            next_attempt_at=NOW(),
-            last_error=NULL,
-            processed_at=NULL,
-            $claimClearSql
-            updated_at=NOW()
-        WHERE id=?
-    ");
-    $stmt->execute([$id]);
+    integrationOutboxDeadLetterService()->resetForRetry($id);
 }
 
 function moveIntegrationOutboxEventToDlq(int $id, string $reason = ''): void {
     if ($id <= 0 || empty(tableColumns('integration_outbox_events'))) {
         return;
     }
-    $claimClearSql = integrationOutboxSupportsClaims() ? "
-            claim_token=NULL,
-            claimed_at=NULL,
-            claim_expires_at=NULL,
-            worker_id=NULL," : '';
-    $stmt = getDB()->prepare("
-        UPDATE integration_outbox_events
-        SET status='dlq',
-            next_attempt_at=NULL,
-            $claimClearSql
-            last_error=?,
-            updated_at=NOW()
-        WHERE id=?
-    ");
-    $stmt->execute([$reason !== '' ? $reason : 'Moved to DLQ manually.', $id]);
+    integrationOutboxDeadLetterService()->moveToDeadLetter($id, $reason);
 }
 
 function dispatchExternalPartnerEvent(string $eventType, array $payload, array $options = []): array {

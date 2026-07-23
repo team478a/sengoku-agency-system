@@ -15,6 +15,13 @@ src/Shared
   -> Log
   -> Time
 
+src/Integration/Outbox
+  -> Shared/Database through PDO
+  -> RetryPolicy
+  -> OutboxClaimService
+  -> OutboxRepository
+  -> DeadLetterService
+
 api/v2/bootstrap.php
   -> includes/shared_bootstrap.php
   -> src/Shared/Auth
@@ -26,6 +33,10 @@ api/hierarchy.php
 api/integrations/agencies/index.php
   -> includes/shared_bootstrap.php
   -> src/Shared/Auth
+
+includes/functions.php Outbox compatibility wrappers
+  -> includes/shared_bootstrap.php
+  -> src/Integration/Outbox
 ```
 
 ## Rule

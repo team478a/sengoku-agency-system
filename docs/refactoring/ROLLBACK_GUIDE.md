@@ -1,5 +1,13 @@
 # Rollback Guide
 
+## v3.6.84
+
+Rollback is file-only:
+
+1. Revert the v3.6.84 commit.
+2. Confirm `admin/integration_outbox.php` and `cron/external_integration_retry.php` call the previous inline Outbox functions.
+3. No database rollback is required.
+
 ## v3.6.83
 
 Rollback is file-only:

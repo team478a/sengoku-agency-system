@@ -1,3 +1,8 @@
+## v3.6.84 (2026-07-24)
+- Added the Phase 3 Integration / Outbox foundation modules for claim handling, retry policy, repository updates, and DLQ operations.
+- Routed existing Outbox compatibility functions through the new Outbox services while keeping admin and cron call sites stable.
+- Added characterization tests for the existing Outbox retry backoff and DLQ threshold contract.
+
 ## v3.6.83 (2026-07-24)
 - Added the Phase 2 Shared foundation for API key authentication, scope authorization, IP restrictions, schema checks, JSON helpers, HTTP dispatch, logging, and clock access.
 - Routed the existing hierarchy API, agency sync API, and API v2 bootstrap authentication wrappers through the shared API authenticator while keeping legacy function names and API URLs.

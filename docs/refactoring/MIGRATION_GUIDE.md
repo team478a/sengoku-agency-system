@@ -1,5 +1,19 @@
 # Migration Guide
 
+## v3.6.84
+
+No database migration is required.
+
+Outbox internals now load `src/Integration/Outbox` classes through `includes/shared_bootstrap.php`.
+
+The following existing functions remain available as compatibility wrappers:
+
+- `retryDueIntegrationOutboxEvents`
+- `retryIntegrationOutboxEventRow`
+- `recoverStaleIntegrationOutboxClaims`
+- `resetIntegrationOutboxEventForRetry`
+- `moveIntegrationOutboxEventToDlq`
+
 ## v3.6.83
 
 No database migration is required.

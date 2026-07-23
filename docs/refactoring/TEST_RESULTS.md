@@ -1,5 +1,21 @@
 # Test Results
 
+## v3.6.84
+
+Completed checks:
+
+- `php scripts/lint-php.php`: passed
+
+Not run locally:
+
+- Direct `includes/functions.php` bootstrap smoke check because protected `config/database.php` is intentionally absent from the local repository.
+- `composer test`
+- `composer analyse`
+
+Local limitation:
+
+- Composer is not installed in the current Windows environment.
+
 ## v3.6.83
 
 Completed checks:
