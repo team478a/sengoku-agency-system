@@ -25,6 +25,10 @@ $sharedFiles = [
     __DIR__ . '/../src/CommonIdentity/CommonUserInputNormalizer.php',
     __DIR__ . '/../src/Referral/ReferralTokenResolver.php',
     __DIR__ . '/../src/Referral/TouchpointFingerprint.php',
+    __DIR__ . '/../src/Admin/AdminDateFormatter.php',
+    __DIR__ . '/../src/Admin/AdminTextFormatter.php',
+    __DIR__ . '/../src/Admin/AdminBadgeRenderer.php',
+    __DIR__ . '/../src/Admin/OperationsQueryService.php',
 ];
 
 foreach ($sharedFiles as $sharedFile) {

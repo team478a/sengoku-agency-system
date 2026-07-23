@@ -1,5 +1,31 @@
 # Implementation Status
 
+## v3.6.86 Admin Foundation
+
+Status: in progress
+
+Implemented in this phase:
+
+- Added `src/Admin` classes:
+  - `AdminDateFormatter`
+  - `AdminTextFormatter`
+  - `AdminBadgeRenderer`
+  - `OperationsQueryService`
+- Routed `admin/integration_outbox.php` display helpers through shared admin classes.
+- Routed `admin/operations.php` safe query helpers and display helpers through shared admin classes.
+
+Runtime behavior changed: limited to internal delegation
+
+Database changed: no
+
+Existing admin page URLs changed: no
+
+Remaining Phase 5 work:
+
+- Move full POST handling into controller/application services.
+- Move full dashboard SQL into query services.
+- Extract templates for the target admin screens.
+
 ## v3.6.85 CommonIdentity / Referral Foundation
 
 Status: in progress

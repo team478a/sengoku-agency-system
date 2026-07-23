@@ -1,5 +1,13 @@
 # Migration Guide
 
+## v3.6.86
+
+No database migration is required.
+
+The Outbox and operations admin screens now load shared admin helper classes through `includes/shared_bootstrap.php`.
+
+Existing page URLs, form action names, and query parameters remain unchanged.
+
 ## v3.6.85
 
 No database migration is required.

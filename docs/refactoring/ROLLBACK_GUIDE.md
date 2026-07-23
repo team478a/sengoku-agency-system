@@ -1,5 +1,13 @@
 # Rollback Guide
 
+## v3.6.86
+
+Rollback is file-only:
+
+1. Revert the v3.6.86 commit.
+2. Confirm `admin/integration_outbox.php` and `admin/operations.php` use their previous inline helper logic again.
+3. No database rollback is required.
+
 ## v3.6.85
 
 Rollback is file-only:

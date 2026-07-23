@@ -1,3 +1,8 @@
+## v3.6.86 (2026-07-24)
+- Added the Phase 5 Admin foundation modules for shared date formatting, text shortening, badge rendering, and operations dashboard queries.
+- Routed the Outbox and operations admin screens through the new admin foundation classes while keeping current page URLs and helper names stable.
+- Added characterization tests for the admin formatting and badge rendering contracts.
+
 ## v3.6.85 (2026-07-24)
 - Added the Phase 4 CommonIdentity / Referral foundation modules for common user input normalization, referral token resolution, and touchpoint fingerprinting.
 - Routed existing common user and referral API code through the new foundation classes while preserving current endpoint URLs and response contracts.

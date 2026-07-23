@@ -30,6 +30,12 @@ src/Referral
   -> ReferralTokenResolver
   -> TouchpointFingerprint
 
+src/Admin
+  -> AdminDateFormatter
+  -> AdminTextFormatter
+  -> AdminBadgeRenderer
+  -> OperationsQueryService
+
 api/v2/bootstrap.php
   -> includes/shared_bootstrap.php
   -> src/Shared/Auth
@@ -58,6 +64,14 @@ includes/functions.php Outbox compatibility wrappers
 includes/functions.php referral compatibility wrappers
   -> includes/shared_bootstrap.php
   -> src/Referral
+
+admin/integration_outbox.php
+  -> includes/shared_bootstrap.php
+  -> src/Admin
+
+admin/operations.php
+  -> includes/shared_bootstrap.php
+  -> src/Admin
 ```
 
 ## Rule

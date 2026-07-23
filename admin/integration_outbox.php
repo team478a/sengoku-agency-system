@@ -10,29 +10,39 @@ $message = '';
 $error = '';
 
 function outboxDate(?string $value): string {
-    if (!$value) return '-';
-    $ts = strtotime($value);
-    return $ts ? date('Y/m/d H:i', $ts) : '-';
+    return adminDateFormatter()->minute($value);
 }
 
 function outboxStatusBadge(string $status): string {
-    $labels = getIntegrationOutboxStatusLabels();
-    $label = $labels[$status] ?? $status;
-    $class = 'badge-new';
-    if ($status === 'processing') $class = 'badge-contacted';
-    if ($status === 'succeeded') $class = 'badge-active';
-    if ($status === 'failed') $class = 'badge-contacted';
-    if ($status === 'dlq') $class = 'badge-inactive';
-    return '<span class="badge ' . h($class) . '">' . h($label) . '</span>';
+    return adminBadgeRenderer()->outboxStatus($status, getIntegrationOutboxStatusLabels());
 }
 
 function outboxShort(?string $value, int $length = 120): string {
-    $value = trim((string)$value);
-    if ($value === '') return '-';
-    if (function_exists('mb_strlen') && mb_strlen($value, 'UTF-8') > $length) {
-        return mb_substr($value, 0, $length, 'UTF-8') . '...';
+    return adminTextFormatter()->short($value, $length);
+}
+
+function adminDateFormatter(): \SenNoKuni\Admin\AdminDateFormatter {
+    static $formatter = null;
+    if ($formatter === null) {
+        $formatter = new \SenNoKuni\Admin\AdminDateFormatter();
     }
-    return strlen($value) > $length ? substr($value, 0, $length) . '...' : $value;
+    return $formatter;
+}
+
+function adminTextFormatter(): \SenNoKuni\Admin\AdminTextFormatter {
+    static $formatter = null;
+    if ($formatter === null) {
+        $formatter = new \SenNoKuni\Admin\AdminTextFormatter();
+    }
+    return $formatter;
+}
+
+function adminBadgeRenderer(): \SenNoKuni\Admin\AdminBadgeRenderer {
+    static $renderer = null;
+    if ($renderer === null) {
+        $renderer = new \SenNoKuni\Admin\AdminBadgeRenderer();
+    }
+    return $renderer;
 }
 
 if ($hasOutbox && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {

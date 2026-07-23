@@ -1,5 +1,20 @@
 # Test Results
 
+## v3.6.86
+
+Completed checks:
+
+- `php scripts/lint-php.php`: passed
+
+Not run locally:
+
+- `composer test`
+- `composer analyse`
+
+Local limitation:
+
+- Composer is not installed in the current Windows environment.
+
 ## v3.6.85
 
 Completed checks:
