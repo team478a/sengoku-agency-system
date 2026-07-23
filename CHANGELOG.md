@@ -1,3 +1,8 @@
+## v3.6.91 (2026-07-24)
+- Added the Phase 10 Agency CSV foundation service for sub-agent export row generation.
+- Routed `agent/export_csv.php?type=sub_agents` through `SubAgentCsvExportService` while keeping CSV URL and column order stable.
+- Kept database schema, API contracts, webhook behavior, and sub-agent management screens unchanged.
+
 ## v3.6.90 (2026-07-24)
 - Added the Phase 9 Lead CSV foundation service for shared inquiry export row generation.
 - Routed admin lead CSV and agent lead CSV exports through `LeadCsvExportService` while keeping CSV URLs and column order stable.

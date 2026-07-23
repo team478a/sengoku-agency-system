@@ -1,5 +1,13 @@
 # Rollback Guide
 
+## v3.6.91
+
+Rollback is file-only:
+
+1. Revert the v3.6.91 commit.
+2. Confirm sub-agent CSV exports use their previous inline SQL again.
+3. No database rollback is required.
+
 ## v3.6.90
 
 Rollback is file-only:

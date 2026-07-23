@@ -1,5 +1,15 @@
 # Migration Guide
 
+## v3.6.91
+
+No database migration is required.
+
+Sub-agent CSV exports now use `SenNoKuni\Agency\SubAgentCsvExportService` through `includes/shared_bootstrap.php`.
+
+Existing CSV URL and CSV column order remain unchanged:
+
+- `agent/export_csv.php?type=sub_agents`
+
 ## v3.6.90
 
 No database migration is required.

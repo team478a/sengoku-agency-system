@@ -50,6 +50,9 @@ src/Activity
 src/Lead
   -> LeadCsvExportService
 
+src/Agency
+  -> SubAgentCsvExportService
+
 api/v2/bootstrap.php
   -> includes/shared_bootstrap.php
   -> src/Shared/Auth
@@ -111,6 +114,10 @@ agent/export_csv.php lead export
   -> includes/shared_bootstrap.php
   -> src/Lead
 
+agent/export_csv.php sub-agent export
+  -> includes/shared_bootstrap.php
+  -> src/Agency
+
 admin/integration_outbox.php
   -> includes/shared_bootstrap.php
   -> src/Admin
@@ -143,3 +150,19 @@ Notes:
 - CSV response formatting remains in the entrypoint files.
 - Lead query and row generation logic now lives in `src/Lead`.
 - No dependency is introduced from `src/Lead` back to admin or agent entrypoints.
+
+## Agency CSV Foundation
+
+New dependency direction:
+
+```text
+agent/export_csv.php sub-agent export
+  -> SubAgentCsvExportService
+  -> PDO
+```
+
+Notes:
+
+- CSV response formatting remains in `agent/export_csv.php`.
+- Sub-agent query and row generation logic now lives in `src/Agency`.
+- No dependency is introduced from `src/Agency` back to agent entrypoints.

@@ -63,54 +63,8 @@ if ($type === 'leads') {
 
 if ($type === 'sub_agents') {
     $mode = $_GET['mode'] ?? ($myLv >= 3 ? 'directors' : 'advisors');
-    if ($myLv < 3 || !in_array($mode, ['directors', 'advisors', 'all_advisors'], true)) {
-        $mode = 'advisors';
-    }
-    $managedLevel = ($myLv >= 3 && $mode === 'directors') ? 2 : 1;
-    if ($mode === 'all_advisors') {
-        $descIds = array_values(array_filter($visibleAgentIds, static fn($id) => $id !== $GLOBALS['aid']));
-        if (!$descIds) {
-            csvOutput('sub_agents_' . date('Ymd_His') . '.csv', ['区分','コード','名称','担当者','メール','電話','上位','PV','問い合わせ','状態','登録日'], []);
-        }
-        $descPh = implode(',', array_fill(0, count($descIds), '?'));
-        $stmt = $db->prepare("
-            SELECT a.*, p.agent_name AS parent_name
-            FROM agents a
-            LEFT JOIN agents p ON p.id = a.parent_id
-            WHERE a.id IN ($descPh) AND a.level=1
-            ORDER BY p.agent_name, a.created_at DESC
-        ");
-        $stmt->execute($descIds);
-    } else {
-        $stmt = $db->prepare("
-            SELECT a.*, p.agent_name AS parent_name
-            FROM agents a
-            LEFT JOIN agents p ON p.id = a.parent_id
-            WHERE a.parent_id=? AND a.level=?
-            ORDER BY a.created_at DESC
-        ");
-        $stmt->execute([$aid, $managedLevel]);
-    }
-    $rows = [];
-    foreach ($stmt->fetchAll() as $agent) {
-        $pv = $db->prepare("SELECT COUNT(*) FROM access_logs WHERE agent_id=? AND type='pv'");
-        $pv->execute([$agent['id']]);
-        $leadCount = $db->prepare("SELECT COUNT(*) FROM leads WHERE agent_id=?");
-        $leadCount->execute([$agent['id']]);
-        $rows[] = [
-            $labels[(int)($agent['level'] ?? 1)] ?? '',
-            $agent['agent_code'] ?? '',
-            $agent['agent_name'] ?? '',
-            $agent['person_name'] ?? '',
-            $agent['email'] ?? '',
-            $agent['phone'] ?? '',
-            $agent['parent_name'] ?? '',
-            (int)$pv->fetchColumn(),
-            (int)$leadCount->fetchColumn(),
-            $agent['status'] ?? '',
-            $agent['created_at'] ?? '',
-        ];
-    }
+    $subAgentCsvService = new \SenNoKuni\Agency\SubAgentCsvExportService($db);
+    $rows = $subAgentCsvService->rows($aid, $myLv, (string)$mode, $visibleAgentIds, $labels);
     csvOutput('sub_agents_' . date('Ymd_His') . '.csv', ['区分','コード','名称','担当者','メール','電話','上位','PV','問い合わせ','状態','登録日'], $rows);
 }
 
