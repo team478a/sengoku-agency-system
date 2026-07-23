@@ -1,3 +1,8 @@
+## v3.6.85 (2026-07-24)
+- Added the Phase 4 CommonIdentity / Referral foundation modules for common user input normalization, referral token resolution, and touchpoint fingerprinting.
+- Routed existing common user and referral API code through the new foundation classes while preserving current endpoint URLs and response contracts.
+- Added characterization tests for common user input aliases, identity checks, referral alias resolution, and touchpoint hash behavior.
+
 ## v3.6.84 (2026-07-24)
 - Added the Phase 3 Integration / Outbox foundation modules for claim handling, retry policy, repository updates, and DLQ operations.
 - Routed existing Outbox compatibility functions through the new Outbox services while keeping admin and cron call sites stable.

@@ -1,5 +1,17 @@
 # Migration Guide
 
+## v3.6.85
+
+No database migration is required.
+
+Common user and referral internals now load the following classes through `includes/shared_bootstrap.php`:
+
+- `SenNoKuni\CommonIdentity\CommonUserInputNormalizer`
+- `SenNoKuni\Referral\ReferralTokenResolver`
+- `SenNoKuni\Referral\TouchpointFingerprint`
+
+Existing API URLs and legacy helper names remain unchanged.
+
 ## v3.6.84
 
 No database migration is required.

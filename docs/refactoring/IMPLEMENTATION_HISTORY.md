@@ -1,5 +1,12 @@
 # Implementation History
 
+## 2026-07-24 Phase 4
+
+- Added CommonIdentity module classes for common user API input normalization.
+- Added Referral module classes for referral token resolution and touchpoint fingerprinting.
+- Preserved current common user, referral, and legacy function contracts while moving reusable logic into `src/`.
+- Kept database schema unchanged.
+
 ## 2026-07-24 Phase 3
 
 - Added Outbox module classes for claim locking, retry policy, retry state updates, and DLQ operations.

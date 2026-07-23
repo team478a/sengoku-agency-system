@@ -38,15 +38,13 @@ function referralsApiLoadSession(string $sessionKey): ?array {
 }
 
 function referralsApiResolveCommonUser(array $data, array $auth): string {
-    $commonUserId = trim((string)($data['common_user_id'] ?? ''));
+    $input = referralsApiInputNormalizer()->normalize($data, (string)($auth['site_key'] ?? ''));
+    $commonUserId = $input->commonUserId;
     if ($commonUserId !== '') {
         return ensureCommonUser($commonUserId, $data);
     }
-    $systemKey = trim((string)($data['system_key'] ?? $data['service_key'] ?? ''));
-    if ($systemKey === '') {
-        $systemKey = (string)($auth['site_key'] ?? '');
-    }
-    $externalUserId = trim((string)($data['external_user_id'] ?? $data['service_user_id'] ?? ''));
+    $systemKey = $input->systemKey;
+    $externalUserId = $input->externalUserId;
     if ($systemKey !== '' && $externalUserId !== '') {
         $link = findSystemAccountLink($systemKey, $externalUserId) ?: findCommonUserMapping($systemKey, $externalUserId);
         if ($link) {
@@ -61,6 +59,14 @@ function referralsApiResolveCommonUser(array $data, array $auth): string {
     return ensureCommonUser(null, $data);
 }
 
+function referralsApiInputNormalizer(): \SenNoKuni\CommonIdentity\CommonUserInputNormalizer {
+    static $normalizer = null;
+    if ($normalizer === null) {
+        $normalizer = new \SenNoKuni\CommonIdentity\CommonUserInputNormalizer();
+    }
+    return $normalizer;
+}
+
 function referralsApiRecordTouchpoint(array $data): array {
     if (empty(tableColumns('agent_touchpoints'))) {
         return [];
@@ -70,9 +76,10 @@ function referralsApiRecordTouchpoint(array $data): array {
         $metadataJson = json_encode($data['metadata'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
     $ip = trim((string)($data['ip_address'] ?? ($_SERVER['REMOTE_ADDR'] ?? '')));
-    $ipHash = $ip !== '' ? hash('sha256', 'ip:' . $ip) : null;
     $ua = trim((string)($data['user_agent'] ?? ($_SERVER['HTTP_USER_AGENT'] ?? '')));
-    $uaHash = $ua !== '' ? hash('sha256', 'ua:' . $ua) : null;
+    $fingerprint = new \SenNoKuni\Referral\TouchpointFingerprint();
+    $ipHash = $fingerprint->ipHash($ip);
+    $uaHash = $fingerprint->userAgentHash($ua);
     $stmt = getDB()->prepare("
         INSERT INTO agent_touchpoints
             (common_user_id, agent_id, project_id, referral_token_id, referral_session_key, touchpoint_type, source_system_key, source_external_user_id, source_url, landing_url, user_agent_hash, ip_hash, locked, occurred_at, confirmed_at, metadata_json)

@@ -1,5 +1,27 @@
 # Implementation Status
 
+## v3.6.85 CommonIdentity / Referral Foundation
+
+Status: in progress
+
+Implemented in this phase:
+
+- Added `src/CommonIdentity` classes:
+  - `CommonUserInput`
+  - `CommonUserInputNormalizer`
+- Added `src/Referral` classes:
+  - `ReferralTokenResolver`
+  - `TouchpointFingerprint`
+- Routed current common user API input normalization through `CommonUserInputNormalizer`.
+- Routed current referral API common user input normalization through `CommonUserInputNormalizer`.
+- Routed referral token resolution and touchpoint IP/user-agent hashing through `src/Referral` classes.
+
+Runtime behavior changed: limited to internal delegation
+
+Database changed: no
+
+Existing API URLs changed: no
+
 ## v3.6.84 Integration / Outbox Foundation
 
 Status: in progress

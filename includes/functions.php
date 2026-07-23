@@ -910,41 +910,18 @@ function saveReferralAlias(array $data): array {
 }
 
 function resolveReferralTokenInput(string $value, string $aliasType = ''): array {
-    $value = trim($value);
-    if ($value === '') {
-        return ['valid' => false, 'reason' => 'empty'];
-    }
-    $direct = validateReferralToken($value);
-    if (!empty($direct['valid'])) {
-        $direct['resolved_by'] = 'canonical_token';
-        $direct['canonical_referral_token'] = $direct['token']['token'] ?? $value;
-        return $direct;
-    }
+    return referralTokenResolver()->resolve($value, $aliasType);
+}
 
-    $types = [];
-    if (trim($aliasType) !== '') {
-        $types[] = trim($aliasType);
+function referralTokenResolver(): \SenNoKuni\Referral\ReferralTokenResolver {
+    static $resolver = null;
+    if ($resolver === null) {
+        $resolver = new \SenNoKuni\Referral\ReferralTokenResolver(
+            static fn(string $token): array => validateReferralToken($token),
+            static fn(string $type, string $value): ?array => findReferralAlias($type, $value),
+        );
     }
-    foreach (['ref', 'referral_code', 'shopping_referral_code', 'wallet_invite_token', 'passport_ref'] as $type) {
-        if (!in_array($type, $types, true)) {
-            $types[] = $type;
-        }
-    }
-    foreach ($types as $type) {
-        $alias = findReferralAlias($type, $value);
-        if (!$alias || empty($alias['canonical_token'])) {
-            continue;
-        }
-        $validation = validateReferralToken((string)$alias['canonical_token']);
-        if (!empty($validation['valid'])) {
-            $validation['resolved_by'] = 'alias:' . $type;
-            $validation['referral_alias'] = $alias;
-            $validation['canonical_referral_token'] = $validation['token']['token'] ?? $alias['canonical_token'];
-            return $validation;
-        }
-        return $validation + ['resolved_by' => 'alias:' . $type, 'referral_alias' => $alias];
-    }
-    return ['valid' => false, 'reason' => $direct['reason'] ?? 'not_found'];
+    return $resolver;
 }
 
 function recordReferralSession(array $data): array {

@@ -1,5 +1,13 @@
 # Rollback Guide
 
+## v3.6.85
+
+Rollback is file-only:
+
+1. Revert the v3.6.85 commit.
+2. Confirm common user and referral APIs use their previous inline normalization and hash logic again.
+3. No database rollback is required.
+
 ## v3.6.84
 
 Rollback is file-only:
