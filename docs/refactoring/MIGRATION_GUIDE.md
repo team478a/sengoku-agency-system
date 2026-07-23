@@ -1,5 +1,15 @@
 # Migration Guide
 
+## v3.6.94
+
+No database migration is required.
+
+Login-log CSV exports now use `SenNoKuni\Audit\LoginLogCsvExportService` through `includes/shared_bootstrap.php`.
+
+Existing CSV URL and CSV column order remain unchanged:
+
+- `admin/export_csv.php?type=login_logs`
+
 ## v3.6.93
 
 No database migration is required.

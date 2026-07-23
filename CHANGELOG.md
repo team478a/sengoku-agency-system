@@ -1,3 +1,8 @@
+## v3.6.94 (2026-07-24)
+- Added the Phase 13 Audit CSV foundation service for login-log export row generation.
+- Routed `admin/export_csv.php?type=login_logs` through `LoginLogCsvExportService` while keeping CSV URL and column order stable.
+- Kept database schema, API contracts, webhook behavior, and login-log management screens unchanged.
+
 ## v3.6.93 (2026-07-24)
 - Added the Phase 12 Reporting CSV foundation service for template report export row generation.
 - Routed `admin/export_csv.php?type=template_reports` through `TemplateReportCsvExportService` while keeping CSV URL and column order stable.

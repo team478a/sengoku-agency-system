@@ -38,6 +38,7 @@ $sharedFiles = [
     __DIR__ . '/../src/Agency/SubAgentCsvExportService.php',
     __DIR__ . '/../src/Agency/RecruitmentLinkCsvExportService.php',
     __DIR__ . '/../src/Reporting/TemplateReportCsvExportService.php',
+    __DIR__ . '/../src/Audit/LoginLogCsvExportService.php',
 ];
 
 foreach ($sharedFiles as $sharedFile) {

@@ -1,5 +1,11 @@
 # Implementation History
 
+## 2026-07-24 Phase 13
+
+- Added `LoginLogCsvExportService` for shared login-log CSV row generation.
+- Routed `admin/export_csv.php?type=login_logs` through the service without changing CSV URL, filename, or column order.
+- Kept database schema unchanged.
+
 ## 2026-07-24 Phase 12
 
 - Added `TemplateReportCsvExportService` for shared template report CSV row generation.
