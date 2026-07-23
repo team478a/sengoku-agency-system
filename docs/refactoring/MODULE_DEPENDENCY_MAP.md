@@ -36,6 +36,14 @@ src/Admin
   -> AdminBadgeRenderer
   -> OperationsQueryService
 
+src/LandingPage
+  -> LandingPageUrlBuilder
+  -> LandingPageText
+  -> ResponsiveImageBuilder
+
+src/Notification
+  -> TemplateVariableReplacer
+
 api/v2/bootstrap.php
   -> includes/shared_bootstrap.php
   -> src/Shared/Auth
@@ -64,6 +72,14 @@ includes/functions.php Outbox compatibility wrappers
 includes/functions.php referral compatibility wrappers
   -> includes/shared_bootstrap.php
   -> src/Referral
+
+includes/functions.php LP compatibility wrappers
+  -> includes/shared_bootstrap.php
+  -> src/LandingPage
+
+includes/mailer.php template replacement
+  -> includes/shared_bootstrap.php
+  -> src/Notification
 
 admin/integration_outbox.php
   -> includes/shared_bootstrap.php

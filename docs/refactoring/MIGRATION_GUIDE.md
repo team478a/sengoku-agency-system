@@ -1,5 +1,18 @@
 # Migration Guide
 
+## v3.6.87
+
+No database migration is required.
+
+Landing page and notification internals now load the following classes through `includes/shared_bootstrap.php`:
+
+- `SenNoKuni\LandingPage\LandingPageUrlBuilder`
+- `SenNoKuni\LandingPage\LandingPageText`
+- `SenNoKuni\LandingPage\ResponsiveImageBuilder`
+- `SenNoKuni\Notification\TemplateVariableReplacer`
+
+Existing LP URLs, LP template tags, mail templates, and mail variable names remain unchanged.
+
 ## v3.6.86
 
 No database migration is required.

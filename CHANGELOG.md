@@ -1,3 +1,8 @@
+## v3.6.87 (2026-07-24)
+- Added the Phase 6 LandingPage / Notification foundation modules for LP URL building, query parameter handling, plain-text SEO normalization, responsive image HTML, and notification template variable replacement.
+- Routed existing LP helper functions and mail template replacement through the new foundation classes while keeping current LP URLs, template tags, and mail variable names stable.
+- Added characterization tests for LP URL generation, responsive image output, text normalization, and notification variable replacement.
+
 ## v3.6.86 (2026-07-24)
 - Added the Phase 5 Admin foundation modules for shared date formatting, text shortening, badge rendering, and operations dashboard queries.
 - Routed the Outbox and operations admin screens through the new admin foundation classes while keeping current page URLs and helper names stable.

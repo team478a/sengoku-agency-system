@@ -1,5 +1,12 @@
 # Implementation History
 
+## 2026-07-24 Phase 6
+
+- Added LandingPage foundation classes for LP URL building, query parameter handling, plain-text normalization, and responsive image HTML.
+- Added Notification foundation class for mail/template variable replacement.
+- Preserved existing LP helper function names, LP URL shape, template tags, and mail variable names while routing internals through `src/`.
+- Kept database schema unchanged.
+
 ## 2026-07-24 Phase 5
 
 - Added Admin foundation classes for shared formatting, badge rendering, and operations query access.

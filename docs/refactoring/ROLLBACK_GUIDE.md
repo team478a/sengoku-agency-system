@@ -1,5 +1,13 @@
 # Rollback Guide
 
+## v3.6.87
+
+Rollback is file-only:
+
+1. Revert the v3.6.87 commit.
+2. Confirm LP helper functions and mail template replacement use their previous inline logic again.
+3. No database rollback is required.
+
 ## v3.6.86
 
 Rollback is file-only:

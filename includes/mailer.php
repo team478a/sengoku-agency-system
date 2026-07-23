@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/shared_bootstrap.php';
+
 /**
  * Resend APIを使ったメール送信クラス
  */
@@ -117,8 +119,8 @@ class Mailer {
             '{mypage_url}' => $mypageUrl,
             '{manual_url}' => $manualUrl,
         ];
-        $subject = str_replace(array_keys($vars), array_values($vars), $subject);
-        $body = str_replace(array_keys($vars), array_values($vars), $body);
+        $subject = $this->replaceTemplateVariables($subject, $vars);
+        $body = $this->replaceTemplateVariables($body, $vars);
         $bodyHtml = $this->linkifyUrl(nl2br(h($body)), $setupUrl);
 
         $html = $this->wrapHtml($subject,
@@ -144,8 +146,8 @@ class Mailer {
             '{person_name}' => $applicant['person_name'] ?? '',
             '{role_label}' => $targetLabel,
         ];
-        $subject = str_replace(array_keys($vars), array_values($vars), $subject);
-        $body = str_replace(array_keys($vars), array_values($vars), $body);
+        $subject = $this->replaceTemplateVariables($subject, $vars);
+        $body = $this->replaceTemplateVariables($body, $vars);
         $html = $this->wrapHtml($subject, '<p style="white-space:pre-line;line-height:1.9;">' . nl2br(h($body)) . '</p>');
         return $this->send($applicant['email'], $subject, $html);
     }
@@ -169,8 +171,8 @@ class Mailer {
             '{label_level2}' => $labels[2] ?? 'ディレクター',
             '{label_level3}' => $labels[3] ?? 'エージェント',
         ];
-        $body = str_replace(array_keys($vars), array_values($vars), $body);
-        $subject = str_replace(array_keys($vars), array_values($vars), $subject);
+        $body = $this->replaceTemplateVariables($body, $vars);
+        $subject = $this->replaceTemplateVariables($subject, $vars);
         $html = $this->wrapHtml($subject,
             '<p style="white-space:pre-line;line-height:1.9;">' . nl2br(h($body)) . '</p>
             <div style="text-align:center;margin:2rem 0;">
@@ -202,8 +204,8 @@ class Mailer {
             '{label_level2}' => $labels[2] ?? 'ディレクター',
             '{label_level3}' => $labels[3] ?? 'エージェント',
         ];
-        $body = str_replace(array_keys($vars), array_values($vars), $body);
-        $subject = str_replace(array_keys($vars), array_values($vars), $subject);
+        $body = $this->replaceTemplateVariables($body, $vars);
+        $subject = $this->replaceTemplateVariables($subject, $vars);
         $html = $this->wrapHtml($subject,
             '<p style="white-space:pre-line;line-height:1.9;">' . nl2br(h($body)) . '</p>
             <div style="text-align:center;margin:2rem 0;">
@@ -312,6 +314,14 @@ class Mailer {
             '<a href="' . h($url) . '" style="color:#C9A84C;word-break:break-all;">$1</a>',
             $html
         );
+    }
+
+    private function replaceTemplateVariables(string $template, array $vars): string {
+        static $replacer = null;
+        if ($replacer === null) {
+            $replacer = new \SenNoKuni\Notification\TemplateVariableReplacer();
+        }
+        return $replacer->replace($template, $vars);
     }
 
     private function getTpl(string $key, string $default): string {

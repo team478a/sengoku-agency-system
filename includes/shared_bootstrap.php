@@ -29,6 +29,10 @@ $sharedFiles = [
     __DIR__ . '/../src/Admin/AdminTextFormatter.php',
     __DIR__ . '/../src/Admin/AdminBadgeRenderer.php',
     __DIR__ . '/../src/Admin/OperationsQueryService.php',
+    __DIR__ . '/../src/LandingPage/LandingPageUrlBuilder.php',
+    __DIR__ . '/../src/LandingPage/LandingPageText.php',
+    __DIR__ . '/../src/LandingPage/ResponsiveImageBuilder.php',
+    __DIR__ . '/../src/Notification/TemplateVariableReplacer.php',
 ];
 
 foreach ($sharedFiles as $sharedFile) {

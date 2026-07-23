@@ -1,5 +1,34 @@
 # Implementation Status
 
+## v3.6.87 LandingPage / Notification Foundation
+
+Status: in progress
+
+Implemented in this phase:
+
+- Added `src/LandingPage` classes:
+  - `LandingPageUrlBuilder`
+  - `LandingPageText`
+  - `ResponsiveImageBuilder`
+- Added `src/Notification` classes:
+  - `TemplateVariableReplacer`
+- Routed existing LP URL helpers, query parameter handling, absolute URL handling, plain text normalization, and responsive image HTML through `src/LandingPage`.
+- Routed existing mail template variable replacement through `src/Notification`.
+
+Runtime behavior changed: limited to internal delegation
+
+Database changed: no
+
+Existing LP URLs, template tags, and mail variable names changed: no
+
+Remaining Phase 6 work:
+
+- Extract full LP rendering flow into application services.
+- Add dedicated SEO metadata builder.
+- Add notification channel strategy classes.
+- Move template storage/query logic into repositories.
+- Extract access logging into a dedicated service.
+
 ## v3.6.86 Admin Foundation
 
 Status: in progress

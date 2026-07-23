@@ -1083,11 +1083,7 @@ function getSiteBaseUrl(): string {
 }
 
 function buildAgentProjectLpUrl(string $agentCode, ?array $project = null): string {
-    $url = getSiteBaseUrl() . '/a/' . rawurlencode($agentCode);
-    if (!empty($project['slug'])) {
-        $url .= '?project=' . rawurlencode((string)$project['slug']);
-    }
-    return $url;
+    return landingPageUrlBuilder()->agentProjectUrl($agentCode, $project);
 }
 
 function getProjectById(int $projectId): ?array {
@@ -1130,11 +1126,15 @@ function currentRequestUrl(): string {
 }
 
 function appendUrlQueryParams(string $url, array $params): string {
-    $params = array_filter($params, static fn($value) => $value !== null && $value !== '');
-    if (!$params) {
-        return $url;
+    return landingPageUrlBuilder()->appendQueryParams($url, $params);
+}
+
+function landingPageUrlBuilder(): \SenNoKuni\LandingPage\LandingPageUrlBuilder {
+    static $builder = null;
+    if ($builder === null) {
+        $builder = new \SenNoKuni\LandingPage\LandingPageUrlBuilder(getSiteBaseUrl());
     }
-    return $url . (str_contains($url, '?') ? '&' : '?') . http_build_query($params);
+    return $builder;
 }
 
 function lpReferralFeaturesEnabled(): bool {
@@ -1393,35 +1393,31 @@ function lpImage(array $agent, string $key, string $default = ''): string {
 function lpResponsiveImage(array $agent, string $pcKey = 'hero_image_pc', string $spKey = 'hero_image_sp', string $alt = '', string $class = ''): string {
     $pc = getLpTemplateFieldValue($agent, $pcKey, getLpTemplateFieldValue($agent, 'hero_image', ''));
     $sp = getLpTemplateFieldValue($agent, $spKey, $pc);
-    if ($pc === '' && $sp === '') {
-        return '';
-    }
-    $img = '<picture>';
-    if ($sp !== '') {
-        $img .= '<source media="(max-width: 768px)" srcset="' . h($sp) . '">';
-    }
-    $img .= '<img src="' . h($pc ?: $sp) . '" alt="' . h($alt) . '"' . ($class !== '' ? ' class="' . h($class) . '"' : '') . '>';
-    $img .= '</picture>';
-    return $img;
+    return landingPageResponsiveImageBuilder()->picture($pc, $sp, $alt, $class);
 }
 
 function lpPlainText(string $value, int $maxLength = 160): string {
-    $value = trim(preg_replace('/\s+/u', ' ', strip_tags(html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8'))) ?: '');
-    if ($maxLength > 0 && function_exists('mb_strlen') && mb_strlen($value, 'UTF-8') > $maxLength) {
-        return mb_substr($value, 0, $maxLength - 1, 'UTF-8') . '窶ｦ';
-    }
-    if ($maxLength > 0 && !function_exists('mb_strlen') && strlen($value) > $maxLength) {
-        return substr($value, 0, $maxLength - 3) . '...';
-    }
-    return $value;
+    return landingPageTextFormatter()->plainText($value, $maxLength);
 }
 
 function lpAbsoluteUrl(string $url): string {
-    $url = trim($url);
-    if ($url === '') return '';
-    if (preg_match('/^https?:\/\//i', $url)) return $url;
-    if ($url[0] !== '/') $url = '/' . $url;
-    return getSiteBaseUrl() . $url;
+    return landingPageUrlBuilder()->absoluteUrl($url);
+}
+
+function landingPageTextFormatter(): \SenNoKuni\LandingPage\LandingPageText {
+    static $formatter = null;
+    if ($formatter === null) {
+        $formatter = new \SenNoKuni\LandingPage\LandingPageText();
+    }
+    return $formatter;
+}
+
+function landingPageResponsiveImageBuilder(): \SenNoKuni\LandingPage\ResponsiveImageBuilder {
+    static $builder = null;
+    if ($builder === null) {
+        $builder = new \SenNoKuni\LandingPage\ResponsiveImageBuilder();
+    }
+    return $builder;
 }
 
 function getLpTemplateSeoSource(int $templateId): array {
