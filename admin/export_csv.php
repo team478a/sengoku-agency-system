@@ -57,85 +57,8 @@ if ($type === 'template_reports') {
         $period = '30d';
     }
     $days = $allowedPeriods[$period];
-    $accessColumns = adminCsvColumns($db, 'access_logs');
-    $leadColumns = adminCsvColumns($db, 'leads');
-    $accessTemplateExpr = !empty($accessColumns['template_id']) ? 'COALESCE(al.template_id, a.default_template_id)' : 'a.default_template_id';
-    $leadTemplateExpr = !empty($leadColumns['template_id']) ? 'COALESCE(l.template_id, a.default_template_id)' : 'a.default_template_id';
-    $dateSqlAccess = '';
-    $dateSqlLead = '';
-    $dateParamsAccess = [];
-    $dateParamsLead = [];
-    if ($days !== null) {
-        $dateSqlAccess = ' AND al.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)';
-        $dateSqlLead = ' AND l.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)';
-        $dateParamsAccess[] = $days;
-        $dateParamsLead[] = $days;
-    }
-
-    $templates = $db->query("
-        SELECT t.*, COUNT(DISTINCT a.id) AS active_agent_count
-        FROM lp_templates t
-        LEFT JOIN agents a ON a.default_template_id=t.id AND a.status='active'
-        GROUP BY t.id
-        ORDER BY t.sort_order ASC, t.id ASC
-    ")->fetchAll();
-
-    $pvMap = [];
-    $stmt = $db->prepare("
-        SELECT {$accessTemplateExpr} AS template_id, COUNT(*) AS cnt
-        FROM access_logs al
-        LEFT JOIN agents a ON a.id=al.agent_id
-        WHERE al.type='pv' {$dateSqlAccess}
-        GROUP BY {$accessTemplateExpr}
-    ");
-    $stmt->execute($dateParamsAccess);
-    foreach ($stmt->fetchAll() as $row) $pvMap[(int)$row['template_id']] = (int)$row['cnt'];
-
-    $lineMap = [];
-    $stmt = $db->prepare("
-        SELECT {$accessTemplateExpr} AS template_id, COUNT(*) AS cnt
-        FROM access_logs al
-        LEFT JOIN agents a ON a.id=al.agent_id
-        WHERE al.type='line_click' {$dateSqlAccess}
-        GROUP BY {$accessTemplateExpr}
-    ");
-    $stmt->execute($dateParamsAccess);
-    foreach ($stmt->fetchAll() as $row) $lineMap[(int)$row['template_id']] = (int)$row['cnt'];
-
-    $leadMap = [];
-    $stmt = $db->prepare("
-        SELECT {$leadTemplateExpr} AS template_id,
-               COUNT(*) AS cnt,
-               SUM(CASE WHEN l.status='new' THEN 1 ELSE 0 END) AS new_cnt,
-               SUM(CASE WHEN l.status='prospect' THEN 1 ELSE 0 END) AS prospect_cnt,
-               SUM(CASE WHEN l.status='won' THEN 1 ELSE 0 END) AS won_cnt
-        FROM leads l
-        LEFT JOIN agents a ON a.id=l.agent_id
-        WHERE 1=1 {$dateSqlLead}
-        GROUP BY {$leadTemplateExpr}
-    ");
-    $stmt->execute($dateParamsLead);
-    foreach ($stmt->fetchAll() as $row) $leadMap[(int)$row['template_id']] = $row;
-
-    $rows = [];
-    foreach ($templates as $tpl) {
-        $id = (int)$tpl['id'];
-        $pv = $pvMap[$id] ?? 0;
-        $leads = (int)($leadMap[$id]['cnt'] ?? 0);
-        $rows[] = [
-            $tpl['name'] ?? '',
-            $tpl['slug'] ?? '',
-            $tpl['html_file'] ?? '',
-            (int)($tpl['active_agent_count'] ?? 0),
-            $pv,
-            $lineMap[$id] ?? 0,
-            $leads,
-            (int)($leadMap[$id]['new_cnt'] ?? 0),
-            (int)($leadMap[$id]['prospect_cnt'] ?? 0),
-            (int)($leadMap[$id]['won_cnt'] ?? 0),
-            $pv > 0 ? round(($leads / $pv) * 100, 2) . '%' : '',
-        ];
-    }
+    $templateReportCsvService = new \SenNoKuni\Reporting\TemplateReportCsvExportService($db);
+    $rows = $templateReportCsvService->rows($days);
     adminCsvOutput('template_reports_' . date('Ymd_His') . '.csv', ['テンプレート','スラッグ','ファイル','使用中','PV','LINE','問い合わせ','未対応','成約見込み','成約','CV率'], $rows);
 }
 

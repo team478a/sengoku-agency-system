@@ -1,3 +1,8 @@
+## v3.6.93 (2026-07-24)
+- Added the Phase 12 Reporting CSV foundation service for template report export row generation.
+- Routed `admin/export_csv.php?type=template_reports` through `TemplateReportCsvExportService` while keeping CSV URL and column order stable.
+- Kept database schema, API contracts, webhook behavior, and report screens unchanged.
+
 ## v3.6.92 (2026-07-24)
 - Added the Phase 11 Agency recruitment-link CSV foundation service.
 - Routed `agent/export_csv.php?type=recruitment_links` through `RecruitmentLinkCsvExportService` while keeping CSV URL and column order stable.

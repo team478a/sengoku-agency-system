@@ -1,5 +1,11 @@
 # Implementation History
 
+## 2026-07-24 Phase 12
+
+- Added `TemplateReportCsvExportService` for shared template report CSV row generation.
+- Routed `admin/export_csv.php?type=template_reports` through the service without changing CSV URL, filename, or column order.
+- Kept database schema unchanged.
+
 ## 2026-07-24 Phase 11
 
 - Added `RecruitmentLinkCsvExportService` for shared recruitment-link CSV row generation.

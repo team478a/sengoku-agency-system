@@ -1,5 +1,15 @@
 # Migration Guide
 
+## v3.6.93
+
+No database migration is required.
+
+Template report CSV exports now use `SenNoKuni\Reporting\TemplateReportCsvExportService` through `includes/shared_bootstrap.php`.
+
+Existing CSV URL and CSV column order remain unchanged:
+
+- `admin/export_csv.php?type=template_reports`
+
 ## v3.6.92
 
 No database migration is required.
