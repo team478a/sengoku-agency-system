@@ -1,5 +1,29 @@
 # Implementation Status
 
+## v3.6.88 Activity Foundation
+
+Status: in progress
+
+Implemented in this phase:
+
+- Added `src/Activity` class:
+  - `ActivityQueryService`
+- Routed `admin/agent_activity.php` activity aggregation through `ActivityQueryService`.
+- Routed `agent/downline_activity.php` downline activity aggregation through `ActivityQueryService`.
+
+Runtime behavior changed: limited to internal query delegation
+
+Database changed: no
+
+Existing page URLs, filters, sort options, CSV links, and display labels changed: no
+
+Remaining Phase 7 work:
+
+- Route activity CSV exports through `ActivityQueryService`.
+- Extract activity dashboard cards into presentation helpers.
+- Add dedicated activity trend and ranking query services.
+- Add DB-backed integration tests once local test database configuration is available.
+
 ## v3.6.87 LandingPage / Notification Foundation
 
 Status: in progress

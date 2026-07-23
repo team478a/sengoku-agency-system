@@ -1,5 +1,23 @@
 # Test Results
 
+## v3.6.88
+
+Completed checks:
+
+- `php scripts/lint-php.php`: passed
+- `php -r "require 'includes/shared_bootstrap.php'; ..."`: passed
+
+Not run locally:
+
+- `composer test`
+- `composer analyse`
+- DB-backed activity query tests
+
+Local limitation:
+
+- Composer is not installed in the current Windows environment.
+- The local repository intentionally does not include production `config/database.php`.
+
 ## v3.6.87
 
 Completed checks:

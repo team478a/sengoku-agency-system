@@ -33,6 +33,7 @@ $sharedFiles = [
     __DIR__ . '/../src/LandingPage/LandingPageText.php',
     __DIR__ . '/../src/LandingPage/ResponsiveImageBuilder.php',
     __DIR__ . '/../src/Notification/TemplateVariableReplacer.php',
+    __DIR__ . '/../src/Activity/ActivityQueryService.php',
 ];
 
 foreach ($sharedFiles as $sharedFile) {

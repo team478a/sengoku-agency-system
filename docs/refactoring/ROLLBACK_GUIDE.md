@@ -1,5 +1,13 @@
 # Rollback Guide
 
+## v3.6.88
+
+Rollback is file-only:
+
+1. Revert the v3.6.88 commit.
+2. Confirm `admin/agent_activity.php` and `agent/downline_activity.php` use their previous inline activity SQL again.
+3. No database rollback is required.
+
 ## v3.6.87
 
 Rollback is file-only:

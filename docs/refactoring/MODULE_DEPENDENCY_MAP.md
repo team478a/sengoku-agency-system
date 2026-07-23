@@ -44,6 +44,9 @@ src/LandingPage
 src/Notification
   -> TemplateVariableReplacer
 
+src/Activity
+  -> ActivityQueryService
+
 api/v2/bootstrap.php
   -> includes/shared_bootstrap.php
   -> src/Shared/Auth
@@ -80,6 +83,14 @@ includes/functions.php LP compatibility wrappers
 includes/mailer.php template replacement
   -> includes/shared_bootstrap.php
   -> src/Notification
+
+admin/agent_activity.php
+  -> includes/shared_bootstrap.php
+  -> src/Activity
+
+agent/downline_activity.php
+  -> includes/shared_bootstrap.php
+  -> src/Activity
 
 admin/integration_outbox.php
   -> includes/shared_bootstrap.php

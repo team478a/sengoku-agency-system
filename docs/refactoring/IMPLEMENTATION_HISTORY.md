@@ -1,5 +1,11 @@
 # Implementation History
 
+## 2026-07-24 Phase 7
+
+- Added Activity foundation class for shared agent/downline activity aggregation.
+- Preserved existing admin and agent activity page URLs, filters, sort options, pagination, and output fields.
+- Kept database schema unchanged.
+
 ## 2026-07-24 Phase 6
 
 - Added LandingPage foundation classes for LP URL building, query parameter handling, plain-text normalization, and responsive image HTML.

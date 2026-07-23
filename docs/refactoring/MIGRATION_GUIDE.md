@@ -1,5 +1,15 @@
 # Migration Guide
 
+## v3.6.88
+
+No database migration is required.
+
+Activity aggregation internals now load the following class through `includes/shared_bootstrap.php`:
+
+- `SenNoKuni\Activity\ActivityQueryService`
+
+Existing activity page URLs, filters, sort options, and CSV links remain unchanged.
+
 ## v3.6.87
 
 No database migration is required.

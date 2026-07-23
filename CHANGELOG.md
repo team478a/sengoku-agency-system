@@ -1,3 +1,8 @@
+## v3.6.88 (2026-07-24)
+- Added the Phase 7 Activity foundation module for shared agent/downline activity aggregation.
+- Routed admin agent activity and agent downline activity pages through the shared activity query service while keeping page URLs, filters, sort options, and display output stable.
+- Kept database schema, API contracts, and webhook behavior unchanged.
+
 ## v3.6.87 (2026-07-24)
 - Added the Phase 6 LandingPage / Notification foundation modules for LP URL building, query parameter handling, plain-text SEO normalization, responsive image HTML, and notification template variable replacement.
 - Routed existing LP helper functions and mail template replacement through the new foundation classes while keeping current LP URLs, template tags, and mail variable names stable.
