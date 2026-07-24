@@ -1,5 +1,13 @@
 # Rollback Guide
 
+## v3.6.96
+
+Rollback is file-only:
+
+1. Revert the v3.6.96 commit.
+2. Confirm `.github/workflows/ci.yml` no longer starts the MariaDB service for CSV contract tests.
+3. No database rollback is required.
+
 ## v3.6.95
 
 Rollback is file-only:

@@ -1,5 +1,17 @@
 # Migration Guide
 
+## v3.6.96
+
+No database migration is required.
+
+GitHub Actions now starts a MariaDB service and runs:
+
+```bash
+composer test:csv-contract
+```
+
+No production settings are required for this CI check.
+
 ## v3.6.95
 
 No database migration is required.

@@ -1,3 +1,8 @@
+## v3.6.96 (2026-07-24)
+- Added MariaDB-backed CSV contract test execution to GitHub Actions CI.
+- Configured the CI workflow to run `composer test:csv-contract` against a temporary MariaDB service.
+- Kept production database schema, API contracts, webhook behavior, and runtime PHP entrypoints unchanged.
+
 ## v3.6.95 (2026-07-24)
 - Added a DB-backed CSV contract test runner for the extracted CSV services.
 - Covered lead, sub-agent, recruitment-link, template report, and login-log CSV row contracts using connection-local temporary tables.

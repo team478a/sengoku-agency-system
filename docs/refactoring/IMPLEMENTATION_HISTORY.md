@@ -1,5 +1,11 @@
 # Implementation History
 
+## 2026-07-24 Phase 15
+
+- Added MariaDB-backed CSV contract test execution to GitHub Actions.
+- Configured CI environment variables for `composer test:csv-contract`.
+- Kept production runtime behavior unchanged.
+
 ## 2026-07-24 Phase 14
 
 - Added a DB-backed CSV contract test runner for the extracted CSV services.

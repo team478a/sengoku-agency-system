@@ -11,6 +11,22 @@ jobs:
   php:
     runs-on: ubuntu-latest
 
+    services:
+      mariadb:
+        image: mariadb:10.6
+        env:
+          MARIADB_DATABASE: sengoku_csv_contract
+          MARIADB_USER: sengoku
+          MARIADB_PASSWORD: sengoku
+          MARIADB_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mariadb-admin ping -h 127.0.0.1 -usengoku -psengoku"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,6 +49,12 @@ jobs:
       - name: PHPUnit
         run: composer test
 
+      - name: CSV contract tests
+        run: composer test:csv-contract
+        env:
+          CSV_CONTRACT_DSN: mysql:host=127.0.0.1;port=3306;dbname=sengoku_csv_contract;charset=utf8mb4
+          CSV_CONTRACT_USER: sengoku
+          CSV_CONTRACT_PASS: sengoku
+
       - name: PHPStan
         run: composer analyse
-

@@ -1,5 +1,25 @@
 # Implementation Status
 
+## v3.6.96 CI CSV Contract Test Execution
+
+Status: completed
+
+Implemented in this phase:
+
+- Added a MariaDB service to `.github/workflows/ci.yml`.
+- Added CI execution of `composer test:csv-contract`.
+- Kept CSV contract test data isolated in connection-local temporary tables.
+
+Runtime behavior changed: no
+
+Database changed: no
+
+Existing CSV URLs and CSV column order changed: no
+
+Remaining CSV foundation work:
+
+- Monitor the first GitHub Actions run and address any CI-environment-only failures.
+
 ## v3.6.95 CSV Contract Test Foundation
 
 Status: completed
@@ -23,7 +43,7 @@ Existing CSV URLs and CSV column order changed: no
 
 Remaining CSV foundation work:
 
-- Run `composer test:csv-contract` against a MariaDB/MySQL test database in an environment with a PDO MySQL driver.
+- CI execution was added in v3.6.96.
 
 ## v3.6.94 Audit CSV Foundation
 
