@@ -72,73 +72,27 @@ $totalLine = reportCount($db, 'access_logs', $visibleAgentIds, trim("AND type='l
 $totalLeads = reportCount($db, 'leads', $visibleAgentIds, $leadProjectWhere, $leadProjectParams, $dateSql, $dateParams);
 $totalNewLeads = reportCount($db, 'leads', $visibleAgentIds, trim("AND status='new' $leadProjectWhere"), $leadProjectParams, $dateSql, $dateParams);
 
+$rankingService = new \SenNoKuni\Activity\ActivityDownlineRankingService($db);
 $subRows = [];
 if ($myLv >= 2 && $descendants) {
-    $descIds = array_map(static fn($a) => (int)$a['id'], $descendants);
-    $descPh = implode(',', array_fill(0, count($descIds), '?'));
-
-    $pvStmt = $db->prepare("
-        SELECT agent_id, COUNT(*) AS cnt, MAX(created_at) AS last_at
-        FROM access_logs
-        WHERE agent_id IN ($descPh) AND type='pv' $accessProjectWhere $dateSql
-        GROUP BY agent_id
-    ");
-    $pvStmt->execute(array_merge($descIds, $accessProjectParams, $dateParams));
-    $pvMap = [];
-    foreach ($pvStmt->fetchAll() as $row) $pvMap[(int)$row['agent_id']] = $row;
-
-    $lineStmt = $db->prepare("
-        SELECT agent_id, COUNT(*) AS cnt
-        FROM access_logs
-        WHERE agent_id IN ($descPh) AND type='line_click' $accessProjectWhere $dateSql
-        GROUP BY agent_id
-    ");
-    $lineStmt->execute(array_merge($descIds, $accessProjectParams, $dateParams));
-    $lineMap = [];
-    foreach ($lineStmt->fetchAll() as $row) $lineMap[(int)$row['agent_id']] = (int)$row['cnt'];
-
-    $leadStmt = $db->prepare("
-        SELECT agent_id, COUNT(*) AS cnt, SUM(status='new') AS new_cnt, MAX(created_at) AS last_at
-        FROM leads
-        WHERE agent_id IN ($descPh) $leadProjectWhere $dateSql
-        GROUP BY agent_id
-    ");
-    $leadStmt->execute(array_merge($descIds, $leadProjectParams, $dateParams));
-    $leadMap = [];
-    foreach ($leadStmt->fetchAll() as $row) $leadMap[(int)$row['agent_id']] = $row;
-
-    foreach ($descendants as $agent) {
-        $id = (int)$agent['id'];
-        $pv = (int)($pvMap[$id]['cnt'] ?? 0);
-        $leads = (int)($leadMap[$id]['cnt'] ?? 0);
-        $subRows[] = [
-            'id' => $id,
-            'level' => (int)($agent['level'] ?? 1),
-            'agent_name' => $agent['agent_name'] ?? '',
-            'person_name' => $agent['person_name'] ?? '',
-            'agent_code' => $agent['agent_code'] ?? '',
-            'status' => $agent['status'] ?? '',
-            'pv' => $pv,
-            'line' => (int)($lineMap[$id] ?? 0),
-            'leads' => $leads,
-            'new_leads' => (int)($leadMap[$id]['new_cnt'] ?? 0),
-            'last_access' => $pvMap[$id]['last_at'] ?? null,
-            'last_lead' => $leadMap[$id]['last_at'] ?? null,
-            'conversion' => $pv > 0 ? round(($leads / $pv) * 100, 1) : null,
-        ];
-    }
-
-    usort($subRows, static fn($a, $b) => [$b['leads'], $b['pv']] <=> [$a['leads'], $a['pv']]);
+    $subRows = $rankingService->rows(
+        $descendants,
+        $accessProjectWhere,
+        $accessProjectParams,
+        $leadProjectWhere,
+        $leadProjectParams,
+        $dateSql,
+        $dateParams
+    );
 }
 
 $needsFollow = array_values(array_filter($subRows, static function($row) {
     return $row['new_leads'] > 0 || $row['pv'] === 0 || ($row['pv'] >= 20 && $row['leads'] === 0);
 }));
 
-$rankByPv = $subRows;
-usort($rankByPv, static fn($a, $b) => $b['pv'] <=> $a['pv']);
-$rankByLeads = $subRows;
-usort($rankByLeads, static fn($a, $b) => $b['leads'] <=> $a['leads']);
+$rankings = $rankingService->rankings($subRows);
+$rankByPv = $rankings['pv'];
+$rankByLeads = $rankings['leads'];
 
 $directBranchRows = [];
 $recruitmentRows = [];

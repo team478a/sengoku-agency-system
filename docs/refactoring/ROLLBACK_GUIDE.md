@@ -1,5 +1,14 @@
 # Rollback Guide
 
+## v3.6.98
+
+Rollback is file-only:
+
+1. Revert the v3.6.98 commit.
+2. Confirm `agent/dashboard.php` builds the trend arrays inline again.
+3. Confirm `agent/reports.php` builds downline ranking rows inline again.
+4. No database rollback is required.
+
 ## v3.6.97
 
 Rollback is file-only:

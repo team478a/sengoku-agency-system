@@ -1,5 +1,11 @@
 # Implementation History
 
+## 2026-07-24 Phase 17
+
+- Added `ActivityTrendService` for the dashboard 30-day activity series.
+- Added `ActivityDownlineRankingService` for downline activity report rows and rankings.
+- Routed dashboard trend and report ranking generation through Activity services without changing page output contracts.
+
 ## 2026-07-24 Phase 16
 
 - Added `ActivitySummaryCards` for shared activity summary card definitions.

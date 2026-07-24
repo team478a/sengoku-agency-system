@@ -1,5 +1,16 @@
 # Migration Guide
 
+## v3.6.98
+
+No database migration is required.
+
+Activity trend and ranking services now load through `includes/shared_bootstrap.php`:
+
+- `SenNoKuni\Activity\ActivityTrendService`
+- `SenNoKuni\Activity\ActivityDownlineRankingService`
+
+Existing dashboard and report URLs, filters, graph labels, and ranking display remain unchanged.
+
 ## v3.6.97
 
 No database migration is required.

@@ -47,6 +47,8 @@ src/Notification
 src/Activity
   -> ActivityQueryService
   -> ActivitySummaryCards
+  -> ActivityTrendService
+  -> ActivityDownlineRankingService
 
 src/Lead
   -> LeadCsvExportService
@@ -113,6 +115,14 @@ admin/agent_activity.php summary cards
 agent/downline_activity.php summary cards
   -> includes/shared_bootstrap.php
   -> src/Activity/ActivitySummaryCards
+
+agent/dashboard.php trend chart
+  -> includes/shared_bootstrap.php
+  -> src/Activity/ActivityTrendService
+
+agent/reports.php downline rankings
+  -> includes/shared_bootstrap.php
+  -> src/Activity/ActivityDownlineRankingService
 
 admin/export_csv.php activity export
   -> includes/shared_bootstrap.php
@@ -287,3 +297,23 @@ Notes:
 - Activity query logic remains in `ActivityQueryService`.
 - Summary-card labels, value casting, and presentation metadata now live in `src/Activity`.
 - No dependency is introduced from `src/Activity` back to admin or agent entrypoints.
+
+## Activity Trend And Ranking Foundation
+
+New dependency direction:
+
+```text
+agent/dashboard.php trend chart
+  -> ActivityTrendService
+  -> PDO
+
+agent/reports.php downline rankings
+  -> ActivityDownlineRankingService
+  -> PDO
+```
+
+Notes:
+
+- Dashboard trend labels and data arrays remain shaped for the existing canvas chart JavaScript.
+- Downline report row keys remain compatible with the existing report table and ranking widgets.
+- No dependency is introduced from `src/Activity` back to agent entrypoints.

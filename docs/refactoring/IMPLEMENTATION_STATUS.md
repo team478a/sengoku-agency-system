@@ -1,5 +1,27 @@
 # Implementation Status
 
+## v3.6.98 Activity Trend And Ranking Foundation
+
+Status: completed
+
+Implemented in this phase:
+
+- Added `ActivityTrendService`.
+- Routed `agent/dashboard.php` 30-day PV and lead trend arrays through `ActivityTrendService`.
+- Added `ActivityDownlineRankingService`.
+- Routed `agent/reports.php` downline activity rows and PV/lead rankings through `ActivityDownlineRankingService`.
+- Added characterization coverage for ranking order.
+
+Runtime behavior changed: limited to internal query-service delegation
+
+Database changed: no
+
+Existing dashboard URLs, report URLs, filters, graph data shape, and ranking labels changed: no
+
+Remaining Phase 7 work:
+
+- Monitor the first GitHub Actions run and address any CI-environment-only failures.
+
 ## v3.6.97 Activity Presentation Foundation
 
 Status: completed
@@ -19,7 +41,6 @@ Existing activity page URLs, queries, labels, and values changed: no
 
 Remaining Phase 7 work:
 
-- Add dedicated activity trend and ranking query services.
 - Monitor the first GitHub Actions run and address any CI-environment-only failures.
 
 ## v3.6.96 CI CSV Contract Test Execution

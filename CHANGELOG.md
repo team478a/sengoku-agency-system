@@ -1,3 +1,8 @@
+## v3.6.98 (2026-07-24)
+- Added `ActivityTrendService` for the agent dashboard 30-day PV and lead trend series.
+- Added `ActivityDownlineRankingService` for downline activity report row and ranking generation.
+- Routed `agent/dashboard.php` and `agent/reports.php` through the new Activity services while keeping page URLs, filters, labels, and graph/ranking data shape stable.
+
 ## v3.6.97 (2026-07-24)
 - Added `ActivitySummaryCards` for shared admin and downline activity summary card definitions.
 - Routed `admin/agent_activity.php` and `agent/downline_activity.php` summary cards through the shared Activity presenter while keeping page URLs, queries, labels, and values stable.

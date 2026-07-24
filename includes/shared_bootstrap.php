@@ -35,6 +35,8 @@ $sharedFiles = [
     __DIR__ . '/../src/Notification/TemplateVariableReplacer.php',
     __DIR__ . '/../src/Activity/ActivityQueryService.php',
     __DIR__ . '/../src/Activity/ActivitySummaryCards.php',
+    __DIR__ . '/../src/Activity/ActivityTrendService.php',
+    __DIR__ . '/../src/Activity/ActivityDownlineRankingService.php',
     __DIR__ . '/../src/Lead/LeadCsvExportService.php',
     __DIR__ . '/../src/Agency/SubAgentCsvExportService.php',
     __DIR__ . '/../src/Agency/RecruitmentLinkCsvExportService.php',
