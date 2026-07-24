@@ -1,5 +1,11 @@
 # Implementation History
 
+## 2026-07-24 Phase 18
+
+- Added `SeoMetadataBuilder` for LP SEO and AIO-oriented metadata generation.
+- Routed existing LP SEO helper functions through the shared LandingPage service.
+- Added characterization coverage for title, canonical URL, OG image, and JSON-LD injection.
+
 ## 2026-07-24 Phase 17
 
 - Added `ActivityTrendService` for the dashboard 30-day activity series.

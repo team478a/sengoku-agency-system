@@ -32,6 +32,7 @@ $sharedFiles = [
     __DIR__ . '/../src/LandingPage/LandingPageUrlBuilder.php',
     __DIR__ . '/../src/LandingPage/LandingPageText.php',
     __DIR__ . '/../src/LandingPage/ResponsiveImageBuilder.php',
+    __DIR__ . '/../src/LandingPage/SeoMetadataBuilder.php',
     __DIR__ . '/../src/Notification/TemplateVariableReplacer.php',
     __DIR__ . '/../src/Activity/ActivityQueryService.php',
     __DIR__ . '/../src/Activity/ActivitySummaryCards.php',

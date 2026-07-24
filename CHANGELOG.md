@@ -1,3 +1,8 @@
+## v3.6.99 (2026-07-24)
+- Added `SeoMetadataBuilder` for LP title, description, canonical, Open Graph, Twitter Card, and JSON-LD generation.
+- Routed existing LP SEO helper functions through the shared LandingPage service while keeping existing function names and LP template calls stable.
+- Added characterization coverage for LP SEO metadata and head injection.
+
 ## v3.6.98 (2026-07-24)
 - Added `ActivityTrendService` for the agent dashboard 30-day PV and lead trend series.
 - Added `ActivityDownlineRankingService` for downline activity report row and ranking generation.

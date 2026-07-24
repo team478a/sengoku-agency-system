@@ -1,5 +1,30 @@
 # Implementation Status
 
+## v3.6.99 LandingPage SEO Metadata Foundation
+
+Status: completed
+
+Implemented in this phase:
+
+- Added `SeoMetadataBuilder`.
+- Routed `buildLpSeoMeta()` through `SeoMetadataBuilder`.
+- Routed `injectLpSeoHead()` through `SeoMetadataBuilder`.
+- Added characterization coverage for title, canonical URL, OG image, and JSON-LD head injection.
+
+Runtime behavior changed: limited to internal SEO metadata delegation
+
+Database changed: no
+
+Existing LP helper function names, LP template calls, title fallback order, canonical URL shape, and SEO tag set changed: no
+
+Remaining Phase 6 work:
+
+- Extract full LP rendering flow into application services.
+- Add notification channel strategy classes.
+- Move template storage/query logic into repositories.
+- Extract access logging into a dedicated service.
+- Monitor the first GitHub Actions run and address any CI-environment-only failures.
+
 ## v3.6.98 Activity Trend And Ranking Foundation
 
 Status: completed
@@ -258,7 +283,6 @@ Existing LP URLs, template tags, and mail variable names changed: no
 Remaining Phase 6 work:
 
 - Extract full LP rendering flow into application services.
-- Add dedicated SEO metadata builder.
 - Add notification channel strategy classes.
 - Move template storage/query logic into repositories.
 - Extract access logging into a dedicated service.

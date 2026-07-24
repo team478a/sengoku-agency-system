@@ -40,6 +40,7 @@ src/LandingPage
   -> LandingPageUrlBuilder
   -> LandingPageText
   -> ResponsiveImageBuilder
+  -> SeoMetadataBuilder
 
 src/Notification
   -> TemplateVariableReplacer
@@ -95,6 +96,10 @@ includes/functions.php referral compatibility wrappers
 includes/functions.php LP compatibility wrappers
   -> includes/shared_bootstrap.php
   -> src/LandingPage
+
+includes/functions.php LP SEO compatibility wrappers
+  -> includes/shared_bootstrap.php
+  -> src/LandingPage/SeoMetadataBuilder
 
 includes/mailer.php template replacement
   -> includes/shared_bootstrap.php
@@ -317,3 +322,23 @@ Notes:
 - Dashboard trend labels and data arrays remain shaped for the existing canvas chart JavaScript.
 - Downline report row keys remain compatible with the existing report table and ranking widgets.
 - No dependency is introduced from `src/Activity` back to agent entrypoints.
+
+## LandingPage SEO Metadata Foundation
+
+New dependency direction:
+
+```text
+includes/functions.php buildLpSeoMeta()
+  -> SeoMetadataBuilder
+  -> LandingPageText
+  -> LandingPageUrlBuilder
+
+includes/functions.php injectLpSeoHead()
+  -> SeoMetadataBuilder
+```
+
+Notes:
+
+- LP templates continue to call the existing global helper functions.
+- SEO title, description, canonical, Open Graph, Twitter Card, and JSON-LD generation now live in `src/LandingPage`.
+- No dependency is introduced from `src/LandingPage` back to legacy template files.

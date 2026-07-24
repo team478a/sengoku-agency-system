@@ -8,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 use SenNoKuni\LandingPage\LandingPageText;
 use SenNoKuni\LandingPage\LandingPageUrlBuilder;
 use SenNoKuni\LandingPage\ResponsiveImageBuilder;
+use SenNoKuni\LandingPage\SeoMetadataBuilder;
 use SenNoKuni\Notification\TemplateVariableReplacer;
 
 final class LandingPageNotificationFoundationTest extends TestCase
@@ -55,6 +56,31 @@ final class LandingPageNotificationFoundationTest extends TestCase
         self::assertStringContainsString('media="(max-width: 768px)"', $html);
         self::assertStringContainsString('src="/pc.jpg"', $html);
         self::assertStringContainsString('class="hero-img"', $html);
+    }
+
+    public function testSeoMetadataBuilderKeepsLpHeadContract(): void
+    {
+        $builder = new SeoMetadataBuilder('https://sengoku-ai.com');
+        $fields = [
+            'hero_title' => ['value_text' => 'AIアート無料体験', 'value_file' => ''],
+            'hero_body' => ['value_text' => '<p>はじめてでも楽しく学べます。</p>', 'value_file' => ''],
+            'hero_image_pc' => ['value_text' => '/uploads/hero.jpg', 'value_file' => ''],
+        ];
+        $template = [
+            'name' => 'AIアートLP',
+            'project_name' => 'AIアート教室',
+            'project_slug' => 'ai-art-school',
+        ];
+
+        $seo = $builder->build(['agent_code' => 'dir001'], $fields, $template, '/preview');
+        $html = $builder->injectHead('<html><head><title>old</title></head><body></body></html>', ['agent_code' => 'dir001'], $fields, $template);
+
+        self::assertSame('AIアート無料体験 | AIアート教室', $seo['title']);
+        self::assertSame('https://sengoku-ai.com/a/dir001?project=ai-art-school', $seo['canonical']);
+        self::assertSame('https://sengoku-ai.com/uploads/hero.jpg', $seo['image']);
+        self::assertStringContainsString('<meta property="og:title" content="AIアート無料体験 | AIアート教室">', $html);
+        self::assertStringContainsString('<script type="application/ld+json">', $html);
+        self::assertStringNotContainsString('<title>old</title>', $html);
     }
 
     public function testTemplateVariableReplacerAcceptsBracedAndPlainKeys(): void

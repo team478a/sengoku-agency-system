@@ -1420,6 +1420,14 @@ function landingPageResponsiveImageBuilder(): \SenNoKuni\LandingPage\ResponsiveI
     return $builder;
 }
 
+function landingPageSeoMetadataBuilder(): \SenNoKuni\LandingPage\SeoMetadataBuilder {
+    static $builder = null;
+    if ($builder === null) {
+        $builder = new \SenNoKuni\LandingPage\SeoMetadataBuilder(getSiteBaseUrl());
+    }
+    return $builder;
+}
+
 function getLpTemplateSeoSource(int $templateId): array {
     if ($templateId <= 0) return [];
     try {
@@ -1441,116 +1449,13 @@ function getLpTemplateSeoSource(int $templateId): array {
 function buildLpSeoMeta(array $agent, array $fields): array {
     $templateId = (int)($agent['default_template_id'] ?? 0);
     $template = getLpTemplateSeoSource($templateId);
-    $templateName = lpPlainText((string)($template['name'] ?? $agent['template_name'] ?? ''), 70);
-    $projectName = lpPlainText((string)($template['project_name'] ?? ''), 70);
-    $heroTitle = lpPlainText((string)($fields['hero_title']['value_text'] ?? ''), 70);
-    $seoTitle = lpPlainText((string)($fields['seo_title']['value_text'] ?? ''), 70);
-    $title = $seoTitle ?: ($heroTitle ?: ($templateName ?: ($projectName ?: 'LP')));
-    if ($projectName !== '' && stripos($title, $projectName) === false) {
-        $title .= ' | ' . $projectName;
-    }
-
-    $description = lpPlainText((string)($fields['seo_description']['value_text'] ?? ''), 160);
-    if ($description === '') {
-        $description = lpPlainText((string)($fields['hero_body']['value_text'] ?? ''), 160);
-    }
-    if ($description === '') {
-        $description = lpPlainText((string)($template['description'] ?? $template['project_description'] ?? ''), 160);
-    }
-    if ($description === '') {
-        $description = $title . ' information page. Please check the details and contact us from LINE or the inquiry form.';
-    }
-
-    $agentCode = (string)($agent['agent_code'] ?? '');
-    $project = [];
-    if (!empty($template['project_slug'])) {
-        $project = ['slug' => $template['project_slug']];
-    }
-    $canonical = $agentCode !== '' && $agentCode !== 'preview'
-        ? buildAgentProjectLpUrl($agentCode, $project)
-        : getSiteBaseUrl() . ($_SERVER['REQUEST_URI'] ?? '/');
-
-    $image = '';
-    foreach (['og_image', 'hero_image_pc', 'hero_image', 'background_image', 'hero_image_sp'] as $key) {
-        if (!empty($fields[$key]['value_file'])) {
-            $image = lpAbsoluteUrl((string)$fields[$key]['value_file']);
-            break;
-        }
-        if (!empty($fields[$key]['value_text'])) {
-            $image = lpAbsoluteUrl((string)$fields[$key]['value_text']);
-            break;
-        }
-    }
-    if ($image === '' && !empty($template['thumbnail_url'])) {
-        $image = lpAbsoluteUrl((string)$template['thumbnail_url']);
-    }
-
-    return [
-        'title' => $title,
-        'description' => $description,
-        'canonical' => $canonical,
-        'image' => $image,
-        'project_name' => $projectName,
-        'template_name' => $templateName,
-    ];
+    return landingPageSeoMetadataBuilder()->build($agent, $fields, $template, $_SERVER['REQUEST_URI'] ?? '/');
 }
 
 function injectLpSeoHead(string $html, array $agent, array $fields): string {
-    $seo = buildLpSeoMeta($agent, $fields);
-    $jsonLd = [
-        '@context' => 'https://schema.org',
-        '@type' => 'WebPage',
-        'name' => $seo['title'],
-        'description' => $seo['description'],
-        'url' => $seo['canonical'],
-        'inLanguage' => 'ja',
-        'about' => [
-            '@type' => 'Service',
-            'name' => $seo['project_name'] ?: $seo['template_name'] ?: $seo['title'],
-            'description' => $seo['description'],
-        ],
-        'potentialAction' => [
-            '@type' => 'ContactAction',
-            'target' => $seo['canonical'],
-        ],
-    ];
-    if ($seo['image'] !== '') {
-        $jsonLd['image'] = $seo['image'];
-        $jsonLd['primaryImageOfPage'] = [
-            '@type' => 'ImageObject',
-            'url' => $seo['image'],
-        ];
-    }
-
-    $head = "\n" .
-        '<title>' . h($seo['title']) . "</title>\n" .
-        '<meta name="description" content="' . h($seo['description']) . "\">\n" .
-        '<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">' . "\n" .
-        '<link rel="canonical" href="' . h($seo['canonical']) . "\">\n" .
-        '<meta property="og:type" content="website">' . "\n" .
-        '<meta property="og:locale" content="ja_JP">' . "\n" .
-        '<meta property="og:title" content="' . h($seo['title']) . "\">\n" .
-        '<meta property="og:description" content="' . h($seo['description']) . "\">\n" .
-        '<meta property="og:url" content="' . h($seo['canonical']) . "\">\n" .
-        ($seo['image'] !== '' ? '<meta property="og:image" content="' . h($seo['image']) . "\">\n" : '') .
-        '<meta name="twitter:card" content="' . ($seo['image'] !== '' ? 'summary_large_image' : 'summary') . "\">\n" .
-        '<meta name="twitter:title" content="' . h($seo['title']) . "\">\n" .
-        '<meta name="twitter:description" content="' . h($seo['description']) . "\">\n" .
-        ($seo['image'] !== '' ? '<meta name="twitter:image" content="' . h($seo['image']) . "\">\n" : '') .
-        '<script type="application/ld+json">' . json_encode($jsonLd, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "</script>\n";
-
-    $patterns = [
-        '/<title\b[^>]*>.*?<\/title>\s*/is',
-        '/<meta\s+name=["\']description["\'][^>]*>\s*/i',
-        '/<meta\s+name=["\']robots["\'][^>]*>\s*/i',
-        '/<link\s+rel=["\']canonical["\'][^>]*>\s*/i',
-        '/<meta\s+property=["\']og:[^"\']+["\'][^>]*>\s*/i',
-        '/<meta\s+name=["\']twitter:[^"\']+["\'][^>]*>\s*/i',
-        '/<script\s+type=["\']application\/ld\+json["\'][^>]*>.*?<\/script>\s*/is',
-    ];
-    $html = preg_replace($patterns, '', $html);
-    $html = preg_replace('/(<head\b[^>]*>)/i', '$1' . $head, $html, 1, $count);
-    return $count ? $html : $head . $html;
+    $templateId = (int)($agent['default_template_id'] ?? 0);
+    $template = getLpTemplateSeoSource($templateId);
+    return landingPageSeoMetadataBuilder()->injectHead($html, $agent, $fields, $template, $_SERVER['REQUEST_URI'] ?? '/');
 }
 
 function applyLpTemplateTokens(string $html, array $agent): string {

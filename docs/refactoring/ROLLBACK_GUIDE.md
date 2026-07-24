@@ -1,5 +1,14 @@
 # Rollback Guide
 
+## v3.6.99
+
+Rollback is file-only:
+
+1. Revert the v3.6.99 commit.
+2. Confirm `buildLpSeoMeta()` and `injectLpSeoHead()` contain their previous inline SEO generation logic.
+3. Confirm LP pages still render `<title>`, description, canonical, OG, Twitter, and JSON-LD tags.
+4. No database rollback is required.
+
 ## v3.6.98
 
 Rollback is file-only:

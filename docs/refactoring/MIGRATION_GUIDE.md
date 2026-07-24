@@ -1,5 +1,15 @@
 # Migration Guide
 
+## v3.6.99
+
+No database migration is required.
+
+LP SEO metadata generation now loads through `includes/shared_bootstrap.php`:
+
+- `SenNoKuni\LandingPage\SeoMetadataBuilder`
+
+Existing LP templates and helper function names remain unchanged.
+
 ## v3.6.98
 
 No database migration is required.
