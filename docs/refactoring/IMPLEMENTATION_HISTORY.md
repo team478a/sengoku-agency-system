@@ -1,5 +1,11 @@
 # Implementation History
 
+## 2026-07-24 Phase 16
+
+- Added `ActivitySummaryCards` for shared activity summary card definitions.
+- Routed admin and downline activity summary cards through the shared presenter.
+- Added characterization tests for the summary card contract.
+
 ## 2026-07-24 Phase 15
 
 - Added MariaDB-backed CSV contract test execution to GitHub Actions.

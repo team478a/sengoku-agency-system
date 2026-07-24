@@ -46,6 +46,7 @@ src/Notification
 
 src/Activity
   -> ActivityQueryService
+  -> ActivitySummaryCards
 
 src/Lead
   -> LeadCsvExportService
@@ -104,6 +105,14 @@ admin/agent_activity.php
 agent/downline_activity.php
   -> includes/shared_bootstrap.php
   -> src/Activity
+
+admin/agent_activity.php summary cards
+  -> includes/shared_bootstrap.php
+  -> src/Activity/ActivitySummaryCards
+
+agent/downline_activity.php summary cards
+  -> includes/shared_bootstrap.php
+  -> src/Activity/ActivitySummaryCards
 
 admin/export_csv.php activity export
   -> includes/shared_bootstrap.php
@@ -260,3 +269,21 @@ Notes:
 - The test runner uses connection-local temporary tables.
 - Production tables are not dropped, truncated, or altered by the test runner.
 - The runner is intentionally separate from legacy admin and agent entrypoints.
+
+## Activity Presentation Foundation
+
+New dependency direction:
+
+```text
+admin/agent_activity.php summary cards
+  -> ActivitySummaryCards
+
+agent/downline_activity.php summary cards
+  -> ActivitySummaryCards
+```
+
+Notes:
+
+- Activity query logic remains in `ActivityQueryService`.
+- Summary-card labels, value casting, and presentation metadata now live in `src/Activity`.
+- No dependency is introduced from `src/Activity` back to admin or agent entrypoints.

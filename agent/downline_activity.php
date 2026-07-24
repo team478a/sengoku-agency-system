@@ -58,6 +58,7 @@ $activityResult = $activityService->search([
 $pag = paginate((int)$activityResult['total'], $perPage, $page);
 $rows = $activityResult['rows'];
 $stats = $activityResult['stats'];
+$activityCards = (new \SenNoKuni\Activity\ActivitySummaryCards())->downlineCards($stats);
 
 $csvQuery = $_GET;
 $csvQuery['type'] = 'downline_activity';
@@ -136,11 +137,10 @@ function downlineActivityDate(?string $date): string {
 </div>
 
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;margin-bottom:1.25rem;">
-    <div class="card" style="text-align:center;padding:1.15rem .75rem;margin-bottom:0;"><p style="font-size:.72rem;color:var(--text-muted);">配下人数</p><p style="font-family:'Noto Serif JP',serif;font-size:1.75rem;font-weight:900;color:var(--gold-lt);"><?= number_format((int)($stats['agent_count'] ?? 0)) ?></p></div>
-    <div class="card" style="text-align:center;padding:1.15rem .75rem;margin-bottom:0;"><p style="font-size:.72rem;color:var(--text-muted);">PV</p><p style="font-family:'Noto Serif JP',serif;font-size:1.75rem;font-weight:900;color:var(--gold-lt);"><?= number_format((int)($stats['pv_total'] ?? 0)) ?></p></div>
-    <div class="card" style="text-align:center;padding:1.15rem .75rem;margin-bottom:0;"><p style="font-size:.72rem;color:var(--text-muted);">LINEクリック</p><p style="font-family:'Noto Serif JP',serif;font-size:1.75rem;font-weight:900;color:var(--gold-lt);"><?= number_format((int)($stats['line_total'] ?? 0)) ?></p></div>
-    <div class="card" style="text-align:center;padding:1.15rem .75rem;margin-bottom:0;"><p style="font-size:.72rem;color:var(--text-muted);">問い合わせ</p><p style="font-family:'Noto Serif JP',serif;font-size:1.75rem;font-weight:900;color:var(--gold-lt);"><?= number_format((int)($stats['lead_total'] ?? 0)) ?></p></div>
-    <div class="card" style="text-align:center;padding:1.15rem .75rem;margin-bottom:0;"><p style="font-size:.72rem;color:var(--text-muted);">未対応</p><p style="font-family:'Noto Serif JP',serif;font-size:1.75rem;font-weight:900;color:#e0a040;"><?= number_format((int)($stats['new_total'] ?? 0)) ?></p></div>
+    <?php foreach ($activityCards as $card): ?>
+    <?php $cardColor = $card['tone'] === 'warning' ? '#e0a040' : 'var(--gold-lt)'; ?>
+    <div class="card" style="text-align:center;padding:1.15rem .75rem;margin-bottom:0;"><p style="font-size:.72rem;color:var(--text-muted);"><?= h($card['label']) ?></p><p style="font-family:'Noto Serif JP',serif;font-size:1.75rem;font-weight:900;color:<?= h($cardColor) ?>;"><?= number_format((int)$card['value']) ?></p></div>
+    <?php endforeach; ?>
 </div>
 
 <div class="card" style="padding:0;overflow:hidden;">

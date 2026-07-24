@@ -1,5 +1,13 @@
 # Rollback Guide
 
+## v3.6.97
+
+Rollback is file-only:
+
+1. Revert the v3.6.97 commit.
+2. Confirm `admin/agent_activity.php` and `agent/downline_activity.php` render summary cards inline again.
+3. No database rollback is required.
+
 ## v3.6.96
 
 Rollback is file-only:

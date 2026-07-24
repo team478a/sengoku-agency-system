@@ -1,3 +1,8 @@
+## v3.6.97 (2026-07-24)
+- Added `ActivitySummaryCards` for shared admin and downline activity summary card definitions.
+- Routed `admin/agent_activity.php` and `agent/downline_activity.php` summary cards through the shared Activity presenter while keeping page URLs, queries, labels, and values stable.
+- Added characterization tests for the activity summary card labels, values, and warning tone.
+
 ## v3.6.96 (2026-07-24)
 - Added MariaDB-backed CSV contract test execution to GitHub Actions CI.
 - Configured the CI workflow to run `composer test:csv-contract` against a temporary MariaDB service.

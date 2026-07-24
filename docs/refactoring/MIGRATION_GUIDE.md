@@ -1,5 +1,15 @@
 # Migration Guide
 
+## v3.6.97
+
+No database migration is required.
+
+Activity summary card definitions now load through `includes/shared_bootstrap.php`:
+
+- `SenNoKuni\Activity\ActivitySummaryCards`
+
+Existing activity page URLs, filters, labels, and values remain unchanged.
+
 ## v3.6.96
 
 No database migration is required.

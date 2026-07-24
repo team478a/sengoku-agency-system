@@ -1,5 +1,27 @@
 # Implementation Status
 
+## v3.6.97 Activity Presentation Foundation
+
+Status: completed
+
+Implemented in this phase:
+
+- Added `ActivitySummaryCards`.
+- Routed `admin/agent_activity.php` summary cards through `ActivitySummaryCards`.
+- Routed `agent/downline_activity.php` summary cards through `ActivitySummaryCards`.
+- Added characterization tests for activity summary card labels and values.
+
+Runtime behavior changed: limited to internal presentation delegation
+
+Database changed: no
+
+Existing activity page URLs, queries, labels, and values changed: no
+
+Remaining Phase 7 work:
+
+- Add dedicated activity trend and ranking query services.
+- Monitor the first GitHub Actions run and address any CI-environment-only failures.
+
 ## v3.6.96 CI CSV Contract Test Execution
 
 Status: completed
@@ -188,7 +210,6 @@ Existing page URLs, filters, sort options, CSV links, and display labels changed
 
 Remaining Phase 7 work:
 
-- Extract activity dashboard cards into presentation helpers.
 - Add dedicated activity trend and ranking query services.
 - Add DB-backed integration tests once local test database configuration is available.
 

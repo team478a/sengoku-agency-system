@@ -1,5 +1,22 @@
 # Test Results
 
+## v3.6.97
+
+Completed checks:
+
+- `php scripts/lint-php.php`: passed
+- `php -r "require 'includes/shared_bootstrap.php'; ..."`: passed
+- `php scripts/run-csv-contract-tests.php`: skipped because `CSV_CONTRACT_DSN`, `CSV_CONTRACT_USER`, and `CSV_CONTRACT_PASS` are not set
+
+Not run locally:
+
+- `composer test`
+- `composer analyse`
+
+Local limitation:
+
+- Composer is not installed in the current Windows environment.
+
 ## v3.6.96
 
 Completed checks:

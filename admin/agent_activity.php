@@ -45,6 +45,7 @@ $activityResult = $activityService->search([
 $pag = paginate((int)$activityResult['total'], $perPage, $page);
 $rows = $activityResult['rows'];
 $stats = $activityResult['stats'];
+$activityCards = (new \SenNoKuni\Activity\ActivitySummaryCards())->adminCards($stats);
 
 $csvQuery = $_GET;
 $csvQuery['type'] = 'agent_activity';
@@ -120,11 +121,9 @@ function adminActivityDate(?string $date): string {
 </div>
 
 <div class="stats-grid">
-    <div class="stat-card"><p class="stat-label">代理店数</p><p class="stat-val"><?= number_format((int)($stats['agent_count'] ?? 0)) ?></p></div>
-    <div class="stat-card"><p class="stat-label">PV</p><p class="stat-val"><?= number_format((int)($stats['pv_total'] ?? 0)) ?></p></div>
-    <div class="stat-card"><p class="stat-label">LINE</p><p class="stat-val"><?= number_format((int)($stats['line_total'] ?? 0)) ?></p></div>
-    <div class="stat-card"><p class="stat-label">問い合わせ</p><p class="stat-val"><?= number_format((int)($stats['lead_total'] ?? 0)) ?></p></div>
-    <div class="stat-card"><p class="stat-label">未対応</p><p class="stat-val"><?= number_format((int)($stats['new_total'] ?? 0)) ?></p></div>
+    <?php foreach ($activityCards as $card): ?>
+    <div class="stat-card"><p class="stat-label"><?= h($card['label']) ?></p><p class="stat-val"><?= number_format((int)$card['value']) ?></p></div>
+    <?php endforeach; ?>
 </div>
 
 <div class="card" style="padding:0;overflow:hidden;">
