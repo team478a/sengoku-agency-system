@@ -3,6 +3,7 @@ $pageTitle = 'LP表示編集';
 require_once __DIR__ . '/header.php';
 
 $db = getDB();
+$templateRepository = lpTemplateRepository();
 $csrf = getCsrfToken();
 $msg = '';
 $msgType = 'success';
@@ -59,18 +60,11 @@ $presetFields = [
     ],
 ];
 
-try {
-    $db->query("SELECT 1 FROM lp_template_fields LIMIT 1");
-    $fieldsReady = true;
-} catch (Throwable $e) {
-    $fieldsReady = false;
-}
+$fieldsReady = $templateRepository->fieldsReady();
 
 $template = null;
 if ($templateId > 0) {
-    $stmt = $db->prepare("SELECT * FROM lp_templates WHERE id=?");
-    $stmt->execute([$templateId]);
-    $template = $stmt->fetch() ?: null;
+    $template = $templateRepository->find($templateId);
 }
 
 if (!$template) {
@@ -87,16 +81,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $template && $fieldsReady) {
         if (!is_dir($uploadDir)) {
             mkdir($uploadDir, 0755, true);
         }
-
-        $upsert = $db->prepare("
-            INSERT INTO lp_template_fields (template_id, field_key, field_type, label, value_text, value_file)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-                field_type=VALUES(field_type),
-                label=VALUES(label),
-                value_text=VALUES(value_text),
-                value_file=VALUES(value_file)
-        ");
 
         foreach ($presetFields as $key => $meta) {
             $valueText = trim((string)($_POST[$key] ?? ''));
@@ -116,14 +100,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $template && $fieldsReady) {
                 }
             }
 
-            $upsert->execute([
+            $templateRepository->upsertField(
                 $templateId,
                 $key,
                 $meta['type'],
                 $meta['label'],
                 $meta['type'] === 'image' ? null : $valueText,
                 $meta['type'] === 'image' ? ($valueFile ?: null) : null,
-            ]);
+            );
         }
 
         if ($msgType !== 'error') {

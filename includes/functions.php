@@ -1143,16 +1143,7 @@ function lpReferralFeaturesEnabled(): bool {
 }
 
 function getLpProjectIdFromTemplate(?int $templateId): int {
-    if (!$templateId || !tableHasColumn('lp_templates', 'project_id')) {
-        return 0;
-    }
-    try {
-        $stmt = getDB()->prepare("SELECT project_id FROM lp_templates WHERE id=? LIMIT 1");
-        $stmt->execute([$templateId]);
-        return (int)$stmt->fetchColumn();
-    } catch (Throwable $e) {
-        return 0;
-    }
+    return lpTemplateRepository()->projectIdForTemplate((int)$templateId);
 }
 
 function ensureLpReferralTokenForAgent(array $agent, int $projectId = 0): ?array {
@@ -1272,26 +1263,11 @@ function getAgentById(int $id): ?array {
 // =============================
 // 繝・Φ繝励Ξ繝ｼ繝亥叙蠕・// =============================
 function getActiveTemplates(): array {
-    $db = getDB();
-    if (tableHasColumn('lp_templates', 'project_id')) {
-        $stmt = $db->query("
-            SELECT t.*, p.name AS project_name
-            FROM lp_templates t
-            LEFT JOIN projects p ON t.project_id = p.id
-            WHERE t.status = 'active'
-            ORDER BY COALESCE(p.sort_order, 9999) ASC, t.sort_order ASC
-        ");
-        return $stmt->fetchAll();
-    }
-    $stmt = $db->query("SELECT * FROM lp_templates WHERE status = 'active' ORDER BY sort_order ASC");
-    return $stmt->fetchAll();
+    return lpTemplateRepository()->activeTemplates();
 }
 
 function getTemplateById(int $id): ?array {
-    $db = getDB();
-    $stmt = $db->prepare("SELECT * FROM lp_templates WHERE id = ? LIMIT 1");
-    $stmt->execute([$id]);
-    return $stmt->fetch() ?: null;
+    return lpTemplateRepository()->find($id);
 }
 
 function getActiveTemplatesByProject(): array {
@@ -1322,24 +1298,18 @@ function getAgentProjectTemplateMap(int $agentId): array {
 
 function getProjectTemplateForAgent(array $agent, int $projectId): ?array {
     if ($projectId <= 0) return null;
-    $db = getDB();
+    $templates = lpTemplateRepository();
     $agentId = (int)($agent['id'] ?? 0);
     $map = getAgentProjectTemplateMap($agentId);
     if (!empty($map[$projectId])) {
-        $stmt = $db->prepare("SELECT * FROM lp_templates WHERE id=? AND project_id=? AND status='active' LIMIT 1");
-        $stmt->execute([(int)$map[$projectId], $projectId]);
-        $template = $stmt->fetch();
+        $template = $templates->activeProjectTemplate((int)$map[$projectId], $projectId);
         if ($template) return $template;
     }
     if ((int)($agent['template_project_id'] ?? 0) === $projectId && !empty($agent['default_template_id'])) {
-        $stmt = $db->prepare("SELECT * FROM lp_templates WHERE id=? AND project_id=? AND status='active' LIMIT 1");
-        $stmt->execute([(int)$agent['default_template_id'], $projectId]);
-        $template = $stmt->fetch();
+        $template = $templates->activeProjectTemplate((int)$agent['default_template_id'], $projectId);
         if ($template) return $template;
     }
-    $stmt = $db->prepare("SELECT * FROM lp_templates WHERE project_id=? AND status='active' ORDER BY sort_order ASC, id ASC LIMIT 1");
-    $stmt->execute([$projectId]);
-    return $stmt->fetch() ?: null;
+    return $templates->firstActiveForProject($projectId);
 }
 
 function getAgentProjectLpUrls(array $agent): array {
@@ -1355,20 +1325,7 @@ function getAgentProjectLpUrls(array $agent): array {
 }
 
 function getLpTemplateFields(int $templateId): array {
-    if ($templateId <= 0) return [];
-    $db = getDB();
-    try {
-        $db->query("SELECT 1 FROM lp_template_fields LIMIT 1");
-    } catch (Throwable $e) {
-        return [];
-    }
-    $stmt = $db->prepare("SELECT * FROM lp_template_fields WHERE template_id=?");
-    $stmt->execute([$templateId]);
-    $fields = [];
-    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $fields[$row['field_key']] = $row;
-    }
-    return $fields;
+    return lpTemplateRepository()->fields($templateId);
 }
 
 function getLpTemplateFieldValue(array $agent, string $key, string $default = ''): string {
@@ -1400,6 +1357,17 @@ function lpPlainText(string $value, int $maxLength = 160): string {
     return landingPageTextFormatter()->plainText($value, $maxLength);
 }
 
+function lpTemplateRepository(): \SenNoKuni\LandingPage\LandingPageTemplateRepository {
+    static $repository = null;
+    if ($repository === null) {
+        $repository = new \SenNoKuni\LandingPage\LandingPageTemplateRepository(
+            getDB(),
+            tableColumns('lp_templates')
+        );
+    }
+    return $repository;
+}
+
 function lpAbsoluteUrl(string $url): string {
     return landingPageUrlBuilder()->absoluteUrl($url);
 }
@@ -1429,21 +1397,7 @@ function landingPageSeoMetadataBuilder(): \SenNoKuni\LandingPage\SeoMetadataBuil
 }
 
 function getLpTemplateSeoSource(int $templateId): array {
-    if ($templateId <= 0) return [];
-    try {
-        $db = getDB();
-        $stmt = $db->prepare("
-            SELECT t.*, p.slug AS project_slug, p.name AS project_name, p.description AS project_description
-            FROM lp_templates t
-            LEFT JOIN projects p ON t.project_id = p.id
-            WHERE t.id=?
-            LIMIT 1
-        ");
-        $stmt->execute([$templateId]);
-        return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-    } catch (Throwable $e) {
-        return [];
-    }
+    return lpTemplateRepository()->seoSource($templateId);
 }
 
 function buildLpSeoMeta(array $agent, array $fields): array {

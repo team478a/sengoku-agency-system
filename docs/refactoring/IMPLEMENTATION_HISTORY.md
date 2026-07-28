@@ -1,5 +1,11 @@
 # Implementation History
 
+## 2026-07-28 Phase 21
+
+- Added `LandingPageTemplateRepository` for LP template persistence and lookup.
+- Routed active template lookup, project-specific template resolution, field loading, field saving, SEO source lookup, and admin template CRUD through the repository.
+- Kept LP URLs, template field keys, upload paths, database schema, and external API contracts unchanged.
+
 ## 2026-07-28 Phase 20
 
 - Added notification channel classes for email, LINE, Chatwork, and Slack.

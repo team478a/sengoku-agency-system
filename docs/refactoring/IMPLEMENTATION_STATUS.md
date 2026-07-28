@@ -1,5 +1,28 @@
 # Implementation Status
 
+## v3.6.102 Template Repository Foundation
+
+Status: completed
+
+Implemented in this phase:
+
+- Added `LandingPageTemplateRepository`.
+- Routed active template lookup, template-by-ID lookup, project template fallback resolution, and template project ID lookup through the repository.
+- Routed LP template customizer field persistence through the repository.
+- Routed admin template create, update, delete, status toggle, edit lookup, and list retrieval through the repository.
+- Routed SEO source lookup through the repository.
+
+Runtime behavior changed: limited to internal LP template storage/query delegation
+
+Database changed: no
+
+Existing admin URLs, LP URLs, uploaded file paths, template field keys, public helper names, and external API contracts changed: no
+
+Remaining Phase 6 work:
+
+- Extract full LP rendering flow into application services.
+- Monitor the first GitHub Actions run and address any CI-environment-only failures.
+
 ## v3.6.101 Notification Channel Foundation
 
 Status: completed
@@ -21,7 +44,6 @@ Existing `Notifier` constructor, `send()` return keys, notification settings, me
 Remaining Phase 6 work:
 
 - Extract full LP rendering flow into application services.
-- Move template storage/query logic into repositories.
 - Monitor the first GitHub Actions run and address any CI-environment-only failures.
 
 ## v3.6.100 Access Logging Foundation
@@ -43,7 +65,6 @@ Existing `logAccess()` call sites, LP URLs, activity reports, access log table c
 Remaining Phase 6 work:
 
 - Extract full LP rendering flow into application services.
-- Move template storage/query logic into repositories.
 - Monitor the first GitHub Actions run and address any CI-environment-only failures.
 
 ## v3.6.99 LandingPage SEO Metadata Foundation
@@ -66,7 +87,6 @@ Existing LP helper function names, LP template calls, title fallback order, cano
 Remaining Phase 6 work:
 
 - Extract full LP rendering flow into application services.
-- Move template storage/query logic into repositories.
 - Monitor the first GitHub Actions run and address any CI-environment-only failures.
 
 ## v3.6.98 Activity Trend And Ranking Foundation
@@ -327,7 +347,6 @@ Existing LP URLs, template tags, and mail variable names changed: no
 Remaining Phase 6 work:
 
 - Extract full LP rendering flow into application services.
-- Move template storage/query logic into repositories.
 
 ## v3.6.86 Admin Foundation
 

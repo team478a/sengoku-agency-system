@@ -1,5 +1,26 @@
 # Test Results
 
+## v3.6.102
+
+Completed checks:
+
+- `php scripts/lint-php.php`: passed
+- `php -l src\LandingPage\LandingPageTemplateRepository.php`: passed
+- `php -l includes\functions.php`: passed
+- `php -l admin\templates.php`: passed
+- `php -l admin\template_customizer.php`: passed
+- `php -r "require 'includes/shared_bootstrap.php'; class_exists(...)"`: passed
+- `git diff --check`: passed
+
+Not run locally:
+
+- `composer test`
+- `composer analyse`
+
+Local limitation:
+
+- Composer and `vendor/` dependencies are not installed in the current Windows environment.
+
 ## v3.6.101
 
 Completed checks:

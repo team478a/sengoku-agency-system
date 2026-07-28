@@ -7,6 +7,7 @@ $csrf    = getCsrfToken();
 $msg     = '';
 $msgType = 'success';
 $templateColumns = tableColumns('lp_templates');
+$templateRepository = lpTemplateRepository();
 $templateHasProject = !empty($templateColumns['project_id']);
 $projects = getProjects(true);
 $defaultProjectId = getDefaultProjectId();
@@ -150,9 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
         if ($inUse->fetchColumn() > 0) {
             $msg = 'このテンプレートを使用しているアドバイザーがいるため削除できません。'; $msgType = 'error';
         } else {
-            $tpl = $db->prepare("SELECT slug, html_file, thumbnail_url FROM lp_templates WHERE id=?");
-            $tpl->execute([$id]);
-            $tpl = $tpl->fetch();
+            $tpl = $templateRepository->find($id);
             if ($tpl) {
                 $tplFile = __DIR__ . '/../templates/' . $tpl['slug'] . '/' . $tpl['html_file'];
                 $tplDir  = __DIR__ . '/../templates/' . $tpl['slug'];
@@ -160,7 +159,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
                 if (is_dir($tplDir) && count(scandir($tplDir)) <= 2) @rmdir($tplDir);
                 if (!empty($tpl['thumbnail_url'])) @unlink(__DIR__ . '/..' . $tpl['thumbnail_url']);
             }
-            $db->prepare("DELETE FROM lp_templates WHERE id=?")->execute([$id]);
+            $templateRepository->delete($id);
             $msg = 'テンプレートを削除しました。';
         }
     }
@@ -171,8 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
 // ─────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'toggle') {
     if (verifyCsrfToken($_POST['csrf_token'] ?? '')) {
-        $db->prepare("UPDATE lp_templates SET status=IF(status='active','inactive','active') WHERE id=?")
-           ->execute([(int)$_POST['id']]);
+        $templateRepository->toggleStatus((int)$_POST['id']);
         $msg = 'ステータスを変更しました。';
     }
 }
@@ -253,24 +251,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
                 $msg = 'スラッグ・名前・LPファイルは必須です。'; $msgType = 'error';
             } else {
                 try {
+                    $templateData = [
+                        'project_id' => $projectId,
+                        'slug' => $slug,
+                        'name' => $name,
+                        'description' => $desc,
+                        'html_file' => $htmlFile,
+                        'thumbnail_url' => $thumbnail,
+                        'sort_order' => $order,
+                    ];
                     if (($_POST['action'] ?? '') === 'create') {
-                        if ($templateHasProject) {
-                            $db->prepare("INSERT INTO lp_templates (project_id,slug,name,description,html_file,thumbnail_url,sort_order) VALUES (?,?,?,?,?,?,?)")
-                               ->execute([$projectId,$slug,$name,$desc,$htmlFile,$thumbnail,$order]);
-                        } else {
-                            $db->prepare("INSERT INTO lp_templates (slug,name,description,html_file,thumbnail_url,sort_order) VALUES (?,?,?,?,?,?)")
-                               ->execute([$slug,$name,$desc,$htmlFile,$thumbnail,$order]);
-                        }
+                        $templateRepository->create($templateData);
                         $msg = 'テンプレートを登録しました。' . ($uploadMsg ? '　'.$uploadMsg : '');
                     } else {
                         $id = (int)$_POST['id'];
-                        if ($templateHasProject) {
-                            $db->prepare("UPDATE lp_templates SET project_id=?,slug=?,name=?,description=?,html_file=?,thumbnail_url=?,sort_order=? WHERE id=?")
-                               ->execute([$projectId,$slug,$name,$desc,$htmlFile,$thumbnail,$order,$id]);
-                        } else {
-                            $db->prepare("UPDATE lp_templates SET slug=?,name=?,description=?,html_file=?,thumbnail_url=?,sort_order=? WHERE id=?")
-                               ->execute([$slug,$name,$desc,$htmlFile,$thumbnail,$order,$id]);
-                        }
+                        $templateRepository->update($id, $templateData);
                         $msg = 'テンプレートを更新しました。' . ($uploadMsg ? '　'.$uploadMsg : '');
                     }
                 } catch (PDOException $e) {
@@ -284,14 +279,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
 // 編集対象
 $editTpl = null;
 if (isset($_GET['edit'])) {
-    $stmt = $db->prepare("SELECT * FROM lp_templates WHERE id=?");
-    $stmt->execute([(int)$_GET['edit']]);
-    $editTpl = $stmt->fetch() ?: null;
+    $editTpl = $templateRepository->find((int)$_GET['edit']);
 }
 
-$templates = $templateHasProject
-    ? $db->query("SELECT t.*, p.name AS project_name FROM lp_templates t LEFT JOIN projects p ON t.project_id=p.id ORDER BY COALESCE(p.sort_order,9999) ASC, t.sort_order ASC, t.id ASC")->fetchAll()
-    : $db->query("SELECT * FROM lp_templates ORDER BY sort_order ASC, id ASC")->fetchAll();
+$templates = $templateRepository->adminList();
 ?>
 
 <?php if ($msg): ?>

@@ -1,3 +1,8 @@
+## v3.6.102 (2026-07-28)
+- Added `LandingPageTemplateRepository` for LP template lookup, admin list retrieval, CRUD, field persistence, and SEO source lookup.
+- Routed existing LP template helper functions, template management, and template display customization through the repository.
+- Kept database schema, admin URLs, LP template field keys, uploaded file paths, LP URLs, and external API contracts unchanged.
+
 ## v3.6.101 (2026-07-28)
 - Added dedicated notification channel classes for email, LINE, Chatwork, and Slack lead notifications.
 - Added `LeadNotifier`, `LeadNotificationMessageBuilder`, and `JsonWebhookClient` to coordinate notification delivery.
