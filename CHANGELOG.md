@@ -1,3 +1,8 @@
+## v3.6.108 (2026-07-29)
+- Explicitly enabled `mbstring` in the CI PHP setup for PHPUnit 11.
+- Confirmed local PHPUnit PHAR startup fails without `mbstring`, matching the likely CI PHPUnit failure cause.
+- Kept runtime PHP files, database schema, existing API URLs, and existing page behavior unchanged.
+
 ## v3.6.107 (2026-07-29)
 - Removed the GitHub Actions service-container health check that failed during MariaDB startup.
 - Added an explicit PHP/PDO MariaDB readiness wait before DB-backed CSV contract tests.

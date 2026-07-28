@@ -1,5 +1,31 @@
 # Test Results
 
+## v3.6.108
+
+Completed checks:
+
+- `php scripts/lint-php.php`: passed
+- GitHub Actions job steps inspected through the GitHub connector.
+- CI progressed past container initialization, Composer validation, dependency install, and syntax lint.
+- CI failed at `PHPUnit`.
+- Local PHPUnit PHAR startup was attempted and failed because local PHP lacks `mbstring`.
+
+Fix applied:
+
+- Explicitly enabled `mbstring` in `.github/workflows/ci.yml`.
+
+Not run locally:
+
+- Full `phpunit` suite
+- `composer validate --strict`
+- `composer test`
+- `composer analyse`
+- DB-backed CSV contract execution
+
+Local limitation:
+
+- Local PHP lacks `mbstring`, OpenSSL, and PDO database drivers needed for the full CI-equivalent run.
+
 ## v3.6.107
 
 Completed checks:
