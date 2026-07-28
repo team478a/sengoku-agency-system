@@ -1,3 +1,9 @@
+## v3.6.111 (2026-07-29)
+- Added an admin "外部連携ガイド" page that explains the external integration setup flow step by step.
+- Added a sidebar link to the guide near SSO and external API integration management.
+- Documented integration direction, per-partner API key responsibilities, SSO setup, connection testing, logs, Outbox checks, and developer handoff information.
+- Kept database schema, existing API URLs, webhook behavior, SSO contracts, and existing external partner settings behavior unchanged.
+
 ## v3.6.110 (2026-07-29)
 - Fixed PHPStan warning in `HttpClient` by initializing `$http_response_header` before `file_get_contents()`.
 - Confirmed CI had reached PHPStan after Composer, lint, PHPUnit, MariaDB readiness, and CSV contract tests passed.

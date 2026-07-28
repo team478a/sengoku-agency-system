@@ -546,6 +546,7 @@ window.toggleTheme = toggleTheme;
         navLink('/admin/action_logs.php', '&#128336;', '操作ログ', $current);
         navLink('/admin/login_logs.php', '&#128273;', 'ログイン記録', $current);
         navLink('/admin/operations.php', '&#128680;', '運用チェック', $current);
+        navLink('/admin/integration_guide.php', '&#128506;', '外部連携ガイド', $current);
         navLink('/admin/sso_settings.php', '&#128274;', 'SSO連携', $current);
         navLink('/admin/external_partners.php', '&#128268;', '外部API連携', $current);
         navLink('/admin/integration_outbox.php', '&#128230;', '外部連携Outbox', $current);

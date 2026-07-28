@@ -1,5 +1,31 @@
 # Test Results
 
+## v3.6.111
+
+Completed checks:
+
+- `php -l admin/integration_guide.php`: passed
+- `php -l admin/header.php`: passed
+- `php scripts/lint-php.php`: passed
+- `git diff --check`: passed
+
+Fix applied:
+
+- Added a static admin guide page for the external integration setup flow.
+- Added the guide to the admin sidebar near the existing SSO and external API integration screens.
+
+Not run locally:
+
+- Full `phpunit` suite
+- `composer validate --strict`
+- `composer test`
+- `composer analyse`
+- DB-backed CSV contract execution
+
+Local limitation:
+
+- Local PHP lacks `mbstring`, OpenSSL, and PDO database drivers needed for the full CI-equivalent run.
+
 ## v3.6.110
 
 Completed checks:
