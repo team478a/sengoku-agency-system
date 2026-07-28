@@ -1,3 +1,8 @@
+## v3.6.104 (2026-07-28)
+- Added characterization coverage for `LandingPageRenderer` template rendering and preview-bar injection.
+- Confirmed local CI visibility constraints: GitHub CLI is not authenticated, local PHP lacks OpenSSL and PDO database drivers, and Composer dependencies are not installed locally.
+- Kept production runtime behavior, database schema, LP URLs, and external API contracts unchanged.
+
 ## v3.6.103 (2026-07-28)
 - Added `LandingPageRenderer` for shared LP template file rendering and preview-bar injection.
 - Routed normal LP display and LP preview rendering through the renderer.

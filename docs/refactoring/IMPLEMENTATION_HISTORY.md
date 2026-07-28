@@ -1,5 +1,11 @@
 # Implementation History
 
+## 2026-07-28 Phase 23
+
+- Added characterization tests for `LandingPageRenderer`.
+- Covered template file resolution, token-render callback execution, `$csrfToken` template scope, and preview-bar injection fallback behavior.
+- Checked GitHub CLI and local Composer constraints for CI follow-up.
+
 ## 2026-07-28 Phase 22
 
 - Added `LandingPageRenderer` for shared LP template rendering.

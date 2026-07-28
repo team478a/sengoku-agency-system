@@ -1,5 +1,25 @@
 # Implementation Status
 
+## v3.6.104 CI Readiness Coverage
+
+Status: completed
+
+Implemented in this phase:
+
+- Added characterization coverage for `LandingPageRenderer`.
+- Covered template file resolution, template include scope, token-render callback execution, and preview-bar injection.
+- Checked CI visibility from the local environment.
+
+Runtime behavior changed: no
+
+Database changed: no
+
+Existing LP URLs, preview URLs, database schema, and external API contracts changed: no
+
+Remaining Phase 6 work:
+
+- Monitor GitHub Actions from an authenticated GitHub session and address any CI-environment-only failures.
+
 ## v3.6.103 LandingPage Rendering Foundation
 
 Status: completed
@@ -19,7 +39,7 @@ Existing LP URLs, preview URLs, fallback template behavior, template token repla
 
 Remaining Phase 6 work:
 
-- Monitor the first GitHub Actions run and address any CI-environment-only failures.
+- Monitor GitHub Actions from an authenticated GitHub session and address any CI-environment-only failures.
 
 ## v3.6.102 Template Repository Foundation
 

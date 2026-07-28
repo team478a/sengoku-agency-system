@@ -1,5 +1,28 @@
 # Test Results
 
+## v3.6.104
+
+Completed checks:
+
+- `php -l tests\Characterization\LandingPageNotificationFoundationTest.php`: passed
+- `php scripts/lint-php.php`: passed
+- `php -r "require 'src/LandingPage/LandingPageRenderer.php'; class_exists(...)"`: passed
+- `git diff --check`: passed
+
+Not run locally:
+
+- `composer validate --strict`
+- `composer test`
+- `composer analyse`
+- GitHub Actions log inspection
+
+Local limitation:
+
+- GitHub CLI is installed but not authenticated.
+- Local PHP lacks the OpenSSL extension required by Composer.
+- Local PHP does not show PDO database drivers for DB-backed test execution.
+- Composer dependencies are not installed in the current Windows environment.
+
 ## v3.6.103
 
 Completed checks:

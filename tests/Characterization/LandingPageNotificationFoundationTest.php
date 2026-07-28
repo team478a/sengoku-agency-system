@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SenNoKuni\Tests\Characterization;
 
 use PHPUnit\Framework\TestCase;
+use SenNoKuni\LandingPage\LandingPageRenderer;
 use SenNoKuni\LandingPage\LandingPageText;
 use SenNoKuni\LandingPage\LandingPageUrlBuilder;
 use SenNoKuni\LandingPage\ResponsiveImageBuilder;
@@ -81,6 +82,47 @@ final class LandingPageNotificationFoundationTest extends TestCase
         self::assertStringContainsString('<meta property="og:title" content="AIアート無料体験 | AIアート教室">', $html);
         self::assertStringContainsString('<script type="application/ld+json">', $html);
         self::assertStringNotContainsString('<title>old</title>', $html);
+    }
+
+    public function testLandingPageRendererKeepsTemplateRenderContract(): void
+    {
+        $baseDir = sys_get_temp_dir() . '/sengoku_lp_renderer_' . bin2hex(random_bytes(4));
+        $templateDir = $baseDir . '/templates/demo';
+        mkdir($templateDir, 0777, true);
+        file_put_contents($templateDir . '/demo.php', '<html><body><?= $csrfToken ?> {{hero_title}}</body></html>');
+
+        $renderer = new LandingPageRenderer(
+            $baseDir,
+            static fn(string $html, array $agent): string => strtr($html, [
+                '{{hero_title}}' => (string)($agent['title'] ?? ''),
+            ])
+        );
+
+        $templateFile = $renderer->templateFile([
+            'template_slug' => 'demo',
+            'html_file' => 'demo.php',
+        ]);
+
+        self::assertSame($templateDir . '/demo.php', $templateFile);
+        self::assertSame(
+            '<html><body>csrf123 Welcome</body></html>',
+            $renderer->renderFile($templateFile, ['title' => 'Welcome'], 'csrf123')
+        );
+    }
+
+    public function testLandingPageRendererInjectsPreviewBarIntoBody(): void
+    {
+        $renderer = new LandingPageRenderer(sys_get_temp_dir(), static fn(string $html, array $agent): string => $html);
+
+        self::assertSame(
+            '<html><body><div id="bar"></div><main>LP</main></body></html>',
+            $renderer->injectPreviewBar('<html><body><main>LP</main></body></html>', '<div id="bar"></div>')
+        );
+
+        self::assertSame(
+            '<div id="bar"></div><main>LP</main>',
+            $renderer->injectPreviewBar('<main>LP</main>', '<div id="bar"></div>')
+        );
     }
 
     public function testTemplateVariableReplacerAcceptsBracedAndPlainKeys(): void
