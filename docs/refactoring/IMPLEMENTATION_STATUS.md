@@ -1,5 +1,28 @@
 # Implementation Status
 
+## v3.6.100 Access Logging Foundation
+
+Status: completed
+
+Implemented in this phase:
+
+- Added `AccessLogRecorder`.
+- Routed `logAccess()` through `AccessLogRecorder`.
+- Preserved access log columns, LP template project lookup, referral token ID, and referral session key handling.
+
+Runtime behavior changed: limited to internal access-log delegation
+
+Database changed: no
+
+Existing `logAccess()` call sites, LP URLs, activity reports, access log table columns, and webhook/API contracts changed: no
+
+Remaining Phase 6 work:
+
+- Extract full LP rendering flow into application services.
+- Add notification channel strategy classes.
+- Move template storage/query logic into repositories.
+- Monitor the first GitHub Actions run and address any CI-environment-only failures.
+
 ## v3.6.99 LandingPage SEO Metadata Foundation
 
 Status: completed
@@ -22,7 +45,6 @@ Remaining Phase 6 work:
 - Extract full LP rendering flow into application services.
 - Add notification channel strategy classes.
 - Move template storage/query logic into repositories.
-- Extract access logging into a dedicated service.
 - Monitor the first GitHub Actions run and address any CI-environment-only failures.
 
 ## v3.6.98 Activity Trend And Ranking Foundation

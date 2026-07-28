@@ -1,3 +1,8 @@
+## v3.6.100 (2026-07-28)
+- Added `AccessLogRecorder` for shared LP access and LINE click logging.
+- Routed the existing `logAccess()` helper through the Activity service while keeping the public helper name, saved columns, project lookup, and referral context behavior stable.
+- Kept database schema, API contracts, webhook behavior, LP URLs, and activity report output unchanged.
+
 ## v3.6.99 (2026-07-24)
 - Added `SeoMetadataBuilder` for LP title, description, canonical, Open Graph, Twitter Card, and JSON-LD generation.
 - Routed existing LP SEO helper functions through the shared LandingPage service while keeping existing function names and LP template calls stable.

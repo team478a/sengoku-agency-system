@@ -1,5 +1,11 @@
 # Implementation History
 
+## 2026-07-28 Phase 19
+
+- Added `AccessLogRecorder` for shared access log persistence.
+- Routed the legacy `logAccess()` helper through the Activity service without changing call sites or stored columns.
+- Preserved project lookup and referral tracking fields for LP access analysis.
+
 ## 2026-07-24 Phase 18
 
 - Added `SeoMetadataBuilder` for LP SEO and AIO-oriented metadata generation.

@@ -1506,43 +1506,13 @@ function applyLpTemplateTokens(string $html, array $agent): string {
 // 繧｢繧ｯ繧ｻ繧ｹ繝ｭ繧ｰ
 // =============================
 function logAccess(int $agentId, string $type = 'pv', ?int $templateId = null, array $context = []): void {
-    try {
-        $db = getDB();
-        $cols = tableColumns('access_logs');
-        $ipHash = hash('sha256', $_SERVER['REMOTE_ADDR'] ?? '');
-        $ua = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500);
-        $projectId = null;
-        if (!empty($cols['project_id']) && $templateId && tableHasColumn('lp_templates', 'project_id')) {
-            $projectStmt = $db->prepare("SELECT project_id FROM lp_templates WHERE id=?");
-            $projectStmt->execute([$templateId]);
-            $projectId = (int)$projectStmt->fetchColumn() ?: null;
-        }
-
-        $insertColumns = ['agent_id', 'type', 'ip_hash', 'user_agent'];
-        $insertValues = [$agentId, $type, $ipHash, $ua];
-        if (!empty($cols['template_id'])) {
-            $insertColumns[] = 'template_id';
-            $insertValues[] = $templateId ?: null;
-        }
-        if (!empty($cols['project_id'])) {
-            $insertColumns[] = 'project_id';
-            $insertValues[] = $projectId;
-        }
-        if (!empty($cols['referral_token_id'])) {
-            $insertColumns[] = 'referral_token_id';
-            $insertValues[] = !empty($context['referral_token_id']) ? (int)$context['referral_token_id'] : null;
-        }
-        if (!empty($cols['referral_session_key'])) {
-            $insertColumns[] = 'referral_session_key';
-            $insertValues[] = trim((string)($context['referral_session_key'] ?? '')) ?: null;
-        }
-
-        $placeholders = implode(',', array_fill(0, count($insertColumns), '?'));
-        $stmt = $db->prepare("INSERT INTO access_logs (" . implode(',', $insertColumns) . ") VALUES ($placeholders)");
-        $stmt->execute($insertValues);
-    } catch (Exception $e) {
-        error_log('Access log error: ' . $e->getMessage());
-    }
+    $recorder = new \SenNoKuni\Activity\AccessLogRecorder(
+        getDB(),
+        tableColumns('access_logs'),
+        static fn(string $column): bool => tableHasColumn('lp_templates', $column),
+        static fn(string $message): bool => error_log($message)
+    );
+    $recorder->record($agentId, $type, $templateId, $context, $_SERVER);
 }
 
 // =============================

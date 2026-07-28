@@ -1,5 +1,23 @@
 # Test Results
 
+## v3.6.100
+
+Completed checks:
+
+- `php scripts/lint-php.php`: passed
+- `php -l src\Activity\AccessLogRecorder.php`: passed
+- `php -r "require 'src/Activity/AccessLogRecorder.php'; ..."`: passed
+- `git diff --check`: passed
+
+Not run locally:
+
+- `composer test`
+- `composer analyse`
+
+Local limitation:
+
+- Composer and `vendor/` dependencies are not installed in the current Windows environment.
+
 ## v3.6.99
 
 Completed checks:
