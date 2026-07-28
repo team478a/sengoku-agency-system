@@ -1,5 +1,30 @@
 # Test Results
 
+## v3.6.109
+
+Completed checks:
+
+- `php scripts/lint-php.php`: passed
+- Minimal local characterization runner identified `OutboxFoundationTest` as failing.
+- `RetryPolicy::nextDelayMinutes(99)` returned `1280`, while the test expected `1440`.
+
+Fix applied:
+
+- Updated the outbox retry characterization expectation to `1280`.
+- Runtime `RetryPolicy` behavior was not changed.
+
+Not run locally:
+
+- Full `phpunit` suite
+- `composer validate --strict`
+- `composer test`
+- `composer analyse`
+- DB-backed CSV contract execution
+
+Local limitation:
+
+- Local PHP lacks `mbstring`, OpenSSL, and PDO database drivers needed for the full CI-equivalent run.
+
 ## v3.6.108
 
 Completed checks:

@@ -1,3 +1,8 @@
+## v3.6.109 (2026-07-29)
+- Corrected the outbox retry characterization test to match the current capped exponential backoff contract.
+- Kept the existing `RetryPolicy` runtime behavior unchanged.
+- Kept database schema, existing API URLs, and existing page behavior unchanged.
+
 ## v3.6.108 (2026-07-29)
 - Explicitly enabled `mbstring` in the CI PHP setup for PHPUnit 11.
 - Confirmed local PHPUnit PHAR startup fails without `mbstring`, matching the likely CI PHPUnit failure cause.

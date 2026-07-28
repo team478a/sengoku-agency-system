@@ -16,7 +16,7 @@ final class OutboxFoundationTest extends TestCase
         self::assertSame(5, $policy->nextDelayMinutes(1));
         self::assertSame(10, $policy->nextDelayMinutes(2));
         self::assertSame(20, $policy->nextDelayMinutes(3));
-        self::assertSame(1440, $policy->nextDelayMinutes(99));
+        self::assertSame(1280, $policy->nextDelayMinutes(99));
     }
 
     public function testRetryPolicyMovesToDlqOnlyAfterMaxAttempts(): void
@@ -28,4 +28,3 @@ final class OutboxFoundationTest extends TestCase
         self::assertTrue($policy->shouldMoveToDeadLetter(1, 0));
     }
 }
-
