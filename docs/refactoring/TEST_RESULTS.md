@@ -1,5 +1,31 @@
 # Test Results
 
+## v3.6.106
+
+Completed checks:
+
+- `php scripts/lint-php.php`: passed
+- GitHub Actions failure annotations inspected through the public Checks API.
+- The failing CI location pointed to the MariaDB service health check.
+
+Fix applied:
+
+- Replaced the MariaDB service health command with `healthcheck.sh --connect --innodb_initialized`.
+- Explicitly enabled `pdo_mysql` in the GitHub Actions PHP setup.
+
+Not run locally:
+
+- `composer validate --strict`
+- `composer test`
+- `composer analyse`
+- DB-backed CSV contract execution
+
+Local limitation:
+
+- GitHub Actions job logs require repository admin/API authorization.
+- Local PHP lacks the OpenSSL extension required by Composer.
+- Local PHP does not show PDO database drivers for DB-backed test execution.
+
 ## v3.6.104
 
 Completed checks:

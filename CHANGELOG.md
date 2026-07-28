@@ -1,3 +1,8 @@
+## v3.6.106 (2026-07-29)
+- Updated GitHub Actions MariaDB health check to use the official MariaDB `healthcheck.sh` command.
+- Explicitly enabled `pdo_mysql` in the CI PHP setup for DB-backed CSV contract tests.
+- Kept runtime PHP files, database schema, existing API URLs, and existing page behavior unchanged.
+
 ## v3.6.105 (2026-07-29)
 - Added Phase 0-2 fixed-name handoff documents for implementation status, test results, API authentication compatibility, module dependencies, and rollback.
 - Documented the current API authentication compatibility behavior for legacy keys and partner-specific inbound API keys.
