@@ -1,3 +1,8 @@
+## v3.6.110 (2026-07-29)
+- Fixed PHPStan warning in `HttpClient` by initializing `$http_response_header` before `file_get_contents()`.
+- Confirmed CI had reached PHPStan after Composer, lint, PHPUnit, MariaDB readiness, and CSV contract tests passed.
+- Kept HTTP client response contract, database schema, existing API URLs, and existing page behavior unchanged.
+
 ## v3.6.109 (2026-07-29)
 - Corrected the outbox retry characterization test to match the current capped exponential backoff contract.
 - Kept the existing `RetryPolicy` runtime behavior unchanged.

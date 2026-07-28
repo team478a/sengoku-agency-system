@@ -1,5 +1,31 @@
 # Test Results
 
+## v3.6.110
+
+Completed checks:
+
+- `php scripts/lint-php.php`: passed
+- GitHub Actions job steps inspected through the GitHub connector.
+- CI reached PHPStan after Composer validation, dependency install, syntax lint, PHPUnit, MariaDB readiness, and CSV contract tests passed.
+- PHPStan annotation identified `src/Shared/Http/HttpClient.php:33`.
+
+Fix applied:
+
+- Initialized `$http_response_header` before `file_get_contents()`.
+- Removed the redundant null-coalescing fallback on `$http_response_header`.
+
+Not run locally:
+
+- Full `phpunit` suite
+- `composer validate --strict`
+- `composer test`
+- `composer analyse`
+- DB-backed CSV contract execution
+
+Local limitation:
+
+- Local PHP lacks `mbstring`, OpenSSL, and PDO database drivers needed for the full CI-equivalent run.
+
 ## v3.6.109
 
 Completed checks:

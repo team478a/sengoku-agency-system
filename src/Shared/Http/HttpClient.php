@@ -28,9 +28,11 @@ final class HttpClient
             ],
         ]);
 
+        /** @var list<string> $http_response_header */
+        $http_response_header = [];
         $responseBody = file_get_contents($url, false, $context);
         $status = 0;
-        foreach (($http_response_header ?? []) as $headerLine) {
+        foreach ($http_response_header as $headerLine) {
             if (preg_match('/^HTTP\/\S+\s+(\d{3})/', $headerLine, $matches)) {
                 $status = (int)$matches[1];
                 break;
@@ -43,4 +45,3 @@ final class HttpClient
         ];
     }
 }
-
