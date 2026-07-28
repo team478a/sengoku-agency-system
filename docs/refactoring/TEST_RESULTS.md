@@ -1,5 +1,35 @@
 # Test Results
 
+## v3.6.107
+
+Completed checks:
+
+- `php scripts/lint-php.php`: passed
+- GitHub Actions failure annotations rechecked after v3.6.106.
+
+Fix applied:
+
+- Removed the GitHub Actions MariaDB service-container health check.
+- Added an explicit PHP/PDO readiness wait before `composer test:csv-contract`.
+
+Reason:
+
+- The CI failure still occurred during service-container health check startup.
+- Moving readiness detection into a normal job step avoids GitHub service health-check command differences.
+
+Not run locally:
+
+- `composer validate --strict`
+- `composer test`
+- `composer analyse`
+- DB-backed CSV contract execution
+
+Local limitation:
+
+- GitHub Actions job logs require repository admin/API authorization.
+- Local PHP lacks the OpenSSL extension required by Composer.
+- Local PHP does not show PDO database drivers for DB-backed test execution.
+
 ## v3.6.106
 
 Completed checks:

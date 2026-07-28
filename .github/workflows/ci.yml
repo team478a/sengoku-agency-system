@@ -21,11 +21,6 @@ jobs:
           MARIADB_ROOT_PASSWORD: root
         ports:
           - 3306:3306
-        options: >-
-          --health-cmd="healthcheck.sh --connect --innodb_initialized"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
 
     steps:
       - name: Checkout
@@ -49,6 +44,10 @@ jobs:
 
       - name: PHPUnit
         run: composer test
+
+      - name: Wait for MariaDB
+        run: |
+          php -r 'for ($i = 0; $i < 30; $i++) { try { new PDO("mysql:host=127.0.0.1;port=3306;dbname=sengoku_csv_contract;charset=utf8mb4", "sengoku", "sengoku"); exit(0); } catch (Throwable $e) { sleep(2); } } fwrite(STDERR, "MariaDB is not ready.\n"); exit(1);'
 
       - name: CSV contract tests
         run: composer test:csv-contract
