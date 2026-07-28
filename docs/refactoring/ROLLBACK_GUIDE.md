@@ -1,5 +1,20 @@
 # Rollback Guide
 
+Updated: 2026-07-29
+
+This file is the Phase 0-2 rollback guide requested by the modular-monolith foundation instructions.
+
+## Phase 0-2 Documentation Update Rollback
+
+The Phase 0-2 handoff documentation update only adds or updates documentation plus version metadata.
+
+Rollback options:
+
+- Use `git revert` for the documentation commit.
+- Or upload the previous ZIP through `admin/update.php` if the server must return to the prior package state.
+
+No database rollback is required for this documentation-only update.
+
 ## v3.6.99
 
 Rollback is file-only:

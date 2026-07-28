@@ -1,3 +1,8 @@
+## v3.6.105 (2026-07-29)
+- Added Phase 0-2 fixed-name handoff documents for implementation status, test results, API authentication compatibility, module dependencies, and rollback.
+- Documented the current API authentication compatibility behavior for legacy keys and partner-specific inbound API keys.
+- Kept runtime PHP files, database schema, existing API URLs, and existing page behavior unchanged.
+
 ## v3.6.104 (2026-07-28)
 - Added characterization coverage for `LandingPageRenderer` template rendering and preview-bar injection.
 - Confirmed local CI visibility constraints: GitHub CLI is not authenticated, local PHP lacks OpenSSL and PDO database drivers, and Composer dependencies are not installed locally.

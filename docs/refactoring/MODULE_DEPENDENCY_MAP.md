@@ -1,5 +1,9 @@
 # Module Dependency Map
 
+Updated: 2026-07-29
+
+This file is the Phase 0-2 module dependency map requested by the modular-monolith foundation instructions.
+
 ## Current Foundation
 
 ```text
