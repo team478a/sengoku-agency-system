@@ -1528,114 +1528,16 @@ class Notifier {
     }
 
     public function send(): array {
-        $results = [];
-
-        if ($this->agent['notify_email']) {
-            $results['email'] = $this->sendEmail();
-        }
-        if ($this->agent['notify_line'] && $this->agent['line_messaging_token'] && $this->agent['line_user_id']) {
-            $results['line'] = $this->sendLine();
-        }
-        if ($this->agent['notify_chatwork'] && $this->agent['chatwork_webhook']) {
-            $results['chatwork'] = $this->sendChatwork();
-        }
-        if ($this->agent['notify_slack'] && $this->agent['slack_webhook']) {
-            $results['slack'] = $this->sendSlack();
-        }
-
-        return $results;
-    }
-
-    private function buildMessage(): string {
-        $a = $this->agent;
-        $l = $this->lead;
-        $sourceName = $l['source_agent_name'] ?? $a['agent_name'];
-        $sourceCode = $l['source_agent_code'] ?? ($a['agent_code'] ?? '');
-        $lines = [
-            "[Sengoku] New lead received",
-            "------------------------------",
-            "Customer",
-            "Name: {$l['name']}",
-            "Email: {$l['email']}",
-            "Phone: " . ($l['phone'] ?: 'N/A'),
-            "Message",
-            $l['message'],
-            "------------------------------",
-            "Received: " . date('Y-m-d H:i'),
-            "Source LP: {$sourceName}" . ($sourceCode ? " (/a/{$sourceCode})" : ""),
-            "Notify to: {$a['agent_name']}",
-        ];
-        return implode("\n", $lines);
-    }
-    private function sendEmail(): bool {
-        $to      = $this->agent['email'];
-        $subject = "[Sengoku] New lead - " . $this->lead['name'];
-        $body    = $this->buildMessage();
-        $headers = implode("\r\n", [
-            'From: noreply@' . ($_SERVER['HTTP_HOST'] ?? 'sengoku.example.com'),
-            'Content-Type: text/plain; charset=UTF-8',
-            'X-Mailer: PHP/' . PHP_VERSION,
-        ]);
-        $result = @mail($to, mb_encode_mimeheader($subject, 'UTF-8', 'B'), $body, $headers);
-        if (!$result) {
-            error_log("Email send failed to: $to");
-        }
-        return $result;
-    }
-
-    private function sendLine(): bool {
-        // LINE Messaging API (Push Message)
-        $body = json_encode([
-            'to' => $this->agent['line_user_id'],
-            'messages' => [[
-                'type' => 'text',
-                'text' => $this->buildMessage(),
-            ]],
-        ]);
-        return $this->postJson(
-            'https://api.line.me/v2/bot/message/push',
-            $body,
-            ['Authorization: Bearer ' . $this->agent['line_messaging_token']]
+        $webhookClient = new \SenNoKuni\Notification\JsonWebhookClient(static fn(string $message): bool => error_log($message));
+        $notifier = new \SenNoKuni\Notification\LeadNotifier(
+            new \SenNoKuni\Notification\LeadNotificationMessageBuilder(),
+            new \SenNoKuni\Notification\EmailNotificationChannel(static fn(string $message): bool => error_log($message)),
+            new \SenNoKuni\Notification\LineNotificationChannel($webhookClient),
+            new \SenNoKuni\Notification\ChatworkNotificationChannel(),
+            new \SenNoKuni\Notification\SlackNotificationChannel($webhookClient)
         );
-    }
 
-    private function sendChatwork(): bool {
-        $msg = urlencode($this->buildMessage());
-        $ch = curl_init($this->agent['chatwork_webhook']);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => "payload=" . $msg,
-            CURLOPT_TIMEOUT        => 10,
-        ]);
-        $result = curl_exec($ch);
-        $ok = ($result !== false);
-        curl_close($ch);
-        return $ok;
-    }
-
-    private function sendSlack(): bool {
-        $body = json_encode(['text' => $this->buildMessage()]);
-        return $this->postJson($this->agent['slack_webhook'], $body);
-    }
-
-    private function postJson(string $url, string $body, array $headers = []): bool {
-        $defaultHeaders = ['Content-Type: application/json'];
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => $body,
-            CURLOPT_HTTPHEADER     => array_merge($defaultHeaders, $headers),
-            CURLOPT_TIMEOUT        => 10,
-        ]);
-        $result = curl_exec($ch);
-        $ok = ($result !== false);
-        if (!$ok) {
-            error_log("postJson failed to $url: " . curl_error($ch));
-        }
-        curl_close($ch);
-        return $ok;
+        return $notifier->send($this->agent, $this->lead, $_SERVER);
     }
 }
 

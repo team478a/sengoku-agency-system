@@ -1,5 +1,11 @@
 # Implementation History
 
+## 2026-07-28 Phase 20
+
+- Added notification channel classes for email, LINE, Chatwork, and Slack.
+- Added `LeadNotifier` and `LeadNotificationMessageBuilder`.
+- Routed the legacy `Notifier` compatibility class through the new notification services.
+
 ## 2026-07-28 Phase 19
 
 - Added `AccessLogRecorder` for shared access log persistence.

@@ -1,5 +1,29 @@
 # Implementation Status
 
+## v3.6.101 Notification Channel Foundation
+
+Status: completed
+
+Implemented in this phase:
+
+- Added email, LINE, Chatwork, and Slack notification channel classes.
+- Added `LeadNotifier`.
+- Added `LeadNotificationMessageBuilder`.
+- Added `JsonWebhookClient`.
+- Routed the legacy `Notifier` class through the new notification services.
+
+Runtime behavior changed: limited to internal notification delegation
+
+Database changed: no
+
+Existing `Notifier` constructor, `send()` return keys, notification settings, message text, webhook URLs, and API contracts changed: no
+
+Remaining Phase 6 work:
+
+- Extract full LP rendering flow into application services.
+- Move template storage/query logic into repositories.
+- Monitor the first GitHub Actions run and address any CI-environment-only failures.
+
 ## v3.6.100 Access Logging Foundation
 
 Status: completed
@@ -19,7 +43,6 @@ Existing `logAccess()` call sites, LP URLs, activity reports, access log table c
 Remaining Phase 6 work:
 
 - Extract full LP rendering flow into application services.
-- Add notification channel strategy classes.
 - Move template storage/query logic into repositories.
 - Monitor the first GitHub Actions run and address any CI-environment-only failures.
 
@@ -43,7 +66,6 @@ Existing LP helper function names, LP template calls, title fallback order, cano
 Remaining Phase 6 work:
 
 - Extract full LP rendering flow into application services.
-- Add notification channel strategy classes.
 - Move template storage/query logic into repositories.
 - Monitor the first GitHub Actions run and address any CI-environment-only failures.
 
@@ -305,9 +327,7 @@ Existing LP URLs, template tags, and mail variable names changed: no
 Remaining Phase 6 work:
 
 - Extract full LP rendering flow into application services.
-- Add notification channel strategy classes.
 - Move template storage/query logic into repositories.
-- Extract access logging into a dedicated service.
 
 ## v3.6.86 Admin Foundation
 

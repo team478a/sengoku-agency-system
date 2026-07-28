@@ -1,3 +1,8 @@
+## v3.6.101 (2026-07-28)
+- Added dedicated notification channel classes for email, LINE, Chatwork, and Slack lead notifications.
+- Added `LeadNotifier`, `LeadNotificationMessageBuilder`, and `JsonWebhookClient` to coordinate notification delivery.
+- Kept the existing `Notifier` class, `new Notifier(...)->send()` call sites, notification settings, message text, and webhook/API behavior stable.
+
 ## v3.6.100 (2026-07-28)
 - Added `AccessLogRecorder` for shared LP access and LINE click logging.
 - Routed the existing `logAccess()` helper through the Activity service while keeping the public helper name, saved columns, project lookup, and referral context behavior stable.
