@@ -1,5 +1,26 @@
 # Implementation Status
 
+## v3.6.103 LandingPage Rendering Foundation
+
+Status: completed
+
+Implemented in this phase:
+
+- Added `LandingPageRenderer`.
+- Routed normal LP display template rendering through the renderer.
+- Routed LP preview template rendering and preview-bar injection through the renderer.
+- Routed remaining LP template lookup in `lp.php` through `LandingPageTemplateRepository`.
+
+Runtime behavior changed: limited to internal LP rendering delegation
+
+Database changed: no
+
+Existing LP URLs, preview URLs, fallback template behavior, template token replacement, SEO injection, referral tracking, access logging, and external API contracts changed: no
+
+Remaining Phase 6 work:
+
+- Monitor the first GitHub Actions run and address any CI-environment-only failures.
+
 ## v3.6.102 Template Repository Foundation
 
 Status: completed
@@ -20,7 +41,6 @@ Existing admin URLs, LP URLs, uploaded file paths, template field keys, public h
 
 Remaining Phase 6 work:
 
-- Extract full LP rendering flow into application services.
 - Monitor the first GitHub Actions run and address any CI-environment-only failures.
 
 ## v3.6.101 Notification Channel Foundation
@@ -43,7 +63,6 @@ Existing `Notifier` constructor, `send()` return keys, notification settings, me
 
 Remaining Phase 6 work:
 
-- Extract full LP rendering flow into application services.
 - Monitor the first GitHub Actions run and address any CI-environment-only failures.
 
 ## v3.6.100 Access Logging Foundation
@@ -64,7 +83,6 @@ Existing `logAccess()` call sites, LP URLs, activity reports, access log table c
 
 Remaining Phase 6 work:
 
-- Extract full LP rendering flow into application services.
 - Monitor the first GitHub Actions run and address any CI-environment-only failures.
 
 ## v3.6.99 LandingPage SEO Metadata Foundation
@@ -86,7 +104,6 @@ Existing LP helper function names, LP template calls, title fallback order, cano
 
 Remaining Phase 6 work:
 
-- Extract full LP rendering flow into application services.
 - Monitor the first GitHub Actions run and address any CI-environment-only failures.
 
 ## v3.6.98 Activity Trend And Ranking Foundation
@@ -346,7 +363,6 @@ Existing LP URLs, template tags, and mail variable names changed: no
 
 Remaining Phase 6 work:
 
-- Extract full LP rendering flow into application services.
 
 ## v3.6.86 Admin Foundation
 

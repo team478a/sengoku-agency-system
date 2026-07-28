@@ -1,5 +1,12 @@
 # Implementation History
 
+## 2026-07-28 Phase 22
+
+- Added `LandingPageRenderer` for shared LP template rendering.
+- Routed normal LP display and LP preview output through the renderer.
+- Moved remaining LP template lookup in `lp.php` to `LandingPageTemplateRepository`.
+- Preserved token replacement, SEO injection, preview bar injection, referral context, and access logging behavior.
+
 ## 2026-07-28 Phase 21
 
 - Added `LandingPageTemplateRepository` for LP template persistence and lookup.

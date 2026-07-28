@@ -1396,6 +1396,17 @@ function landingPageSeoMetadataBuilder(): \SenNoKuni\LandingPage\SeoMetadataBuil
     return $builder;
 }
 
+function landingPageRenderer(): \SenNoKuni\LandingPage\LandingPageRenderer {
+    static $renderer = null;
+    if ($renderer === null) {
+        $renderer = new \SenNoKuni\LandingPage\LandingPageRenderer(
+            dirname(__DIR__),
+            static fn(string $html, array $agent): string => applyLpTemplateTokens($html, $agent)
+        );
+    }
+    return $renderer;
+}
+
 function getLpTemplateSeoSource(int $templateId): array {
     return lpTemplateRepository()->seoSource($templateId);
 }

@@ -50,6 +50,18 @@ final class LandingPageTemplateRepository
         return $stmt->fetch() ?: null;
     }
 
+    public function activeBySlug(string $slug): ?array
+    {
+        $stmt = $this->db->prepare("
+            SELECT *
+            FROM lp_templates
+            WHERE slug = ? AND status = 'active'
+            LIMIT 1
+        ");
+        $stmt->execute([$slug]);
+        return $stmt->fetch() ?: null;
+    }
+
     public function activeProjectTemplate(int $templateId, int $projectId): ?array
     {
         if (!$this->hasProjectColumn()) {

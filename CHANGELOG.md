@@ -1,3 +1,9 @@
+## v3.6.103 (2026-07-28)
+- Added `LandingPageRenderer` for shared LP template file rendering and preview-bar injection.
+- Routed normal LP display and LP preview rendering through the renderer.
+- Routed remaining LP template lookup in `lp.php` through `LandingPageTemplateRepository`.
+- Kept LP URLs, preview URLs, fallback template behavior, token replacement, SEO injection, referral tracking, and access logging unchanged.
+
 ## v3.6.102 (2026-07-28)
 - Added `LandingPageTemplateRepository` for LP template lookup, admin list retrieval, CRUD, field persistence, and SEO source lookup.
 - Routed existing LP template helper functions, template management, and template display customization through the repository.

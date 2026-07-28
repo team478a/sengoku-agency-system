@@ -14,11 +14,8 @@ if (!empty($_GET['preview']) && !empty($_GET['template_id'])) {
         exit;
     }
 
-    $db  = getDB();
     $id  = (int)$_GET['template_id'];
-    $stmt = $db->prepare("SELECT * FROM lp_templates WHERE id = ?");
-    $stmt->execute([$id]);
-    $tpl = $stmt->fetch();
+    $tpl = lpTemplateRepository()->find($id);
 
     if (!$tpl) {
         echo '<p style="padding:2rem;color:#e08080;background:#111;">テンプレートが見つかりません（ID:' . $id . '）</p>';
@@ -103,13 +100,10 @@ body{padding-top:40px!important;}
 
     // テンプレート出力
     ob_start();
-    include $tplFile;
-    $output = ob_get_clean();
-    $output = applyLpTemplateTokens($output, $agent);
+    $output = landingPageRenderer()->renderFile($tplFile, $agent, getCsrfToken());
 
     // <body>直後にプレビューバーを注入
-    $withPreviewBar = preg_replace('/(<body[^>]*>)/i', '$1' . $previewBar, $output, 1, $replaceCount);
-    echo $replaceCount > 0 ? $withPreviewBar : $previewBar . $output;
+    echo landingPageRenderer()->injectPreviewBar($output, $previewBar);
     exit;
 }
 
@@ -134,10 +128,7 @@ $selectedTemplateId = !empty($agent['default_template_id']) ? (int)$agent['defau
 $tplSlug = trim((string)($_GET['tpl'] ?? $_GET['template'] ?? ''));
 $projectSlug = trim((string)($_GET['project'] ?? ''));
 if ($tplSlug !== '' && preg_match('/^[a-zA-Z0-9_\-]+$/', $tplSlug)) {
-    $db = getDB();
-    $tplStmt = $db->prepare("SELECT * FROM lp_templates WHERE slug=? AND status='active' LIMIT 1");
-    $tplStmt->execute([$tplSlug]);
-    $selectedTpl = $tplStmt->fetch();
+    $selectedTpl = lpTemplateRepository()->activeBySlug($tplSlug);
     if ($selectedTpl) {
         $agent['default_template_id'] = (int)$selectedTpl['id'];
         $agent['template_slug'] = $selectedTpl['slug'];
@@ -170,14 +161,5 @@ $agent = array_merge($agent, $referralContext);
 
 logAccess((int)$agent['id'], 'pv', $selectedTemplateId, $referralContext);
 
-$templateFile = __DIR__ . '/templates/' . $agent['template_slug'] . '/' . $agent['html_file'];
-
-if (!$agent['template_slug'] || !file_exists($templateFile)) {
-    $templateFile = __DIR__ . '/templates/samurai/samurai.php';
-}
-
-$csrfToken = getCsrfToken();
-ob_start();
-include $templateFile;
-$output = ob_get_clean();
-echo applyLpTemplateTokens($output, $agent);
+$templateFile = landingPageRenderer()->templateFile($agent);
+echo landingPageRenderer()->renderFile($templateFile, $agent, getCsrfToken());
