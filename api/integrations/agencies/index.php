@@ -92,16 +92,21 @@ function agencyApiColumnExists(PDO $db, string $table, string $column): bool
     }
 }
 
-function agencyApiEnsureSchema(PDO $db): void
+function agencyApiRequireSchema(PDO $db): void
 {
-    if (!agencyApiColumnExists($db, 'agents', 'external_id')) {
-        $db->exec("ALTER TABLE agents ADD COLUMN external_id VARCHAR(191) DEFAULT NULL AFTER id");
-    }
-    if (!agencyApiColumnExists($db, 'agents', 'default_commission_rate')) {
-        $db->exec("ALTER TABLE agents ADD COLUMN default_commission_rate DECIMAL(5,2) DEFAULT NULL AFTER parent_id");
-    }
-    if (!agencyApiColumnExists($db, 'agents', 'login_email')) {
-        $db->exec("ALTER TABLE agents ADD COLUMN login_email VARCHAR(255) DEFAULT NULL AFTER email");
+    $required = [
+        'external_id',
+        'default_commission_rate',
+        'login_email',
+    ];
+    foreach ($required as $column) {
+        if (!agencyApiColumnExists($db, 'agents', $column)) {
+            agencyApiError(
+                'DB_MIGRATION_REQUIRED',
+                'Agency integration schema is not applied. Please run DB migrations from the update screen.',
+                503
+            );
+        }
     }
 }
 
@@ -187,10 +192,24 @@ function agencyApiFindByExternalId(PDO $db, string $externalId): ?array
         SELECT a.*, p.external_id AS parent_external_id, p.agent_code AS parent_agent_code
         FROM agents a
         LEFT JOIN agents p ON a.parent_id = p.id
-        WHERE a.external_id=? OR a.agent_code=?
+        WHERE a.external_id=?
         LIMIT 1
     ");
-    $stmt->execute([$externalId, $externalId]);
+    $stmt->execute([$externalId]);
+    $agent = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $agent ?: null;
+}
+
+function agencyApiFindByAgencyId(PDO $db, string $agencyId): ?array
+{
+    $stmt = $db->prepare("
+        SELECT a.*, p.external_id AS parent_external_id, p.agent_code AS parent_agent_code
+        FROM agents a
+        LEFT JOIN agents p ON a.parent_id = p.id
+        WHERE a.agent_code=?
+        LIMIT 1
+    ");
+    $stmt->execute([$agencyId]);
     $agent = $stmt->fetch(PDO::FETCH_ASSOC);
     return $agent ?: null;
 }
@@ -208,16 +227,19 @@ if (!agencyApiKeyIsValid($requestKey)) {
 $agencyApiPartner = agencyApiPartnerByKey($requestKey);
 
 $db = getDB();
-agencyApiEnsureSchema($db);
+agencyApiRequireSchema($db);
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 if ($method === 'POST') {
     agencyApiRequireScope($agencyApiPartner, 'agencies:write');
     $data = agencyApiReadBody();
-    $externalId = trim((string)($data['external_id'] ?? $data['agency_id'] ?? ''));
+    $explicitExternalId = trim((string)($data['external_id'] ?? ''));
+    $legacyAgencyId = trim((string)($data['agency_id'] ?? ''));
+    $externalId = $explicitExternalId !== '' ? $explicitExternalId : $legacyAgencyId;
     $name = trim((string)($data['name'] ?? ''));
     $parentSpecified = array_key_exists('parent_external_id', $data) || array_key_exists('parent_agency_id', $data);
-    $parentExternalId = $parentSpecified ? trim((string)($data['parent_external_id'] ?? $data['parent_agency_id'] ?? '')) : null;
+    $parentExternalId = array_key_exists('parent_external_id', $data) ? trim((string)$data['parent_external_id']) : null;
+    $parentAgencyId = array_key_exists('parent_agency_id', $data) ? trim((string)$data['parent_agency_id']) : null;
     $rate = array_key_exists('default_commission_rate', $data) && $data['default_commission_rate'] !== null && $data['default_commission_rate'] !== ''
         ? (float)$data['default_commission_rate']
         : null;
@@ -228,20 +250,29 @@ if ($method === 'POST') {
 
     if ($externalId === '') agencyApiError('VALIDATION_ERROR', 'external_id is required.', 400);
     if ($name === '') agencyApiError('VALIDATION_ERROR', 'name is required.', 400);
-    if ($parentSpecified && $parentExternalId === $externalId) agencyApiError('VALIDATION_ERROR', 'parent_external_id cannot be the same as external_id.', 400);
+    $parentIdentifier = $parentExternalId ?? $parentAgencyId ?? '';
+    if ($parentSpecified && $parentIdentifier === $externalId) agencyApiError('VALIDATION_ERROR', 'parent_external_id cannot be the same as external_id.', 400);
     if ($rate !== null && ($rate < 0 || $rate > 100)) agencyApiError('VALIDATION_ERROR', 'default_commission_rate must be between 0 and 100.', 400);
     if ($status !== '' && !in_array($status, ['active', 'inactive'], true)) agencyApiError('VALIDATION_ERROR', 'status must be active or inactive.', 400);
     if ($loginEmail !== '' && !filter_var($loginEmail, FILTER_VALIDATE_EMAIL)) agencyApiError('VALIDATION_ERROR', 'login_email is invalid.', 400);
     if ($contactEmail !== '' && !filter_var($contactEmail, FILTER_VALIDATE_EMAIL)) agencyApiError('VALIDATION_ERROR', 'contact_email is invalid.', 400);
 
-    $existing = agencyApiFindByExternalId($db, $externalId);
+    $existing = $explicitExternalId !== ''
+        ? agencyApiFindByExternalId($db, $externalId)
+        : agencyApiFindByAgencyId($db, $legacyAgencyId);
+    $externalIdOwner = agencyApiFindByExternalId($db, $externalId);
+    if ($externalIdOwner && (!$existing || (int)$externalIdOwner['id'] !== (int)$existing['id'])) {
+        agencyApiError('EXTERNAL_ID_ALREADY_EXISTS', 'external_id is already used by another agency.', 409);
+    }
     $parentId = $existing ? (!empty($existing['parent_id']) ? (int)$existing['parent_id'] : null) : null;
     $level = $existing ? (int)($existing['level'] ?? 3) : 3;
-    if ($parentSpecified && $parentExternalId === '') {
+    if ($parentSpecified && ($parentExternalId ?? $parentAgencyId ?? '') === '') {
         $parentId = null;
         $level = 3;
-    } elseif ($parentSpecified && $parentExternalId !== null && $parentExternalId !== '') {
-        $parent = agencyApiFindByExternalId($db, $parentExternalId);
+    } elseif ($parentSpecified) {
+        $parent = $parentExternalId !== null
+            ? agencyApiFindByExternalId($db, $parentExternalId)
+            : agencyApiFindByAgencyId($db, (string)$parentAgencyId);
         if (!$parent) {
             agencyApiError('PARENT_AGENCY_NOT_FOUND', 'Parent agency was not found.', 404);
         }
@@ -258,13 +289,14 @@ if ($method === 'POST') {
 
     $contactEmailForAgent = $contactEmail !== '' ? $contactEmail : $loginEmail;
     if ($loginEmail !== '') {
+        $existingId = $existing ? (int)$existing['id'] : 0;
         $emailStmt = $db->prepare("
             SELECT id FROM agents
             WHERE (login_email=? OR ((login_email IS NULL OR login_email='') AND email=?))
-              AND (external_id IS NULL OR external_id<>?)
+              AND id<>?
             LIMIT 1
         ");
-        $emailStmt->execute([$loginEmail, $loginEmail, $externalId]);
+        $emailStmt->execute([$loginEmail, $loginEmail, $existingId]);
         if ($emailStmt->fetchColumn()) {
             agencyApiError('LOGIN_EMAIL_ALREADY_EXISTS', 'login_email is already used by another account.', 409);
         }
@@ -276,6 +308,7 @@ if ($method === 'POST') {
         $setupUrl = '';
         if ($existing) {
             $sets = [
+                'external_id=?',
                 'agent_name=?',
                 'person_name=?',
                 'parent_id=?',
@@ -284,6 +317,7 @@ if ($method === 'POST') {
                 'status=?',
             ];
             $params = [
+                $externalId,
                 $name,
                 $contactName !== '' ? $contactName : $name,
                 $parentId,
@@ -309,8 +343,8 @@ if ($method === 'POST') {
                 $setupUrl = getSiteBaseUrl() . '/agent/setup.php?token=' . $token;
                 $loginProvisioned = true;
             }
-            $params[] = $externalId;
-            $db->prepare("UPDATE agents SET " . implode(',', $sets) . " WHERE external_id=?")->execute($params);
+            $params[] = (int)$existing['id'];
+            $db->prepare("UPDATE agents SET " . implode(',', $sets) . " WHERE id=?")->execute($params);
         } else {
             $token = $loginEmail !== '' ? bin2hex(random_bytes(32)) : null;
             $exp = $token ? date('Y-m-d H:i:s', strtotime('+24 hours')) : null;

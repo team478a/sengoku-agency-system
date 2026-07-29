@@ -1,3 +1,10 @@
+## v3.6.112 (2026-07-29)
+- Removed request-time DDL from the agency integration API and replaced it with a migration-required schema check.
+- Split agency integration lookups for `external_id` and legacy `agency_id`/`agent_code` so they are no longer queried through a combined OR condition.
+- Added characterization checks to keep DDL out of the agency integration API and preserve separated lookup functions.
+- Added a Purchase Provisioning readiness note documenting the instruction prerequisites and remaining branch/CI steps before starting the main implementation.
+- Kept existing agency integration endpoint URLs, authentication behavior, legacy `agency_id` input compatibility, database migrations, and response shape unchanged.
+
 ## v3.6.111 (2026-07-29)
 - Added an admin "外部連携ガイド" page that explains the external integration setup flow step by step.
 - Added a sidebar link to the guide near SSO and external API integration management.

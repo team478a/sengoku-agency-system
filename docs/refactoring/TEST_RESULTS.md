@@ -1,5 +1,34 @@
 # Test Results
 
+## v3.6.112
+
+Completed checks:
+
+- `php -l api/integrations/agencies/index.php`: passed
+- `php -l tests/Characterization/LegacySurfaceTest.php`: passed
+- `php scripts/lint-php.php`: passed
+- `git diff --check`: passed
+
+Fix applied:
+
+- Removed request-time DDL from the agency integration API.
+- Added a migration-required error response when required `agents` columns are missing.
+- Separated `external_id` lookup from legacy `agency_id` / `agent_code` lookup.
+- Added characterization checks for the request-time DDL ban and separated lookup functions.
+
+Not run locally:
+
+- Full `phpunit` suite
+- `composer validate --strict`
+- `composer test`
+- `composer analyse`
+- DB-backed CSV contract execution
+
+Local limitation:
+
+- Local Composer is not installed.
+- Local PHP lacks `mbstring`, OpenSSL, and PDO database drivers needed for the full CI-equivalent run.
+
 ## v3.6.111
 
 Completed checks:

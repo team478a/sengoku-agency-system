@@ -74,5 +74,22 @@ final class LegacySurfaceTest extends TestCase
         $version = trim((string) file_get_contents($this->root . DIRECTORY_SEPARATOR . 'VERSION'));
         self::assertMatchesRegularExpression('/^\d+\.\d+\.\d+$/', $version);
     }
-}
 
+    public function testAgencyIntegrationApiDoesNotRunSchemaDdlAtRequestTime(): void
+    {
+        $content = file_get_contents($this->root . DIRECTORY_SEPARATOR . 'api/integrations/agencies/index.php');
+        self::assertIsString($content);
+        self::assertStringNotContainsString('ALTER TABLE', $content);
+        self::assertStringNotContainsString('CREATE TABLE', $content);
+        self::assertStringNotContainsString('DROP TABLE', $content);
+    }
+
+    public function testAgencyIntegrationApiSeparatesExternalIdAndAgencyIdLookups(): void
+    {
+        $content = file_get_contents($this->root . DIRECTORY_SEPARATOR . 'api/integrations/agencies/index.php');
+        self::assertIsString($content);
+        self::assertStringContainsString('function agencyApiFindByExternalId', $content);
+        self::assertStringContainsString('function agencyApiFindByAgencyId', $content);
+        self::assertStringNotContainsString('WHERE a.external_id=? OR a.agent_code=?', $content);
+    }
+}
