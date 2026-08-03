@@ -1,0 +1,28 @@
+{
+  "projects": [
+    {
+      "id": "sengoku-agency-system",
+      "name": "千ノ国代理店システム",
+      "repository": "team478a/sengoku-agency-system",
+      "default_branch": "main",
+      "working_branch": "feature/v3.6.82-modular-monolith-foundation",
+      "criticality": "critical",
+      "protected_contracts": [
+        "common_user_id",
+        "agency_id",
+        "referral_token",
+        "external integration authentication",
+        "outbox delivery semantics"
+      ],
+      "approval_required_for": [
+        "code_write",
+        "merge",
+        "production_deploy",
+        "database_migration",
+        "secret_change",
+        "payment_change",
+        "commission_change"
+      ]
+    }
+  ]
+}
