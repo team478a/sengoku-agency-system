@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sengoku-ai.local/schemas/orchestrator/task-result.schema.json",
+  "title": "Development Orchestrator Task Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_id",
+    "summary",
+    "status",
+    "evidence",
+    "files_changed",
+    "validation",
+    "risks",
+    "approvals_required",
+    "recommended_next_action"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "blocked",
+        "needs_approval",
+        "failed"
+      ]
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "files_changed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "change"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "change": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "validation": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "command_or_check",
+          "status",
+          "result"
+        ],
+        "properties": {
+          "command_or_check": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "passed",
+              "failed",
+              "not_run",
+              "not_applicable"
+            ]
+          },
+          "result": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "approvals_required": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "recommended_next_action": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pull_request": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "number",
+        "url",
+        "draft"
+      ],
+      "properties": {
+        "number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "url": {
+          "type": "string"
+        },
+        "draft": {
+          "type": "boolean"
+        }
+      },
+      "default": null
+    }
+  }
+}
