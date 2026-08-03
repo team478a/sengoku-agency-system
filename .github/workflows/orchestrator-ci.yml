@@ -1,0 +1,29 @@
+name: Orchestrator CI
+
+on:
+  pull_request:
+    paths:
+      - "orchestrator/**"
+      - ".github/workflows/orchestrator-ci.yml"
+  push:
+    branches:
+      - "feature/orchestrator-readonly-mvp"
+    paths:
+      - "orchestrator/**"
+      - ".github/workflows/orchestrator-ci.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: orchestrator
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev
+      - run: uv run python -m compileall app main.py
+      - run: uv run pytest
+      - run: uv run python main.py --smoke
