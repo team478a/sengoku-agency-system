@@ -1,0 +1,21 @@
+[project]
+name = "sengoku-development-orchestrator"
+version = "0.1.0"
+description = "Read-only multi-agent development command center pilot"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115.0",
+  "httpx>=0.28.0",
+  "openai-agents>=0.2.0",
+  "pydantic-settings>=2.7.0",
+  "uvicorn[standard]>=0.34.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
