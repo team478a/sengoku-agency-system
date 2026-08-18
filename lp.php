@@ -162,4 +162,8 @@ $agent = array_merge($agent, $referralContext);
 logAccess((int)$agent['id'], 'pv', $selectedTemplateId, $referralContext);
 
 $templateFile = landingPageRenderer()->templateFile($agent);
-echo landingPageRenderer()->renderFile($templateFile, $agent, getCsrfToken());
+$output = landingPageRenderer()->renderFile($templateFile, $agent, getCsrfToken());
+if (isLpAiReadableRequest()) {
+    respondLpAiReadable($output, $agent);
+}
+echo $output;

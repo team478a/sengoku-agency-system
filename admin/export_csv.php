@@ -32,6 +32,99 @@ function adminCsvColumns(PDO $db, string $table): array {
     return $columns;
 }
 
+if ($type === 'bank_accounts') {
+    $labels = getLevelLabels();
+    $agentColumns = adminCsvColumns($db, 'agents');
+    $bankFields = [
+        'bank_name',
+        'bank_branch_name',
+        'bank_branch_code',
+        'bank_account_type',
+        'bank_account_number',
+        'bank_account_holder',
+        'bank_account_holder_kana',
+    ];
+
+    $bankSelects = [];
+    foreach ($bankFields as $field) {
+        $bankSelects[] = !empty($agentColumns[$field]) ? "a.{$field}" : "'' AS {$field}";
+    }
+    $updatedAtSelect = !empty($agentColumns['updated_at'])
+        ? 'a.updated_at'
+        : (!empty($agentColumns['created_at']) ? 'a.created_at AS updated_at' : "'' AS updated_at");
+
+    $search = sanitizeInput($_GET['q'] ?? '');
+    $wheres = [];
+    $params = [];
+    if ($search !== '') {
+        $searchFields = ['a.agent_name', 'a.person_name', 'a.agent_code', 'a.email'];
+        if (!empty($agentColumns['login_email'])) {
+            $searchFields[] = 'a.login_email';
+        }
+        if (!empty($agentColumns['phone'])) {
+            $searchFields[] = 'a.phone';
+        }
+        $wheres[] = '(' . implode(' LIKE ? OR ', $searchFields) . ' LIKE ?)';
+        $kw = '%' . $search . '%';
+        foreach ($searchFields as $_) {
+            $params[] = $kw;
+        }
+    }
+    $where = $wheres ? 'WHERE ' . implode(' AND ', $wheres) : '';
+
+    $stmt = $db->prepare("
+        SELECT
+            a.agent_code,
+            a.agent_name,
+            a.person_name,
+            a.email,
+            a.phone,
+            a.level,
+            a.status,
+            {$updatedAtSelect},
+            p.agent_name AS parent_name,
+            p.agent_code AS parent_code,
+            " . implode(",\n            ", $bankSelects) . "
+        FROM agents a
+        LEFT JOIN agents p ON a.parent_id=p.id
+        {$where}
+        ORDER BY a.level DESC, p.agent_name ASC, a.agent_name ASC, a.person_name ASC, a.id ASC
+    ");
+    $stmt->execute($params);
+
+    $rows = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $agent) {
+        $parent = trim((string)($agent['parent_name'] ?? ''));
+        if (!empty($agent['parent_code'])) {
+            $parent .= ($parent !== '' ? ' / ' : '') . $agent['parent_code'];
+        }
+        $rows[] = [
+            $agent['agent_code'] ?? '',
+            $labels[(int)($agent['level'] ?? 0)] ?? ('Lv.' . (int)($agent['level'] ?? 0)),
+            $agent['agent_name'] ?? '',
+            $agent['person_name'] ?? '',
+            $agent['email'] ?? '',
+            $agent['phone'] ?? '',
+            $parent,
+            ($agent['status'] ?? '') === 'active' ? '公開中' : '停止中',
+            $agent['bank_name'] ?? '',
+            $agent['bank_branch_name'] ?? '',
+            $agent['bank_branch_code'] ?? '',
+            $agent['bank_account_type'] ?? '',
+            $agent['bank_account_number'] ?? '',
+            $agent['bank_account_holder'] ?? '',
+            $agent['bank_account_holder_kana'] ?? '',
+            $agent['updated_at'] ?? '',
+        ];
+    }
+
+    adminCsvOutput(
+        'bank_accounts_' . date('Ymd_His') . '.csv',
+        ['コード', '区分', '名称', '担当者', 'メール', '電話', '上位', '状態', '銀行名', '支店名', '支店コード', '口座種別', '口座番号', '口座名義', '口座名義カナ', '更新日時'],
+        $rows
+    );
+}
+
 if ($type === 'leads') {
     $statusLabels = [
         'new' => '新規',
@@ -41,12 +134,49 @@ if ($type === 'leads') {
         'lost' => '失注',
         'closed' => '対応済',
     ];
-    $leadCsvService = new \SenNoKuni\Lead\LeadCsvExportService($db);
-    $rows = $leadCsvService->adminRows([
-        'status' => $_GET['status'] ?? '',
-        'agent_id' => (int)($_GET['agent_id'] ?? 0),
-        'q' => sanitizeInput($_GET['q'] ?? ''),
-    ], $statusLabels);
+    $filterStatus = $_GET['status'] ?? '';
+    $filterAgent = (int)($_GET['agent_id'] ?? 0);
+    $search = sanitizeInput($_GET['q'] ?? '');
+    $wheres = [];
+    $params = [];
+    if ($filterStatus && array_key_exists($filterStatus, $statusLabels)) {
+        $wheres[] = 'l.status=?';
+        $params[] = $filterStatus;
+    }
+    if ($filterAgent) {
+        $wheres[] = 'l.agent_id=?';
+        $params[] = $filterAgent;
+    }
+    if ($search) {
+        $wheres[] = '(l.name LIKE ? OR l.email LIKE ?)';
+        $params[] = "%$search%";
+        $params[] = "%$search%";
+    }
+    $where = $wheres ? 'WHERE ' . implode(' AND ', $wheres) : '';
+    $stmt = $db->prepare("
+        SELECT l.*, a.agent_name, a.person_name, a.agent_code
+        FROM leads l
+        JOIN agents a ON a.id = l.agent_id
+        $where
+        ORDER BY l.created_at DESC
+    ");
+    $stmt->execute($params);
+    $cols = adminCsvColumns($db, 'leads');
+    $rows = [];
+    foreach ($stmt->fetchAll() as $lead) {
+        $rows[] = [
+            $lead['created_at'] ?? '',
+            $lead['agent_name'] ?? '',
+            $lead['agent_code'] ?? '',
+            $lead['name'] ?? '',
+            $lead['email'] ?? '',
+            $lead['phone'] ?? '',
+            $lead['message'] ?? '',
+            $statusLabels[$lead['status'] ?? ''] ?? ($lead['status'] ?? ''),
+            !empty($cols['next_action_at']) ? ($lead['next_action_at'] ?? '') : '',
+            !empty($cols['internal_note']) ? ($lead['internal_note'] ?? '') : '',
+        ];
+    }
     adminCsvOutput('admin_leads_' . date('Ymd_His') . '.csv', ['日時','担当代理店','コード','名前','メール','電話','内容','状態','次回対応日','管理メモ'], $rows);
 }
 
@@ -57,8 +187,85 @@ if ($type === 'template_reports') {
         $period = '30d';
     }
     $days = $allowedPeriods[$period];
-    $templateReportCsvService = new \SenNoKuni\Reporting\TemplateReportCsvExportService($db);
-    $rows = $templateReportCsvService->rows($days);
+    $accessColumns = adminCsvColumns($db, 'access_logs');
+    $leadColumns = adminCsvColumns($db, 'leads');
+    $accessTemplateExpr = !empty($accessColumns['template_id']) ? 'COALESCE(al.template_id, a.default_template_id)' : 'a.default_template_id';
+    $leadTemplateExpr = !empty($leadColumns['template_id']) ? 'COALESCE(l.template_id, a.default_template_id)' : 'a.default_template_id';
+    $dateSqlAccess = '';
+    $dateSqlLead = '';
+    $dateParamsAccess = [];
+    $dateParamsLead = [];
+    if ($days !== null) {
+        $dateSqlAccess = ' AND al.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)';
+        $dateSqlLead = ' AND l.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)';
+        $dateParamsAccess[] = $days;
+        $dateParamsLead[] = $days;
+    }
+
+    $templates = $db->query("
+        SELECT t.*, COUNT(DISTINCT a.id) AS active_agent_count
+        FROM lp_templates t
+        LEFT JOIN agents a ON a.default_template_id=t.id AND a.status='active'
+        GROUP BY t.id
+        ORDER BY t.sort_order ASC, t.id ASC
+    ")->fetchAll();
+
+    $pvMap = [];
+    $stmt = $db->prepare("
+        SELECT {$accessTemplateExpr} AS template_id, COUNT(*) AS cnt
+        FROM access_logs al
+        LEFT JOIN agents a ON a.id=al.agent_id
+        WHERE al.type='pv' {$dateSqlAccess}
+        GROUP BY {$accessTemplateExpr}
+    ");
+    $stmt->execute($dateParamsAccess);
+    foreach ($stmt->fetchAll() as $row) $pvMap[(int)$row['template_id']] = (int)$row['cnt'];
+
+    $lineMap = [];
+    $stmt = $db->prepare("
+        SELECT {$accessTemplateExpr} AS template_id, COUNT(*) AS cnt
+        FROM access_logs al
+        LEFT JOIN agents a ON a.id=al.agent_id
+        WHERE al.type='line_click' {$dateSqlAccess}
+        GROUP BY {$accessTemplateExpr}
+    ");
+    $stmt->execute($dateParamsAccess);
+    foreach ($stmt->fetchAll() as $row) $lineMap[(int)$row['template_id']] = (int)$row['cnt'];
+
+    $leadMap = [];
+    $stmt = $db->prepare("
+        SELECT {$leadTemplateExpr} AS template_id,
+               COUNT(*) AS cnt,
+               SUM(CASE WHEN l.status='new' THEN 1 ELSE 0 END) AS new_cnt,
+               SUM(CASE WHEN l.status='prospect' THEN 1 ELSE 0 END) AS prospect_cnt,
+               SUM(CASE WHEN l.status='won' THEN 1 ELSE 0 END) AS won_cnt
+        FROM leads l
+        LEFT JOIN agents a ON a.id=l.agent_id
+        WHERE 1=1 {$dateSqlLead}
+        GROUP BY {$leadTemplateExpr}
+    ");
+    $stmt->execute($dateParamsLead);
+    foreach ($stmt->fetchAll() as $row) $leadMap[(int)$row['template_id']] = $row;
+
+    $rows = [];
+    foreach ($templates as $tpl) {
+        $id = (int)$tpl['id'];
+        $pv = $pvMap[$id] ?? 0;
+        $leads = (int)($leadMap[$id]['cnt'] ?? 0);
+        $rows[] = [
+            $tpl['name'] ?? '',
+            $tpl['slug'] ?? '',
+            $tpl['html_file'] ?? '',
+            (int)($tpl['active_agent_count'] ?? 0),
+            $pv,
+            $lineMap[$id] ?? 0,
+            $leads,
+            (int)($leadMap[$id]['new_cnt'] ?? 0),
+            (int)($leadMap[$id]['prospect_cnt'] ?? 0),
+            (int)($leadMap[$id]['won_cnt'] ?? 0),
+            $pv > 0 ? round(($leads / $pv) * 100, 2) . '%' : '',
+        ];
+    }
     adminCsvOutput('template_reports_' . date('Ymd_His') . '.csv', ['テンプレート','スラッグ','ファイル','使用中','PV','LINE','問い合わせ','未対応','成約見込み','成約','CV率'], $rows);
 }
 
@@ -69,14 +276,56 @@ if ($type === 'login_logs') {
     $from     = sanitizeInput($_GET['from'] ?? '');
     $to       = sanitizeInput($_GET['to'] ?? '');
 
-    $loginLogCsvService = new \SenNoKuni\Audit\LoginLogCsvExportService($db);
-    $rows = $loginLogCsvService->rows([
-        'user_type' => $userType,
-        'result' => $result,
-        'q' => $search,
-        'from' => $from,
-        'to' => $to,
-    ]);
+    $wheres = [];
+    $params = [];
+    if (in_array($userType, ['admin', 'agent'], true)) {
+        $wheres[] = 'l.user_type=?';
+        $params[] = $userType;
+    }
+    if ($result === 'success') {
+        $wheres[] = 'l.success=1';
+    } elseif ($result === 'failed') {
+        $wheres[] = 'l.success=0';
+    }
+    if ($search !== '') {
+        $wheres[] = '(l.email LIKE ? OR a.agent_name LIKE ? OR a.person_name LIKE ? OR a.agent_code LIKE ? OR ad.username LIKE ? OR ad.display_name LIKE ?)';
+        $kw = '%' . $search . '%';
+        array_push($params, $kw, $kw, $kw, $kw, $kw, $kw);
+    }
+    if ($from !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $from)) {
+        $wheres[] = 'l.created_at >= ?';
+        $params[] = $from . ' 00:00:00';
+    }
+    if ($to !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) {
+        $wheres[] = 'l.created_at <= ?';
+        $params[] = $to . ' 23:59:59';
+    }
+    $where = $wheres ? 'WHERE ' . implode(' AND ', $wheres) : '';
+    $stmt = $db->prepare("
+        SELECT l.*, a.agent_name, a.person_name, a.agent_code, a.level AS agent_level,
+               ad.username AS admin_username, ad.display_name AS admin_display_name, ad.role AS admin_role
+        FROM login_logs l
+        LEFT JOIN agents a ON l.user_type='agent' AND l.user_id=a.id
+        LEFT JOIN admins ad ON l.user_type='admin' AND l.user_id=ad.id
+        $where
+        ORDER BY l.created_at DESC
+    ");
+    $stmt->execute($params);
+    $rows = [];
+    foreach ($stmt->fetchAll() as $log) {
+        $displayName = $log['user_type'] === 'admin'
+            ? (($log['admin_display_name'] ?? '') ?: ($log['admin_username'] ?? ''))
+            : (($log['agent_name'] ?? '') ?: ($log['person_name'] ?? ''));
+        $rows[] = [
+            $log['created_at'] ?? '',
+            $log['user_type'] === 'admin' ? '管理者' : '代理店',
+            $displayName,
+            $log['email'] ?? '',
+            $log['user_type'] === 'admin' ? ($log['admin_role'] ?? '') : ($log['agent_code'] ?? ''),
+            !empty($log['success']) ? '成功' : '失敗',
+            $log['ip_hash'] ?? '',
+        ];
+    }
     adminCsvOutput('login_logs_' . date('Ymd_His') . '.csv', ['日時','種別','ユーザー','ログインID','権限/コード','結果','IPハッシュ'], $rows);
 }
 
@@ -100,22 +349,98 @@ if ($type === 'agent_activity') {
         }
     }
 
-    $activityService = new \SenNoKuni\Activity\ActivityQueryService($db);
-    $activityResult = $activityService->search([
-        'admin_mode' => true,
-        'filter_project_assignments' => true,
-        'all' => true,
-        'period' => $period,
-        'days' => $days,
-        'project_id' => $projectId,
-        'q' => $q,
-        'level' => $level,
-        'status' => $status,
-        'sort' => $sort,
-        'labels' => $labels,
-    ]);
+    $accessHasProject = tableHasColumn('access_logs', 'project_id');
+    $leadHasProject = tableHasColumn('leads', 'project_id');
+
+    $dateSql = '';
+    $dateParams = [];
+    if ($period === 'today') {
+        $dateSql = ' AND created_at >= CURDATE()';
+    } elseif ($days !== null) {
+        $dateSql = ' AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)';
+        $dateParams[] = $days;
+    }
+
+    $accessProjectSql = ($accessHasProject && $projectId > 0) ? ' AND project_id=?' : '';
+    $accessProjectParams = ($accessHasProject && $projectId > 0) ? [$projectId] : [];
+    $leadProjectSql = ($leadHasProject && $projectId > 0) ? ' AND project_id=?' : '';
+    $leadProjectParams = ($leadHasProject && $projectId > 0) ? [$projectId] : [];
+
+    $where = [];
+    $whereParams = [];
+    $joinProject = '';
+    if ($projectId > 0) {
+        $joinProject = 'LEFT JOIN agent_project_templates apt_filter ON apt_filter.agent_id=a.id AND apt_filter.project_id=? LEFT JOIN lp_templates t_filter ON t_filter.id=a.default_template_id';
+        $whereParams[] = $projectId;
+        $where[] = '(apt_filter.project_id IS NOT NULL OR t_filter.project_id=?)';
+        $whereParams[] = $projectId;
+    }
+    if ($q !== '') {
+        $where[] = '(a.agent_name LIKE ? OR a.person_name LIKE ? OR a.agent_code LIKE ? OR a.email LIKE ? OR a.login_email LIKE ?)';
+        $kw = '%' . $q . '%';
+        array_push($whereParams, $kw, $kw, $kw, $kw, $kw);
+    }
+    if (isset($labels[$level])) {
+        $where[] = 'a.level=?';
+        $whereParams[] = $level;
+    }
+    if (in_array($status, ['active', 'inactive'], true)) {
+        $where[] = 'a.status=?';
+        $whereParams[] = $status;
+    }
+    $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+    $sortMap = [
+        'leads' => 'leads DESC, pv DESC',
+        'pv' => 'pv DESC, leads DESC',
+        'line' => 'line_clicks DESC, pv DESC',
+        'new' => 'new_leads DESC, leads DESC',
+        'cv' => 'conversion DESC, leads DESC',
+        'last_access' => 'last_access IS NULL ASC, last_access DESC',
+        'last_login' => 'last_login IS NULL ASC, last_login DESC',
+        'name' => 'a.agent_name ASC',
+    ];
+    $orderSql = $sortMap[$sort] ?? $sortMap['leads'];
+
+    $pvSub = "SELECT agent_id, COUNT(*) AS pv, MAX(created_at) AS last_access FROM access_logs WHERE type='pv' $accessProjectSql $dateSql GROUP BY agent_id";
+    $lineSub = "SELECT agent_id, COUNT(*) AS line_clicks FROM access_logs WHERE type='line_click' $accessProjectSql $dateSql GROUP BY agent_id";
+    $leadSub = "SELECT agent_id, COUNT(*) AS leads, SUM(status='new') AS new_leads, SUM(status='prospect') AS prospects, SUM(status='won') AS won, MAX(created_at) AS last_lead FROM leads WHERE 1=1 $leadProjectSql $dateSql GROUP BY agent_id";
+    $loginSub = "SELECT user_id AS agent_id, MAX(created_at) AS last_login FROM login_logs WHERE user_type='agent' AND success=1 GROUP BY user_id";
+
+    $params = array_merge(
+        $accessProjectParams, $dateParams,
+        $accessProjectParams, $dateParams,
+        $leadProjectParams, $dateParams,
+        $whereParams
+    );
+    $stmt = $db->prepare("
+        SELECT
+            a.*,
+            parent.agent_name AS parent_name,
+            parent.agent_code AS parent_code,
+            COALESCE(pv.pv, 0) AS pv,
+            COALESCE(lc.line_clicks, 0) AS line_clicks,
+            COALESCE(ld.leads, 0) AS leads,
+            COALESCE(ld.new_leads, 0) AS new_leads,
+            COALESCE(ld.prospects, 0) AS prospects,
+            COALESCE(ld.won, 0) AS won,
+            pv.last_access,
+            ld.last_lead,
+            lg.last_login,
+            CASE WHEN COALESCE(pv.pv,0) > 0 THEN ROUND((COALESCE(ld.leads,0) / COALESCE(pv.pv,0)) * 100, 2) ELSE NULL END AS conversion
+        FROM agents a
+        LEFT JOIN agents parent ON parent.id=a.parent_id
+        LEFT JOIN ($pvSub) pv ON pv.agent_id=a.id
+        LEFT JOIN ($lineSub) lc ON lc.agent_id=a.id
+        LEFT JOIN ($leadSub) ld ON ld.agent_id=a.id
+        LEFT JOIN ($loginSub) lg ON lg.agent_id=a.id
+        $joinProject
+        $whereSql
+        ORDER BY $orderSql
+    ");
+    $stmt->execute($params);
     $rows = [];
-    foreach ($activityResult['rows'] as $agent) {
+    foreach ($stmt->fetchAll() as $agent) {
         $rows[] = [
             $agent['agent_code'] ?? '',
             $agent['agent_name'] ?? '',

@@ -155,6 +155,7 @@ if ($method === 'POST' && ($tail === 'capture' || (($_GET['action'] ?? '') === '
         'agency_id' => $tokenRow['agent_code'] ?? null,
         'agent_code' => $tokenRow['agent_code'] ?? null,
         'project_id' => (int)($tokenRow['project_id'] ?? 0),
+        'project_key' => $tokenRow['project_slug'] ?? null,
         'project_slug' => $tokenRow['project_slug'] ?? null,
         'status' => 'captured',
         'expires_at' => $tokenRow['expires_at'] ?? null,
@@ -263,6 +264,28 @@ if ($method === 'POST' && ($tail === 'confirm' || (($_GET['action'] ?? '') === '
             'occurred_at' => $data['occurred_at'] ?? date('Y-m-d H:i:s'),
             'metadata' => is_array($data['metadata'] ?? null) ? $data['metadata'] : [],
         ]);
+        $entitlementStatus = trim((string)($data['entitlement_status'] ?? ''));
+        if ($entitlementStatus === '' && in_array(strtolower(trim((string)($data['payment_status'] ?? ''))), ['paid', 'completed', 'succeeded'], true)) {
+            $entitlementStatus = 'active';
+        }
+        $entitlement = [];
+        if ($entitlementStatus !== '' || trim((string)($data['product_code'] ?? '')) !== '') {
+            $entitlement = saveCustomerEntitlement([
+                'common_user_id' => $commonUserId,
+                'system_key' => $systemKey,
+                'external_user_id' => $externalUserId,
+                'project_key' => $data['project_key'] ?? $data['project_slug'] ?? ($tokenRow['project_slug'] ?? ''),
+                'project_id' => (int)($tokenRow['project_id'] ?? 0),
+                'product_code' => $data['product_code'] ?? '',
+                'order_id' => $data['order_id'] ?? $data['transaction_id'] ?? '',
+                'order_item_id' => $data['order_item_id'] ?? 'default',
+                'status' => $entitlementStatus ?: 'active',
+                'starts_at' => $data['starts_at'] ?? $data['entitlement_starts_at'] ?? '',
+                'expires_at' => $data['expires_at'] ?? $data['entitlement_expires_at'] ?? '',
+                'source_event' => 'referral.confirmed',
+                'metadata' => is_array($data['metadata'] ?? null) ? $data['metadata'] : [],
+            ]);
+        }
         $db->commit();
     } catch (Throwable $e) {
         if ($db->inTransaction()) {
@@ -291,9 +314,11 @@ if ($method === 'POST' && ($tail === 'confirm' || (($_GET['action'] ?? '') === '
         'referral_session_key' => $sessionKey ?: null,
         'relation' => $relation,
         'transaction' => $transaction,
+        'entitlement' => $entitlement ?? [],
         'touchpoint' => $touchpoint,
         'common_user' => $profile['common_user'] ?? null,
         'agency_relations' => $profile['agency_relations'] ?? [],
+        'entitlements' => $profile['entitlements'] ?? [],
     ];
     logIntegrationEvent([
         'direction' => 'inbound',

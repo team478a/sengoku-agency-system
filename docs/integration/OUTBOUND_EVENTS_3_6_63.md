@@ -87,6 +87,7 @@ LP問い合わせが保存された時に `lead_created` を送信します。
   "agent_name": "代理店名",
   "contact_name": "担当者名",
   "project_id": 2,
+  "project_key": "ai-art-school",
   "project_slug": "ai-art-school",
   "project_name": "AIアート教室",
   "template_id": 7,

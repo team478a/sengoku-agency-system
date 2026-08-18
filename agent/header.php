@@ -707,6 +707,7 @@ body[data-theme="light"] .btn-danger { background: #b02a2a !important; color: #f
     }
     agentNavLink('/agent/dashboard.php', '📊', 'ダッシュボード');
     agentNavLink('/agent/reports.php', '📈', '活動レポート');
+    agentNavLink('/agent/organization_map.php', '🧭', '傘下組織図');
     if (!empty($currentAgent) && (int)($currentAgent['level'] ?? 1) >= 2) {
         agentNavLink('/agent/downline_activity.php', '📊', '配下活動');
     }

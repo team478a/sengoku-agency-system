@@ -76,6 +76,57 @@ function adminValidatePlacement(PDO $db, int $agentId, int $level, ?int $parentI
     return $errors;
 }
 
+function adminAllowedParentLevelsFor(int $level): array {
+    if ($level === 2) {
+        return [3];
+    }
+    if ($level === 1) {
+        return [2, 3];
+    }
+    return [];
+}
+
+function adminParentCandidates(PDO $db, int $agentId, int $level): array {
+    $allowedLevels = adminAllowedParentLevelsFor($level);
+    if (!$allowedLevels) {
+        return [];
+    }
+
+    $blockedIds = $agentId > 0 ? array_merge([$agentId], adminDescendantIds($db, $agentId)) : [];
+    $levelPlaceholders = implode(',', array_fill(0, count($allowedLevels), '?'));
+    $sql = "SELECT id, agent_name, person_name, level FROM agents WHERE status='active' AND level IN ($levelPlaceholders)";
+    $params = $allowedLevels;
+
+    if ($blockedIds) {
+        $blockedPlaceholders = implode(',', array_fill(0, count($blockedIds), '?'));
+        $sql .= " AND id NOT IN ($blockedPlaceholders)";
+        $params = array_merge($params, $blockedIds);
+    }
+
+    $sql .= ' ORDER BY level DESC, agent_name ASC';
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll();
+}
+
+function adminAgentBriefName(PDO $db, ?int $agentId): ?string {
+    if (!$agentId) {
+        return null;
+    }
+    $stmt = $db->prepare('SELECT agent_name, person_name, agent_code FROM agents WHERE id=?');
+    $stmt->execute([$agentId]);
+    $agent = $stmt->fetch();
+    if (!$agent) {
+        return null;
+    }
+    $parts = array_filter([
+        $agent['agent_name'] ?? '',
+        $agent['person_name'] ?? '',
+        $agent['agent_code'] ?? '',
+    ], static fn($value) => trim((string)$value) !== '');
+    return implode(' / ', $parts);
+}
+
 function lpModeLabel(array $ag): string {
     $f = !empty($ag['show_form']);
     $l = !empty($ag['show_line_btn']);
@@ -157,6 +208,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     adminAgentLog($db, 'role_update', $id, ['level' => $level, 'parent_id' => $parentId]);
                     syncAgentToExternalPartner($id, 'role_updated');
                     $message = '権限を更新しました。' . ($setupUrl ? ' 初回設定URL: ' . $setupUrl : '');
+                }
+            } elseif ($action === 'parent_update') {
+                $id = (int)($_POST['id'] ?? 0);
+                $target = getAgentById($id);
+                if (!$target) {
+                    $message = '対象メンバーが見つかりません。';
+                    $msgType = 'error';
+                } else {
+                    $level = (int)($target['level'] ?? 1);
+                    $parentId = $level === 3 ? null : ((int)($_POST['parent_id'] ?? 0) ?: null);
+                    $errors = adminValidatePlacement($db, $id, $level, $parentId, $labels);
+                    if ($errors) {
+                        $message = implode(' ', $errors);
+                        $msgType = 'error';
+                    } else {
+                        $oldParentId = !empty($target['parent_id']) ? (int)$target['parent_id'] : null;
+                        $reason = trim((string)($_POST['change_reason'] ?? ''));
+                        if ($reason !== '') {
+                            $reason = function_exists('mb_substr') ? mb_substr($reason, 0, 200) : substr($reason, 0, 200);
+                        }
+                        $db->prepare('UPDATE agents SET parent_id=? WHERE id=?')->execute([$parentId, $id]);
+                        adminAgentLog($db, 'parent_update', $id, [
+                            'old_parent_id' => $oldParentId,
+                            'old_parent_name' => adminAgentBriefName($db, $oldParentId),
+                            'new_parent_id' => $parentId,
+                            'new_parent_name' => adminAgentBriefName($db, $parentId),
+                            'level' => $level,
+                            'reason' => $reason,
+                        ]);
+                        syncAgentToExternalPartner($id, 'parent_updated');
+                        $message = '上位の紐づけを変更しました。';
+                    }
                 }
             } elseif (in_array($action, ['create', 'update'], true)) {
                 $id = (int)($_POST['id'] ?? 0);
@@ -334,8 +417,9 @@ $agentsList = $db->query("SELECT id, agent_name, person_name, level FROM agents 
     </form>
 </div>
 
-<div style="display:flex;gap:.5rem;align-items:center;margin-bottom:1rem;">
-    <form method="get" style="display:flex;gap:.5rem;flex:1;"><input type="text" name="q" value="<?= h($search) ?>" placeholder="名称・担当者名・コードで検索" style="flex:1;padding:.5rem .8rem;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:4px;color:var(--paper);font-family:inherit;"><button type="submit" class="btn btn-outline">検索</button><?php if ($search): ?><a href="/admin/agents.php" class="btn btn-outline">クリア</a><?php endif; ?></form>
+<div style="display:flex;gap:.5rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap;">
+    <form method="get" style="display:flex;gap:.5rem;flex:1;min-width:280px;"><input type="text" name="q" value="<?= h($search) ?>" placeholder="名称・担当者名・コードで検索" style="flex:1;padding:.5rem .8rem;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:4px;color:var(--paper);font-family:inherit;"><button type="submit" class="btn btn-outline">検索</button><?php if ($search): ?><a href="/admin/agents.php" class="btn btn-outline">クリア</a><?php endif; ?></form>
+    <a href="/admin/export_csv.php?type=bank_accounts<?= $search !== '' ? '&q=' . urlencode($search) : '' ?>" class="btn btn-outline">振込先CSV</a>
 </div>
 
 <div class="card" style="padding:0;">
@@ -357,6 +441,7 @@ $agentsList = $db->query("SELECT id, agent_name, person_name, level FROM agents 
                 <td><span class="badge badge-<?= $ag['status'] === 'active' ? 'active' : 'inactive' ?>"><?= $ag['status'] === 'active' ? '公開中' : '停止中' ?></span></td>
                 <td class="agent-actions" style="white-space:nowrap;">
                     <form method="post" style="display:inline-flex;gap:.25rem;align-items:center;margin-bottom:.25rem;"><input type="hidden" name="csrf_token" value="<?= h($csrf) ?>"><input type="hidden" name="action" value="role_update"><input type="hidden" name="id" value="<?= (int)$ag['id'] ?>"><select name="level" style="width:auto;padding:.25rem .45rem;font-size:.75rem;"><option value="1" <?= ((int)($ag['level'] ?? 1) === 1) ? 'selected' : '' ?>><?= h($labels[1] ?? 'アドバイザー') ?></option><option value="2" <?= ((int)($ag['level'] ?? 1) === 2) ? 'selected' : '' ?>><?= h($labels[2] ?? 'ディレクター') ?></option><option value="3" <?= ((int)($ag['level'] ?? 1) === 3) ? 'selected' : '' ?>><?= h($labels[3] ?? 'エージェント') ?></option></select><select name="parent_id" style="width:auto;max-width:180px;padding:.25rem .45rem;font-size:.75rem;"><option value="">本部直属</option><?php foreach ($agentsList as $parent): if ((int)$parent['id'] === (int)$ag['id']) continue; ?><option value="<?= (int)$parent['id'] ?>" <?= ((int)($ag['parent_id'] ?? 0) === (int)$parent['id']) ? 'selected' : '' ?>>[<?= h($labels[(int)$parent['level']] ?? 'Lv.'.$parent['level']) ?>] <?= h($parent['agent_name']) ?></option><?php endforeach; ?></select><label style="font-size:.72rem;"><input type="checkbox" name="reset_setup" value="1"> 初回設定URL</label><button type="submit" class="btn btn-gold btn-sm">権限保存</button></form><br>
+                    <a href="/admin/agent_parent_links.php?q=<?= h(rawurlencode((string)$ag['agent_code'])) ?>" class="btn btn-outline btn-sm">親子変更</a>
                     <a href="/admin/agents.php?edit=<?= (int)$ag['id'] ?>" class="btn btn-outline btn-sm">編集</a>
                     <form method="post" style="display:inline;" onsubmit="return confirm('初回設定URLを再発行します。よろしいですか？')"><input type="hidden" name="csrf_token" value="<?= h($csrf) ?>"><input type="hidden" name="action" value="reset_password"><input type="hidden" name="id" value="<?= (int)$ag['id'] ?>"><button type="submit" class="btn btn-outline btn-sm" style="color:var(--gold);">PW再発行</button></form>
                     <form method="post" style="display:inline;"><input type="hidden" name="csrf_token" value="<?= h($csrf) ?>"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= (int)$ag['id'] ?>"><button type="submit" class="btn btn-outline btn-sm"><?= $ag['status'] === 'active' ? '停止' : '再開' ?></button></form>

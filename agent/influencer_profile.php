@@ -45,6 +45,13 @@ $requiredColumns = [
     'influencer_name',
     'metamask_wallet_address',
     'influencer_profile_text',
+    'bank_name',
+    'bank_branch_name',
+    'bank_branch_code',
+    'bank_account_type',
+    'bank_account_number',
+    'bank_account_holder',
+    'bank_account_holder_kana',
     'instagram_url',
     'x_url',
     'tiktok_url',
@@ -63,6 +70,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$missingColumns) {
             'influencer_name' => trim($_POST['influencer_name'] ?? ''),
             'metamask_wallet_address' => trim($_POST['metamask_wallet_address'] ?? ''),
             'influencer_profile_text' => trim($_POST['influencer_profile_text'] ?? ''),
+            'bank_name' => trim($_POST['bank_name'] ?? ''),
+            'bank_branch_name' => trim($_POST['bank_branch_name'] ?? ''),
+            'bank_branch_code' => trim($_POST['bank_branch_code'] ?? ''),
+            'bank_account_type' => trim($_POST['bank_account_type'] ?? ''),
+            'bank_account_number' => trim($_POST['bank_account_number'] ?? ''),
+            'bank_account_holder' => trim($_POST['bank_account_holder'] ?? ''),
+            'bank_account_holder_kana' => trim($_POST['bank_account_holder_kana'] ?? ''),
             'instagram_url' => normalizeInfluencerUrl($_POST['instagram_url'] ?? ''),
             'x_url' => normalizeInfluencerUrl($_POST['x_url'] ?? ''),
             'tiktok_url' => normalizeInfluencerUrl($_POST['tiktok_url'] ?? ''),
@@ -76,6 +90,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$missingColumns) {
         }
         if ($data['metamask_wallet_address'] !== '' && !preg_match('/^0x[a-fA-F0-9]{40}$/', $data['metamask_wallet_address'])) {
             $errors[] = 'MetaMaskのウォレットアドレスは、0xから始まる42文字で入力してください。';
+        }
+        if ($data['bank_account_type'] !== '' && !in_array($data['bank_account_type'], ['普通', '当座', '貯蓄'], true)) {
+            $errors[] = '口座種別を正しく選択してください。';
+        }
+        if ($data['bank_branch_code'] !== '' && !preg_match('/^[0-9]{3}$/', $data['bank_branch_code'])) {
+            $errors[] = '支店コードは3桁の数字で入力してください。';
+        }
+        if ($data['bank_account_number'] !== '' && !preg_match('/^[0-9]{1,8}$/', $data['bank_account_number'])) {
+            $errors[] = '口座番号は数字8桁以内で入力してください。';
         }
 
         $urlLabels = [
@@ -100,6 +123,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$missingColumns) {
                     influencer_name=:influencer_name,
                     metamask_wallet_address=:metamask_wallet_address,
                     influencer_profile_text=:influencer_profile_text,
+                    bank_name=:bank_name,
+                    bank_branch_name=:bank_branch_name,
+                    bank_branch_code=:bank_branch_code,
+                    bank_account_type=:bank_account_type,
+                    bank_account_number=:bank_account_number,
+                    bank_account_holder=:bank_account_holder,
+                    bank_account_holder_kana=:bank_account_holder_kana,
                     instagram_url=:instagram_url,
                     x_url=:x_url,
                     tiktok_url=:tiktok_url,
@@ -159,6 +189,49 @@ $profileText = trim((string)($ag['influencer_profile_text'] ?? ''));
       <div class="form-group">
         <label>プロフィール文</label>
         <textarea name="influencer_profile_text" placeholder="活動内容、得意分野、告知時に見せたい説明など"><?= h($profileText) ?></textarea>
+      </div>
+
+      <div style="border-top:1px solid var(--border);margin:1.4rem 0 1rem;padding-top:1.1rem;">
+        <p class="card-title" style="margin-bottom:.35rem;">振込先銀行</p>
+        <p style="font-size:.82rem;color:var(--text-muted);line-height:1.8;margin-bottom:1rem;">
+          報酬や精算の振込先として利用する口座情報です。口座名義カナは通帳・銀行アプリの表記に合わせて入力してください。
+        </p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;">
+          <div class="form-group">
+            <label>銀行名</label>
+            <input type="text" name="bank_name" value="<?= h($ag['bank_name'] ?? '') ?>" placeholder="例：三菱UFJ銀行">
+          </div>
+          <div class="form-group">
+            <label>支店名</label>
+            <input type="text" name="bank_branch_name" value="<?= h($ag['bank_branch_name'] ?? '') ?>" placeholder="例：渋谷支店">
+          </div>
+          <div class="form-group">
+            <label>支店コード</label>
+            <input type="text" name="bank_branch_code" value="<?= h($ag['bank_branch_code'] ?? '') ?>" placeholder="例：135" inputmode="numeric" maxlength="3">
+          </div>
+          <div class="form-group">
+            <label>口座種別</label>
+            <?php $bankAccountType = (string)($ag['bank_account_type'] ?? ''); ?>
+            <select name="bank_account_type">
+              <option value="">選択してください</option>
+              <?php foreach (['普通', '当座', '貯蓄'] as $type): ?>
+                <option value="<?= h($type) ?>" <?= $bankAccountType === $type ? 'selected' : '' ?>><?= h($type) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>口座番号</label>
+            <input type="text" name="bank_account_number" value="<?= h($ag['bank_account_number'] ?? '') ?>" placeholder="例：1234567" inputmode="numeric" maxlength="8">
+          </div>
+          <div class="form-group">
+            <label>口座名義</label>
+            <input type="text" name="bank_account_holder" value="<?= h($ag['bank_account_holder'] ?? '') ?>" placeholder="例：山田 太郎">
+          </div>
+          <div class="form-group">
+            <label>口座名義（カナ）</label>
+            <input type="text" name="bank_account_holder_kana" value="<?= h($ag['bank_account_holder_kana'] ?? '') ?>" placeholder="例：ヤマダ タロウ">
+          </div>
+        </div>
       </div>
 
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;">

@@ -210,7 +210,7 @@ function apiV2ProjectIdFromInput(array $data): ?int {
     if (!empty($data['project_id'])) {
         return (int)$data['project_id'];
     }
-    $slug = trim((string)($data['project_slug'] ?? ''));
+    $slug = trim((string)($data['project_key'] ?? $data['project_slug'] ?? ''));
     if ($slug === '') {
         return null;
     }

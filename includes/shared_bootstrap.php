@@ -23,6 +23,8 @@ $sharedFiles = [
     __DIR__ . '/../src/Integration/Outbox/DeadLetterService.php',
     __DIR__ . '/../src/CommonIdentity/CommonUserInput.php',
     __DIR__ . '/../src/CommonIdentity/CommonUserInputNormalizer.php',
+    __DIR__ . '/../src/CommonIdentity/CommonUserResolveService.php',
+    __DIR__ . '/../src/CommonIdentity/AgencyCustomerRelationRepository.php',
     __DIR__ . '/../src/Referral/ReferralTokenResolver.php',
     __DIR__ . '/../src/Referral/TouchpointFingerprint.php',
     __DIR__ . '/../src/Admin/AdminDateFormatter.php',

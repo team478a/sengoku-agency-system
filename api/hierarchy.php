@@ -82,6 +82,7 @@ function apiAgentPayload(array $agent, array $projects, array $labels, bool $inc
     foreach ($projects as $project) {
         $payload['lp_urls'][] = [
             'project_id' => (int)$project['id'],
+            'project_key' => (string)$project['slug'],
             'project_slug' => (string)$project['slug'],
             'project_name' => (string)$project['name'],
             'url' => buildAgentProjectLpUrl((string)($agent['agent_code'] ?? ''), $project),

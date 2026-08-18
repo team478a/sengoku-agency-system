@@ -4,28 +4,7 @@ require_once __DIR__ . '/header.php';
 ?>
 
 <style>
-.guide-hero {
-    border: 1px solid var(--border);
-    background: var(--card);
-    border-radius: 6px;
-    padding: 1.4rem;
-    margin-bottom: 1.25rem;
-}
-.guide-hero h2 {
-    margin: 0 0 .6rem;
-    font-size: 1.35rem;
-}
-.guide-lead {
-    color: var(--text-muted);
-    line-height: 1.8;
-    margin: 0;
-}
-.guide-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: .65rem;
-    margin-top: 1rem;
-}
+.guide-hero,
 .guide-section {
     border: 1px solid var(--border);
     background: var(--card);
@@ -33,36 +12,34 @@ require_once __DIR__ . '/header.php';
     padding: 1.25rem;
     margin-bottom: 1.25rem;
 }
+.guide-hero h2,
 .guide-section h3 {
-    margin: 0 0 .9rem;
-    font-size: 1.1rem;
+    margin: 0 0 .8rem;
 }
+.guide-lead,
+.guide-section p,
+.guide-section li {
+    color: var(--text-muted);
+    line-height: 1.8;
+}
+.guide-actions,
 .guide-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: .9rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .7rem;
+}
+.guide-actions {
+    margin-top: 1rem;
 }
 .guide-card {
+    flex: 1 1 260px;
     border: 1px solid var(--border);
     background: var(--bg-soft);
     border-radius: 6px;
     padding: 1rem;
 }
 .guide-card h4 {
-    margin: 0 0 .55rem;
-    font-size: 1rem;
-}
-.guide-card p,
-.guide-card li {
-    color: var(--text-muted);
-    line-height: 1.75;
-}
-.guide-card p {
-    margin: 0;
-}
-.guide-card ul {
-    margin: .35rem 0 0;
-    padding-left: 1.2rem;
+    margin: 0 0 .45rem;
 }
 .guide-flow {
     display: grid;
@@ -70,7 +47,7 @@ require_once __DIR__ . '/header.php';
 }
 .guide-step {
     display: grid;
-    grid-template-columns: 3.5rem 1fr;
+    grid-template-columns: 3.2rem 1fr;
     gap: .8rem;
     align-items: stretch;
 }
@@ -78,188 +55,126 @@ require_once __DIR__ . '/header.php';
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid var(--accent);
-    background: rgba(206, 164, 61, .14);
-    color: var(--accent);
     border-radius: 6px;
+    background: var(--accent);
+    color: #fff;
     font-weight: 700;
-    font-size: 1.05rem;
 }
 .guide-step-body {
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: .9rem 1rem;
-    background: var(--bg-soft);
+    padding: .85rem 1rem;
+    background: var(--bg);
 }
 .guide-step-body strong {
     display: block;
-    margin-bottom: .35rem;
+    margin-bottom: .25rem;
 }
-.guide-step-body p {
-    margin: 0;
-    color: var(--text-muted);
-    line-height: 1.75;
+.guide-table-wrap {
+    overflow-x: auto;
 }
-.guide-arrow {
-    color: var(--text-muted);
-    padding-left: 1.45rem;
-    line-height: 1;
-}
-.guide-key-table {
+.guide-table {
     width: 100%;
     border-collapse: collapse;
+    min-width: 760px;
 }
-.guide-key-table th,
-.guide-key-table td {
+.guide-table th,
+.guide-table td {
     border-bottom: 1px solid var(--border);
-    padding: .85rem;
+    padding: .8rem;
+    text-align: left;
     vertical-align: top;
 }
-.guide-key-table th {
+.guide-table th {
     background: var(--bg-soft);
-    text-align: left;
-}
-.guide-key-table td {
-    color: var(--text-muted);
-    line-height: 1.7;
-}
-.guide-checklist {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    gap: .6rem;
-}
-.guide-checkitem {
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: .75rem .85rem;
-    background: var(--bg-soft);
-    color: var(--text-muted);
-    line-height: 1.65;
 }
 .guide-code {
-    display: block;
-    margin-top: .35rem;
-    padding: .55rem .65rem;
-    background: rgba(0, 0, 0, .06);
-    border: 1px solid var(--border);
+    display: inline-block;
+    padding: .12rem .35rem;
     border-radius: 4px;
-    color: var(--paper);
-    overflow-x: auto;
-    white-space: nowrap;
+    background: var(--bg-soft);
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: .92em;
 }
 @media (max-width: 720px) {
     .guide-step {
         grid-template-columns: 1fr;
     }
-    .guide-step-no {
-        min-height: 2.4rem;
-    }
-    .guide-arrow {
-        display: none;
-    }
 }
 </style>
 
 <div class="guide-hero">
-    <h2>外部連携を始める前に見るページ</h2>
+    <h2>外部連携の進め方</h2>
     <p class="guide-lead">
-        このページは、sengoku-ai.comを代理店情報の中心として、戦国パスポート、AIアート教室、ショッピングカートなどの外部システムと連携するための手順書です。
-        最初に何を決めるか、次にどの画面で設定するか、開発者へ何を渡すかを順番に確認できます。
+        戦国パスポート、ショッピングサイト、AIアート教室など外部サービスと代理店情報を連携するための入口です。
+        まず連携先を1つ登録し、その連携先ごとにAPIキーと送信先を設定します。商品やLPの違いは
+        <span class="guide-code">project_key</span> で分けます。
     </p>
     <div class="guide-actions">
-        <a class="btn" href="/admin/external_partners.php">外部API連携を設定</a>
-        <a class="btn btn-outline" href="/admin/sso_settings.php">SSO連携を設定</a>
-        <a class="btn btn-outline" href="/admin/integration_logs.php">連携ログを見る</a>
-        <a class="btn btn-outline" href="/admin/integration_outbox.php">送信待ちを見る</a>
+        <a class="btn" href="external_partner_wizard.php">連携セットアップを開く</a>
+        <a class="btn secondary" href="projects.php">project_keyを確認</a>
+        <a class="btn secondary" href="external_partners.php">詳細設定を開く</a>
+        <a class="btn secondary" href="sso_settings.php">SSO連携を設定</a>
+        <a class="btn secondary" href="integration_logs.php">連携ログを見る</a>
+        <a class="btn secondary" href="integration_outbox.php">送信待ちを見る</a>
+    </div>
+    <div class="guide-actions">
+        <a class="btn secondary" href="developer_docs_download.php?doc=handoff">外部開発者向けMD</a>
+        <a class="btn secondary" href="developer_docs_download.php?doc=setup-flow">セットアップ手順MD</a>
+        <a class="btn secondary" href="developer_docs_download.php?doc=full-guide">詳細仕様MD</a>
     </div>
 </div>
 
 <div class="guide-section">
-    <h3>まず決めること</h3>
-    <div class="guide-grid">
-        <div class="guide-card">
-            <h4>1. 何を連携するか</h4>
-            <ul>
-                <li>代理店の登録・更新・停止・削除</li>
-                <li>代理店の親子関係、紹介者、共通ID</li>
-                <li>外部ポータルへのSSOログイン</li>
-                <li>商品・プロジェクト別のLPや成果情報</li>
-            </ul>
-        </div>
-        <div class="guide-card">
-            <h4>2. どちら向きに通信するか</h4>
-            <ul>
-                <li>外部システムからsengoku-ai.comへ登録する</li>
-                <li>sengoku-ai.comから外部システムへ通知する</li>
-                <li>外部システムが階層情報を取得する</li>
-                <li>sengoku-ai.comからSSOで外部ポータルへログインする</li>
-            </ul>
-        </div>
-        <div class="guide-card">
-            <h4>3. 誰がAPIキーを発行するか</h4>
-            <p>
-                APIキーは原則、接続先ごとに分けます。sengoku-ai.comを呼び出すキーと、外部システムを呼び出すキーは別物として管理します。
-            </p>
-        </div>
-    </div>
-</div>
-
-<div class="guide-section">
-    <h3>ステップ別フロー</h3>
+    <h3>最初に行うこと</h3>
     <div class="guide-flow">
         <div class="guide-step">
-            <div class="guide-step-no">STEP 1</div>
+            <div class="guide-step-no">1</div>
             <div class="guide-step-body">
-                <strong>連携先システムを決める</strong>
-                <p>例: 戦国パスポート、AIアート教室、ショッピングカート。連携先名、ドメイン、担当者、利用目的を整理します。</p>
+                <strong>連携先サービスを決める</strong>
+                <span>例：戦国パスポート、ショッピングサイト、AIアート教室。1サービスにつき1件登録します。</span>
             </div>
         </div>
-        <div class="guide-arrow">↓</div>
         <div class="guide-step">
-            <div class="guide-step-no">STEP 2</div>
+            <div class="guide-step-no">2</div>
             <div class="guide-step-body">
-                <strong>連携方式を選ぶ</strong>
-                <p>登録・更新を受け取るだけか、sengoku-ai.comから外部へ送信するか、SSOログインも使うかを決めます。</p>
+                <strong>使うプロジェクトを確認する</strong>
+                <span>商品やLPを分けたい場合は <span class="guide-code">project_key</span> を使います。値はプロジェクト管理のスラッグです。</span>
             </div>
         </div>
-        <div class="guide-arrow">↓</div>
         <div class="guide-step">
-            <div class="guide-step-no">STEP 3</div>
+            <div class="guide-step-no">3</div>
             <div class="guide-step-body">
-                <strong>外部API連携画面に連携先を登録する</strong>
-                <p>「サイトキー」「連携先名」「送信先URL」「連携先の受信用APIキー」を登録します。送信先URLはドメインだけでも入力できます。独自エンドポイントがある場合はフルURLを入力します。</p>
+                <strong>連携ウィザードで登録する</strong>
+                <span>連携先名、送信先URL、連携先から発行された受信用APIキーを登録します。細かい調整は詳細設定で行います。</span>
             </div>
         </div>
-        <div class="guide-arrow">↓</div>
         <div class="guide-step">
-            <div class="guide-step-no">STEP 4</div>
+            <div class="guide-step-no">4</div>
             <div class="guide-step-body">
-                <strong>sengoku-ai.com発行の受信用APIキーを相手に渡す</strong>
-                <p>外部システムからsengoku-ai.comへ代理店を登録・更新する場合に使います。接続先ごとに発行し、使い回さない運用を推奨します。</p>
+                <strong>代理店システムが発行したAPIキーを外部開発者へ渡す</strong>
+                <span>外部サービスが sengoku-ai.com に送信するときに使うキーです。ウィザードの完了画面で、APIキーと主要API URLを確認できます。</span>
             </div>
         </div>
-        <div class="guide-arrow">↓</div>
         <div class="guide-step">
-            <div class="guide-step-no">STEP 5</div>
+            <div class="guide-step-no">5</div>
             <div class="guide-step-body">
-                <strong>SSOが必要ならSSO連携も登録する</strong>
-                <p>外部ポータルへログイン連携する場合は、SSO連携画面でサイトキー、aud、SSO受信URL、状態を設定します。</p>
+                <strong>外部サービス側でAPIを実装する</strong>
+                <span>紹介流入、登録確定、購入確定、共通顧客ID解決など、必要なAPIだけ実装します。</span>
             </div>
         </div>
-        <div class="guide-arrow">↓</div>
         <div class="guide-step">
-            <div class="guide-step-no">STEP 6</div>
+            <div class="guide-step-no">6</div>
             <div class="guide-step-body">
-                <strong>接続テストとログ確認を行う</strong>
-                <p>外部API連携画面の接続テスト、連携ログ、Outboxを確認します。失敗した場合はURL、APIキー、認証ヘッダー、レスポンス内容を確認します。</p>
+                <strong>必要ならSSOを登録する</strong>
+                <span>代理店システムにログインした人を外部ポータルへ遷移させる場合に使います。</span>
             </div>
         </div>
-        <div class="guide-arrow">↓</div>
         <div class="guide-step">
-            <div class="guide-step-no">STEP 7</div>
+            <div class="guide-step-no">7</div>
             <div class="guide-step-body">
-                <strong>本番運用を開始する</strong>
-                <p>承認、登録、更新、停止、削除、SSOログインなどのイベントが想定通り流れているかを運用チェックで定期確認します。</p>
+                <strong>接続テストを行う</strong>
+                <span>外部API連携画面の接続テストと、連携ログで送受信結果を確認します。</span>
             </div>
         </div>
     </div>
@@ -267,34 +182,76 @@ require_once __DIR__ . '/header.php';
 
 <div class="guide-section">
     <h3>APIキーの考え方</h3>
-    <div style="overflow-x:auto;">
-        <table class="guide-key-table">
+    <div class="guide-table-wrap">
+        <table class="guide-table">
             <thead>
                 <tr>
-                    <th>キーの種類</th>
+                    <th>キー</th>
+                    <th>発行元</th>
                     <th>使う場面</th>
-                    <th>発行する側</th>
-                    <th>設定する場所</th>
+                    <th>管理場所</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td><strong>sengoku-ai.com受信用APIキー</strong></td>
-                    <td>外部システムがsengoku-ai.comへ代理店登録・更新をPOSTする時に使います。</td>
+                    <td>代理店システムが発行するキー</td>
                     <td>sengoku-ai.com</td>
-                    <td>外部API連携画面で接続先ごとに発行し、外部開発者へ渡します。</td>
+                    <td>外部サービスが sengoku-ai.com のAPIを呼ぶとき</td>
+                    <td>連携セットアップ / 外部API連携の編集画面</td>
                 </tr>
                 <tr>
-                    <td><strong>連携先システム受信用APIキー</strong></td>
-                    <td>sengoku-ai.comが外部システムへ承認・登録・更新などを送信する時に使います。</td>
-                    <td>連携先システム</td>
-                    <td>外部API連携画面の「連携先の受信用APIキー」に登録します。</td>
+                    <td>連携先が発行するキー</td>
+                    <td>外部サービス</td>
+                    <td>sengoku-ai.com から外部サービスへWebhookを送るとき</td>
+                    <td>外部API連携の送信先設定</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <p>商品が増えても、同じ外部サービスならAPIキーは1つで運用できます。商品や案件の区別は <span class="guide-code">project_key</span> で行います。</p>
+</div>
+
+<div class="guide-section">
+    <h3>外部開発者へ渡すもの</h3>
+    <div class="guide-table-wrap">
+        <table class="guide-table">
+            <thead>
+                <tr>
+                    <th>項目</th>
+                    <th>内容</th>
+                    <th>確認場所</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>ベースURL</td>
+                    <td><span class="guide-code">https://sengoku-ai.com</span></td>
+                    <td>固定</td>
                 </tr>
                 <tr>
-                    <td><strong>SSO署名鍵</strong></td>
-                    <td>sengoku-ai.comが発行したSSO用JWTを連携先が検証する時に使います。</td>
-                    <td>sengoku-ai.com</td>
-                    <td>SSO連携画面で管理します。秘密鍵は外部へ渡さず、連携先はJWKSまたは公開鍵で検証します。</td>
+                    <td>site_key</td>
+                    <td>外部サービスを識別するキー。例：<span class="guide-code">sengoku-passport</span></td>
+                    <td>連携セットアップ / 外部API連携</td>
+                </tr>
+                <tr>
+                    <td>APIキー</td>
+                    <td>外部サービスが代理店システムへ送信するときに使うキー</td>
+                    <td>連携セットアップ完了画面 / 外部API連携の編集画面</td>
+                </tr>
+                <tr>
+                    <td>project_key</td>
+                    <td>商品、LP、案件を分けるキー。プロジェクト管理のスラッグと同じ値です。</td>
+                    <td>プロジェクト管理</td>
+                </tr>
+                <tr>
+                    <td>API URL一覧</td>
+                    <td>共通顧客ID、紹介流入、登録確定、代理店同期、共通イベントなど</td>
+                    <td>連携セットアップ完了画面 / このページの「主に使うAPI」</td>
+                </tr>
+                <tr>
+                    <td>SSO情報</td>
+                    <td>外部ポータルへログイン連携する場合のみ必要です。</td>
+                    <td>SSO連携</td>
                 </tr>
             </tbody>
         </table>
@@ -302,56 +259,135 @@ require_once __DIR__ . '/header.php';
 </div>
 
 <div class="guide-section">
-    <h3>外部開発者へ渡す情報</h3>
-    <div class="guide-grid">
-        <div class="guide-card">
-            <h4>代理店同期API</h4>
-            <p>外部システムからsengoku-ai.comへ代理店情報を登録・更新するAPIです。</p>
-            <code class="guide-code">POST https://sengoku-ai.com/api/integrations/agencies</code>
-        </div>
-        <div class="guide-card">
-            <h4>階層取得API</h4>
-            <p>外部システムが代理店階層を取得するAPIです。format=flat/tree、root_code、include_contact=1を必要に応じて使います。</p>
-            <code class="guide-code">GET https://sengoku-ai.com/api/hierarchy.php?format=tree</code>
-        </div>
-        <div class="guide-card">
-            <h4>SSO起動URL</h4>
-            <p>sengoku-ai.comにログイン済みの代理店が、外部ポータルへSSOで遷移するためのURLです。</p>
-            <code class="guide-code">https://sengoku-ai.com/agent/sso_launch.php?client=サイトキー</code>
-        </div>
+    <h3>主に使うAPI</h3>
+    <div class="guide-table-wrap">
+        <table class="guide-table">
+            <thead>
+                <tr>
+                    <th>用途</th>
+                    <th>エンドポイント</th>
+                    <th>補足</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>共通顧客IDの解決</td>
+                    <td><span class="guide-code">POST /api/common-users/resolve</span></td>
+                    <td><span class="guide-code">/api/v2/...</span> ではなく、このパスを正式とします。</td>
+                </tr>
+                <tr>
+                    <td>紹介流入の記録</td>
+                    <td><span class="guide-code">POST /api/referrals/capture</span></td>
+                    <td>紹介URLから来たユーザーを記録し、<span class="guide-code">session_key</span> を返します。</td>
+                </tr>
+                <tr>
+                    <td>登録・購入の確定</td>
+                    <td><span class="guide-code">POST /api/referrals/confirm</span></td>
+                    <td><span class="guide-code">session_key</span> と <span class="guide-code">project_key</span> を送ります。購入情報がある場合は利用権限も保存されます。</td>
+                </tr>
+                <tr>
+                    <td>購入後の利用権限付与</td>
+                    <td><span class="guide-code">POST /api/integrations/events</span></td>
+                    <td><span class="guide-code">purchase.completed</span>、<span class="guide-code">payment.succeeded</span>、<span class="guide-code">entitlement.granted</span> などで、顧客が使える商品を記録します。</td>
+                </tr>
+                <tr>
+                    <td>顧客プロフィール確認</td>
+                    <td><span class="guide-code">GET /api/common-users/{common_user_id}</span></td>
+                    <td>共通顧客、紐づく外部アカウント、代理店紐づけ、利用権限を確認できます。</td>
+                </tr>
+                <tr>
+                    <td>顧客向けSSOトークン発行</td>
+                    <td><span class="guide-code">POST /api/sso/customer-token</span></td>
+                    <td>外部サービスが顧客をログインさせるための短時間JWTを発行します。署名は既存SSOと同じRS256/JWKSです。</td>
+                </tr>
+                <tr>
+                    <td>代理店階層の取得</td>
+                    <td><span class="guide-code">GET /api/hierarchy.php</span></td>
+                    <td><span class="guide-code">format=tree</span> または <span class="guide-code">format=flat</span> を指定できます。</td>
+                </tr>
+                <tr>
+                    <td>外部から代理店を登録・更新</td>
+                    <td><span class="guide-code">POST /api/integrations/agencies</span></td>
+                    <td>外部サービス側で登録されたユーザーを代理店システムへ同期します。</td>
+                </tr>
+                <tr>
+                    <td>外部イベント受信</td>
+                    <td><span class="guide-code">POST /api/integrations/events</span></td>
+                    <td>購入、登録、会員状態変更、利用権限の付与・停止などのイベントを受け取ります。</td>
+                </tr>
+            </tbody>
+        </table>
     </div>
 </div>
 
 <div class="guide-section">
-    <h3>接続前チェックリスト</h3>
-    <div class="guide-checklist">
-        <div class="guide-checkitem">連携先の正式名称とサイトキーを決めた</div>
-        <div class="guide-checkitem">送信先URLまたはAPIエンドポイントを確認した</div>
-        <div class="guide-checkitem">sengoku-ai.com受信用APIキーを接続先ごとに発行した</div>
-        <div class="guide-checkitem">連携先が発行した受信用APIキーを登録した</div>
-        <div class="guide-checkitem">代理店の一意キー、親子関係、メール、共通IDの扱いを確認した</div>
-        <div class="guide-checkitem">SSOが必要な場合、audとSSO受信URLを登録した</div>
-        <div class="guide-checkitem">接続テストを実行した</div>
-        <div class="guide-checkitem">連携ログとOutboxの確認場所を運用担当者が把握した</div>
+    <h3>購入後の権限付与で送る主な項目</h3>
+    <div class="guide-table-wrap">
+        <table class="guide-table">
+            <thead>
+                <tr>
+                    <th>項目</th>
+                    <th>意味</th>
+                    <th>例</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="guide-code">event</span></td>
+                    <td>起きた出来事。購入完了なら <span class="guide-code">purchase.completed</span> を使います。</td>
+                    <td><span class="guide-code">purchase.completed</span></td>
+                </tr>
+                <tr>
+                    <td><span class="guide-code">system_key</span></td>
+                    <td>連携先サービスのキーです。</td>
+                    <td><span class="guide-code">sengoku-passport</span></td>
+                </tr>
+                <tr>
+                    <td><span class="guide-code">common_user_id</span></td>
+                    <td>共通顧客IDです。未指定の場合は外部ユーザーIDから探します。</td>
+                    <td><span class="guide-code">cusr_...</span></td>
+                </tr>
+                <tr>
+                    <td><span class="guide-code">external_user_id</span></td>
+                    <td>外部サービス側のユーザーIDです。</td>
+                    <td><span class="guide-code">user_123</span></td>
+                </tr>
+                <tr>
+                    <td><span class="guide-code">project_key</span></td>
+                    <td>商品群やLPを分けるキーです。</td>
+                    <td><span class="guide-code">sengoku-influencer</span></td>
+                </tr>
+                <tr>
+                    <td><span class="guide-code">product_code</span></td>
+                    <td>利用権限を付与する商品コードです。</td>
+                    <td><span class="guide-code">passport_monthly</span></td>
+                </tr>
+                <tr>
+                    <td><span class="guide-code">order_id</span></td>
+                    <td>注文や決済のIDです。再送時の重複防止にも使います。</td>
+                    <td><span class="guide-code">order_1001</span></td>
+                </tr>
+                <tr>
+                    <td><span class="guide-code">entitlement_status</span></td>
+                    <td>利用権限の状態です。通常は <span class="guide-code">active</span>、返金時は <span class="guide-code">revoked</span> です。</td>
+                    <td><span class="guide-code">active</span></td>
+                </tr>
+            </tbody>
+        </table>
     </div>
 </div>
 
 <div class="guide-section">
-    <h3>よくある流れ</h3>
-    <div class="guide-grid">
-        <div class="guide-card">
-            <h4>戦国パスポートへログインさせたい</h4>
-            <p>SSO連携を登録し、代理店マイページの外部ポータル連携から起動します。必要に応じて外部API連携も登録し、代理店情報の承認・更新を送信します。</p>
-        </div>
-        <div class="guide-card">
-            <h4>AIアート教室で新規登録された人を紐づけたい</h4>
-            <p>AIアート教室側から代理店同期APIへPOSTします。紹介者コード、親コード、共通ID候補、メールを送ることで、sengoku-ai.com側で代理店階層と紐づけます。</p>
-        </div>
-        <div class="guide-card">
-            <h4>外部システムが代理店階層を参照したい</h4>
-            <p>階層取得APIを使います。全体を見る場合はformat=tree、特定代理店配下だけを見る場合はroot_codeを指定します。</p>
-        </div>
-    </div>
+    <h3>確認チェックリスト</h3>
+    <ul>
+        <li>連携先ごとにAPIキーを分けていますか。</li>
+        <li>商品やLPの区別に <span class="guide-code">project_key</span> を使っていますか。</li>
+        <li>内部IDではなく、代理店コードを外部キーとして使っていますか。</li>
+        <li>POST送信では <span class="guide-code">Idempotency-Key</span> を付けていますか。</li>
+        <li>購入や申込完了時に <span class="guide-code">product_code</span> と <span class="guide-code">project_key</span> を送っていますか。</li>
+        <li>顧客向けSSOを使う場合、SSO連携画面で対象サービスが有効になっていますか。</li>
+        <li>接続テスト後に、外部連携ログで成功・失敗を確認しましたか。</li>
+    </ul>
 </div>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

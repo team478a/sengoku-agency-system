@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/shared_bootstrap.php';
 
@@ -2935,6 +2935,402 @@ function buildAgencySsoJwt(array $agent, ?string $returnTo = null, ?array $clien
     $ok = openssl_sign($signingInput, $signature, $settings['private_key'], OPENSSL_ALGO_SHA256);
     if (!$ok) {
         throw new RuntimeException('SSO JWT signing failed.');
+    }
+    $segments[] = base64UrlEncode($signature);
+    return implode('.', $segments);
+}
+
+// Synced legacy production helpers kept for update compatibility.
+
+
+function safeTextLower(string $value): string {
+    return function_exists('mb_strtolower') ? mb_strtolower($value, 'UTF-8') : strtolower($value);
+}
+
+
+
+function safeTextSubstr(string $value, int $start, int $length): string {
+    return function_exists('mb_substr') ? mb_substr($value, $start, $length, 'UTF-8') : substr($value, $start, $length);
+}
+
+
+
+function customerEntitlementTablesReady(): bool {
+    return !empty(tableColumns('customer_entitlements'));
+}
+
+
+
+function normalizeCustomerEntitlementStatus(string $status): string {
+    $status = strtolower(trim($status));
+    return match ($status) {
+        'granted', 'grant', 'paid', 'completed', 'succeeded', 'active', 'available' => 'active',
+        'revoked', 'refund', 'refunded' => 'revoked',
+        'cancelled' => 'canceled',
+        'canceled', 'expired', 'suspended', 'pending' => $status,
+        default => $status !== '' ? $status : 'active',
+    };
+}
+
+
+
+function saveCustomerEntitlement(array $data): array {
+    if (!customerEntitlementTablesReady()) {
+        return [];
+    }
+    $commonUserId = trim((string)($data['common_user_id'] ?? ''));
+    $systemKey = trim((string)($data['system_key'] ?? $data['source_system_key'] ?? $data['service_key'] ?? ''));
+    if ($commonUserId === '' || $systemKey === '') {
+        return [];
+    }
+    $productCode = trim((string)($data['product_code'] ?? $data['product_id'] ?? ''));
+    $orderId = trim((string)($data['order_id'] ?? $data['transaction_id'] ?? ''));
+    if ($productCode === '' && $orderId === '') {
+        return [];
+    }
+
+    $projectKey = trim((string)($data['project_key'] ?? $data['project_slug'] ?? ''));
+    $orderItemId = trim((string)($data['order_item_id'] ?? '')) ?: 'default';
+    $metadataJson = null;
+    if (is_array($data['metadata'] ?? null)) {
+        $metadataJson = json_encode($data['metadata'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+    $status = normalizeCustomerEntitlementStatus((string)($data['status'] ?? $data['entitlement_status'] ?? 'active'));
+    $stmt = getDB()->prepare("
+        INSERT INTO customer_entitlements
+            (common_user_id, system_key, external_user_id, project_key, project_id, product_code,
+             order_id, order_item_id, status, starts_at, expires_at, source_event, metadata_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+            external_user_id=COALESCE(VALUES(external_user_id), external_user_id),
+            project_key=COALESCE(VALUES(project_key), project_key),
+            project_id=COALESCE(VALUES(project_id), project_id),
+            status=VALUES(status),
+            starts_at=COALESCE(VALUES(starts_at), starts_at),
+            expires_at=COALESCE(VALUES(expires_at), expires_at),
+            source_event=COALESCE(VALUES(source_event), source_event),
+            metadata_json=COALESCE(VALUES(metadata_json), metadata_json),
+            updated_at=NOW()
+    ");
+    $stmt->execute([
+        $commonUserId,
+        $systemKey,
+        trim((string)($data['external_user_id'] ?? $data['source_user_id'] ?? $data['service_user_id'] ?? '')) ?: null,
+        $projectKey ?: null,
+        !empty($data['project_id']) ? (int)$data['project_id'] : null,
+        $productCode,
+        $orderId,
+        $orderItemId,
+        $status,
+        trim((string)($data['starts_at'] ?? '')) ?: null,
+        trim((string)($data['expires_at'] ?? '')) ?: null,
+        trim((string)($data['source_event'] ?? $data['event'] ?? '')) ?: null,
+        $metadataJson,
+    ]);
+    $load = getDB()->prepare("
+        SELECT * FROM customer_entitlements
+        WHERE common_user_id=? AND system_key=?
+          AND COALESCE(product_code, '')=COALESCE(?, '')
+          AND COALESCE(order_id, '')=COALESCE(?, '')
+          AND order_item_id=?
+        LIMIT 1
+    ");
+    $load->execute([$commonUserId, $systemKey, $productCode, $orderId, $orderItemId]);
+    return $load->fetch(PDO::FETCH_ASSOC) ?: [];
+}
+
+
+
+function loadCustomerEntitlements(string $commonUserId, ?string $systemKey = null): array {
+    if (trim($commonUserId) === '' || !customerEntitlementTablesReady()) {
+        return [];
+    }
+    $params = [$commonUserId];
+    $where = "common_user_id=?";
+    if ($systemKey !== null && trim($systemKey) !== '') {
+        $where .= " AND system_key=?";
+        $params[] = trim($systemKey);
+    }
+    $stmt = getDB()->prepare("
+        SELECT id, common_user_id, system_key, external_user_id, project_key, project_id,
+               product_code, order_id, order_item_id, status, starts_at, expires_at,
+               source_event, created_at, updated_at
+        FROM customer_entitlements
+        WHERE {$where}
+        ORDER BY updated_at DESC, id DESC
+    ");
+    $stmt->execute($params);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+
+
+function lpAiReadableUrlFromSeo(array $seo): string {
+    $canonical = (string)($seo['canonical'] ?? '');
+    if ($canonical === '') {
+        $canonical = getSiteBaseUrl() . ($_SERVER['REQUEST_URI'] ?? '/');
+    }
+    return appendUrlQueryParams($canonical, ['format' => 'ai']);
+}
+
+
+
+function injectLpAiReadableHeadLink(string $html, array $seo): string {
+    if (stripos($html, 'type="text/markdown"') !== false || stripos($html, "type='text/markdown'") !== false) {
+        return $html;
+    }
+    $tag = '<link rel="alternate" type="text/markdown" title="AI-readable page summary" href="' . h(lpAiReadableUrlFromSeo($seo)) . '">' . "\n";
+    $html = preg_replace('/(<\/head>)/i', $tag . '$1', $html, 1, $count);
+    return $count ? $html : $tag . $html;
+}
+
+
+
+function isLpAiReadableRequest(): bool {
+    $format = strtolower(trim((string)($_GET['format'] ?? '')));
+    return $format === 'ai'
+        || $format === 'markdown'
+        || (string)($_GET['ai'] ?? '') === '1'
+        || (string)($_GET['llms'] ?? '') === '1';
+}
+
+
+
+function lpReadableTextFromHtml(string $html): string {
+    $html = preg_replace('/<script\b[^>]*>.*?<\/script>/is', ' ', $html) ?? $html;
+    $html = preg_replace('/<style\b[^>]*>.*?<\/style>/is', ' ', $html) ?? $html;
+    $html = preg_replace('/<(br|hr)\b[^>]*>/i', "\n", $html) ?? $html;
+    $html = preg_replace('/<\/(p|div|section|article|header|footer|h[1-6]|li|tr)>/i', "\n", $html) ?? $html;
+    $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $text = preg_replace('/[ \t]+/u', ' ', $text) ?? $text;
+    $text = preg_replace('/\R{3,}/u', "\n\n", $text) ?? $text;
+    return trim($text);
+}
+
+
+
+function buildLpAiReadableMarkdown(string $html, array $agent, array $fields): string {
+    $seo = buildLpSeoMeta($agent, $fields);
+    $title = lpPlainText((string)($seo['title'] ?? 'LP'), 120);
+    $description = lpPlainText((string)($seo['description'] ?? ''), 240);
+    $canonical = (string)($seo['canonical'] ?? '');
+    $image = (string)($seo['image'] ?? '');
+    $projectName = lpPlainText((string)($seo['project_name'] ?? ''), 120);
+    $templateName = lpPlainText((string)($seo['template_name'] ?? ''), 120);
+    $body = lpReadableTextFromHtml($html);
+
+    $lines = [
+        '# ' . $title,
+        '',
+        $description,
+        '',
+        '## Page Metadata',
+        '- URL: ' . $canonical,
+        '- AI-readable URL: ' . lpAiReadableUrlFromSeo($seo),
+        '- Language: ja',
+    ];
+    if ($projectName !== '') {
+        $lines[] = '- Project: ' . $projectName;
+    }
+    if ($templateName !== '') {
+        $lines[] = '- LP template: ' . $templateName;
+    }
+    if (!empty($agent['agent_code'])) {
+        $lines[] = '- Agent code: ' . (string)$agent['agent_code'];
+    }
+    if (!empty($agent['agent_name'])) {
+        $lines[] = '- Agency name: ' . lpPlainText((string)$agent['agent_name'], 120);
+    }
+    if (!empty($agent['person_name'])) {
+        $lines[] = '- Contact person: ' . lpPlainText((string)$agent['person_name'], 120);
+    }
+    if ($image !== '') {
+        $lines[] = '- Main image: ' . $image;
+    }
+
+    $lines[] = '';
+    $lines[] = '## Contact';
+    if (!empty($agent['show_line_btn']) && !empty($agent['line_url'])) {
+        $lines[] = '- LINE: ' . (string)$agent['line_url'];
+    }
+    if (!empty($agent['show_form'])) {
+        $lines[] = '- Inquiry form: available on the page';
+    }
+    $lines[] = '';
+    $lines[] = '## Page Text';
+    $lines[] = $body !== '' ? $body : $description;
+    $lines[] = '';
+
+    return implode("\n", $lines);
+}
+
+
+
+function respondLpAiReadable(string $html, array $agent): void {
+    $templateId = (int)($agent['default_template_id'] ?? 0);
+    $fields = getLpTemplateFields($templateId);
+    if (!headers_sent()) {
+        header('Content-Type: text/markdown; charset=UTF-8');
+        header('X-Robots-Tag: index, follow');
+    }
+    echo buildLpAiReadableMarkdown($html, $agent, $fields);
+    exit;
+}
+
+
+
+function buildExternalPartnerAgencyEndpoint(array $site): string {
+    $endpoint = '';
+    if (tableHasColumn('external_partner_sites', 'agency_sync_endpoint')) {
+        $endpoint = trim((string)($site['agency_sync_endpoint'] ?? ''));
+    }
+    return $endpoint !== '' ? buildExternalPartnerEndpoint($endpoint) : buildExternalPartnerEndpoint((string)($site['base_url'] ?? ''));
+}
+
+
+
+function buildExternalPartnerEventEndpoint(array $site): string {
+    $endpoint = '';
+    if (tableHasColumn('external_partner_sites', 'common_event_endpoint')) {
+        $endpoint = trim((string)($site['common_event_endpoint'] ?? ''));
+    }
+    if ($endpoint === '') {
+        $endpoint = (string)($site['base_url'] ?? '');
+    }
+    $endpoint = rtrim(trim($endpoint), '/');
+    if ($endpoint === '') {
+        return '';
+    }
+    if (preg_match('#/api/integrations/events$#', $endpoint) === 1) {
+        return $endpoint;
+    }
+    if (preg_match('#/api/integrations/agencies$#', $endpoint) === 1) {
+        return preg_replace('#/api/integrations/agencies$#', '/api/integrations/events', $endpoint) ?: $endpoint;
+    }
+    return $endpoint . '/api/integrations/events';
+}
+
+
+
+function externalPartnerEventUsesAgencyEndpoint(string $eventType): bool {
+    $eventType = strtolower(trim($eventType));
+    if ($eventType === '' || $eventType === 'upsert' || $eventType === 'connection_test') {
+        return true;
+    }
+    return str_starts_with($eventType, 'agency.')
+        || str_starts_with($eventType, 'agent.')
+        || in_array($eventType, ['create', 'created', 'update', 'updated', 'delete', 'deleted', 'suspend', 'suspended'], true);
+}
+
+
+
+function buildExternalPartnerEndpointForEvent(array $site, string $eventType): string {
+    if (externalPartnerEventUsesAgencyEndpoint($eventType)) {
+        return buildExternalPartnerAgencyEndpoint($site);
+    }
+    return buildExternalPartnerEventEndpoint($site);
+}
+
+
+
+function buildCustomerSsoJwt(array $profile, array $client, ?string $returnTo = null, array $extra = []): string {
+    $settings = getAgencySsoSettings();
+    if ($settings['private_key'] === '' || $settings['key_id'] === '') {
+        throw new RuntimeException('SSO key pair is not configured.');
+    }
+    if (($client['status'] ?? '') !== 'active') {
+        throw new RuntimeException('SSO client is inactive.');
+    }
+    $audience = trim((string)($client['audience'] ?? ''));
+    if ($audience === '') {
+        throw new RuntimeException('SSO audience is empty.');
+    }
+    $commonUser = is_array($profile['common_user'] ?? null) ? $profile['common_user'] : [];
+    $commonUserId = trim((string)($commonUser['common_user_id'] ?? $profile['common_user_id'] ?? ''));
+    if ($commonUserId === '') {
+        throw new RuntimeException('Common user id is empty.');
+    }
+
+    $targetSystemKey = trim((string)($extra['target_system_key'] ?? $client['client_key'] ?? ''));
+    $displayName = '';
+    $walletAddress = '';
+    $systemLinks = [];
+    foreach ((array)($profile['system_links'] ?? []) as $link) {
+        if (!is_array($link)) {
+            continue;
+        }
+        $systemLinks[] = [
+            'system_key' => (string)($link['system_key'] ?? $link['service_key'] ?? ''),
+            'external_user_id' => (string)($link['external_user_id'] ?? $link['service_user_id'] ?? ''),
+            'display_name' => (string)($link['display_name'] ?? ''),
+            'role_name' => (string)($link['role_name'] ?? ''),
+            'status' => (string)($link['status'] ?? ''),
+        ];
+        if ($displayName === '' && trim((string)($link['display_name'] ?? '')) !== '') {
+            $displayName = trim((string)$link['display_name']);
+        }
+        if ($walletAddress === '' && trim((string)($link['wallet_address'] ?? '')) !== '') {
+            $walletAddress = trim((string)$link['wallet_address']);
+        }
+    }
+
+    $entitlements = [];
+    foreach ((array)($profile['entitlements'] ?? []) as $entitlement) {
+        if (!is_array($entitlement)) {
+            continue;
+        }
+        if ($targetSystemKey !== '' && (string)($entitlement['system_key'] ?? '') !== $targetSystemKey) {
+            continue;
+        }
+        $entitlements[] = [
+            'system_key' => (string)($entitlement['system_key'] ?? ''),
+            'project_key' => (string)($entitlement['project_key'] ?? ''),
+            'product_code' => (string)($entitlement['product_code'] ?? ''),
+            'status' => (string)($entitlement['status'] ?? ''),
+            'starts_at' => $entitlement['starts_at'] ?? null,
+            'expires_at' => $entitlement['expires_at'] ?? null,
+        ];
+    }
+
+    $now = time();
+    $payload = [
+        'iss' => $settings['issuer'],
+        'sub' => $commonUserId,
+        'common_user_id' => $commonUserId,
+        'aud' => $audience,
+        'iat' => $now,
+        'exp' => $now + 120,
+        'jti' => bin2hex(random_bytes(24)),
+        'actor_type' => 'customer',
+        'client_key' => (string)($client['client_key'] ?? ''),
+        'client_name' => (string)($client['name'] ?? ''),
+        'display_name' => $displayName,
+        'wallet_address' => $walletAddress,
+        'system_links' => $systemLinks,
+        'agency_relations' => $profile['agency_relations'] ?? [],
+        'entitlements' => $entitlements,
+    ];
+    if ($returnTo && strpos($returnTo, '/') === 0 && strpos($returnTo, '//') !== 0) {
+        $payload['return_to'] = $returnTo;
+    }
+    if (!empty($extra['source_system_key'])) {
+        $payload['source_system_key'] = (string)$extra['source_system_key'];
+    }
+
+    $header = [
+        'typ' => 'JWT',
+        'alg' => 'RS256',
+        'kid' => $settings['key_id'],
+    ];
+    $segments = [
+        base64UrlEncode(json_encode($header, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
+        base64UrlEncode(json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
+    ];
+    $signingInput = implode('.', $segments);
+    $signature = '';
+    $ok = openssl_sign($signingInput, $signature, $settings['private_key'], OPENSSL_ALGO_SHA256);
+    if (!$ok) {
+        throw new RuntimeException('Customer SSO JWT signing failed.');
     }
     $segments[] = base64UrlEncode($signature);
     return implode('.', $segments);
