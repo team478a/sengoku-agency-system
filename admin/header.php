@@ -1,5 +1,5 @@
 <?php
-// $pageTitle 繧貞他縺ｳ蜃ｺ縺怜・縺ｧ繧ｻ繝・ヨ縺励※縺九ｉ include 縺吶ｋ
+// Set $pageTitle before including this file.
 require_once __DIR__ . '/../includes/functions.php';
 requireAdminLogin();
 ?>
@@ -23,7 +23,7 @@ requireAdminLogin();
     --border:     rgba(201,168,76,.18);
     --text-muted: rgba(245,240,232,.5);
     --active-bg:  rgba(201,168,76,.12);
-    /* 蜍慕噪繝・・繝槫､画焚 */
+    /* Theme variables */
     --bg:         #221e1a;
     --surface:    #1a1410;
     --text:       #f5f0e8;
@@ -43,7 +43,7 @@ body {
     width: 100%;
     overflow-x: hidden;
 }
-/* 繧ｵ繧､繝峨ヰ繝ｼ */
+/* Sidebar */
 .sidebar {
     width: 240px;
     height: 100vh;
@@ -85,6 +85,34 @@ nav a {
 nav a:hover { background: rgba(201,168,76,.08); color: var(--paper); }
 nav a.active { background: rgba(201,168,76,.12); color: var(--gold); border-left-color: var(--gold); }
 nav .nav-icon { width: 18px; text-align: center; }
+.nav-group {
+    border-top: 1px solid rgba(201,168,76,.08);
+}
+.nav-group summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    padding: .75rem 1.25rem;
+    color: var(--text-muted);
+    font-size: .72rem;
+    letter-spacing: .08em;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+.nav-group summary::-webkit-details-marker { display: none; }
+.nav-group summary::after {
+    content: '+';
+    color: var(--gold);
+    font-weight: 700;
+}
+.nav-group[open] summary::after { content: '-'; }
+.nav-group summary:hover { color: var(--gold); background: rgba(201,168,76,.05); }
+.nav-group a {
+    padding-left: 1.55rem;
+    font-size: .86rem;
+}
 .sidebar-footer {
     flex-shrink: 0;
     margin-top: auto;
@@ -93,7 +121,7 @@ nav .nav-icon { width: 18px; text-align: center; }
 }
 .sidebar-footer a { font-size: .8rem; color: var(--text-muted); text-decoration: none; }
 .sidebar-footer a:hover { color: var(--paper); }
-/* 繝｡繧､繝ｳ繧ｳ繝ｳ繝・Φ繝・*/
+/* Main content */
 .main {
     margin-left: 240px;
     flex: 1;
@@ -116,7 +144,7 @@ nav .nav-icon { width: 18px; text-align: center; }
 .topbar h1 { font-size: 1.1rem; font-weight: 700; color: var(--paper); min-width: 0; overflow-wrap: anywhere; }
 .topbar-user { font-size: .85rem; color: var(--text-muted); }
 .content { padding: 2rem; flex: 1; min-width: 0; max-width: 100%; }
-/* 繧ｫ繝ｼ繝・*/
+/* Cards */
 .card {
     background: rgba(255,255,255,.04);
     border: 1px solid var(--border);
@@ -134,7 +162,7 @@ nav .nav-icon { width: 18px; text-align: center; }
     margin-bottom: 1.25rem;
     font-weight: 700;
 }
-/* 繝・・繝悶Ν */
+/* Tables */
 table { width: 100%; border-collapse: collapse; }
 th {
     text-align: left;
@@ -154,7 +182,7 @@ td {
 }
 tr:hover td { background: rgba(201,168,76,.04); }
 tr:last-child td { border-bottom: none; }
-/* 繝舌ャ繧ｸ */
+/* Badges */
 .badge {
     display: inline-block;
     padding: .2rem .6rem;
@@ -168,7 +196,7 @@ tr:last-child td { border-bottom: none; }
 .badge-new     { background: rgba(201,168,76,.15); color: var(--gold); border: 1px solid rgba(201,168,76,.3); }
 .badge-contacted{ background: rgba(50,100,200,.2); color: #88aaee; border: 1px solid rgba(136,170,238,.3); }
 .badge-closed  { background: rgba(80,80,80,.3);   color: #aaa; border: 1px solid rgba(170,170,170,.2); }
-/* 繝懊ち繝ｳ */
+/* Buttons */
 .btn {
     display: inline-block;
     padding: .45rem 1rem;
@@ -186,7 +214,7 @@ tr:last-child td { border-bottom: none; }
 .btn-sm   { padding: .3rem .7rem; font-size: .78rem; }
 .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--paper); }
 .btn-danger { background: rgba(139,26,26,.6); color: #faa; border: 1px solid var(--red); }
-/* 繝輔か繝ｼ繝 */
+/* Forms */
 .form-group { margin-bottom: 1.25rem; }
 .form-group label { display: block; font-size: .82rem; color: var(--gold); margin-bottom: .35rem; letter-spacing: .05em; }
 .form-group input,
@@ -212,17 +240,17 @@ select option {
 .form-group textarea { resize: vertical; min-height: 100px; }
 .form-check { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; font-size: .9rem; cursor: pointer; }
 .form-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--gold); cursor: pointer; }
-/* 繧｢繝ｩ繝ｼ繝・*/
+/* Alerts */
 .alert { padding: .75rem 1rem; border-radius: 4px; margin-bottom: 1rem; font-size: .88rem; }
 .alert-success { background: rgba(45,106,79,.2); border: 1px solid rgba(94,203,155,.3); color: #5ecb9b; }
 .alert-error   { background: rgba(139,26,26,.15); border: 1px solid rgba(224,128,128,.3); color: #e08080; }
-/* 繧ｹ繧ｿ繝・ヨ */
+/* Stats */
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
 .stat-card { background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: 6px; padding: 1.25rem; }
 .stat-label { font-size: .75rem; color: var(--text-muted); letter-spacing: .08em; margin-bottom: .5rem; }
 .stat-val { font-size: 2rem; font-weight: 700; color: var(--gold); font-family: 'Noto Serif JP', serif; }
 .stat-sub  { font-size: .75rem; color: var(--text-muted); margin-top: .25rem; }
-/* 繝壹・繧ｸ繝阪・繧ｷ繝ｧ繝ｳ */
+/* Pagination */
 .pagination { display: flex; gap: .4rem; margin-top: 1rem; }
 .pagination a, .pagination span {
     padding: .4rem .75rem;
@@ -234,13 +262,13 @@ select option {
 }
 .pagination a:hover { border-color: var(--gold); color: var(--gold); }
 .pagination .current { background: var(--gold); color: var(--ink); border-color: var(--gold); font-weight: 700; }
-/* 繝ｬ繧ｹ繝昴Φ繧ｷ繝・*/
+/* Responsive */
 @media (max-width: 900px) {
     .sidebar { display: none; }
     .main { margin-left: 0; }
 }
 
-/* ===== 繝｢繝舌う繝ｫ蟇ｾ蠢懶ｼ遺捉・・===== */
+/* ===== Mobile layout ===== */
 @media (max-width: 900px) {
     .sidebar {
         display: flex !important;
@@ -320,7 +348,7 @@ select option {
         overflow-wrap: anywhere;
         word-break: break-word;
     }
-    /* 繝・・繝悶Ν繧呈ｨｪ繧ｹ繧ｯ繝ｭ繝ｼ繝ｫ */
+    /* Keep wide tables scrollable */
     .card { overflow-x: auto; }
     .card table { min-width: 720px; }
     .card > table,
@@ -443,16 +471,16 @@ body[data-theme="light"] .password-toggle-btn {
 }
 
 
-/* ===== 繝ｩ繧､繝医Δ繝ｼ繝・===== */
+/* ===== Light mode ===== */
 body[data-theme="light"] {
     background: #f8f5ef !important;
     color: #2a1f14 !important;
-    /* 繧､繝ｳ繝ｩ繧､繝ｳ繧ｹ繧ｿ繧､繝ｫ縺ｮcolor繧貞・縺ｦ荳頑嶌縺・*/
+    /* Override inline color rules. */
     --paper:      #2a1f14;
     --text-muted: rgba(42,31,20,.5);
     --border:     rgba(139,105,20,.22);
 }
-/* 蜈ｨ繝・く繧ｹ繝郁ｦ∫ｴ繧貞ｼｷ蛻ｶ荳頑嶌縺・*/
+/* Keep light theme text readable. */
 body[data-theme="light"] *:not(.btn-gold):not(.btn-danger):not(.badge):not(svg):not(path) {
     color: inherit;
 }
@@ -479,6 +507,9 @@ body[data-theme="light"] .stat-card { background: rgba(201,168,76,.08) !importan
 body[data-theme="light"] .btn-outline { border-color: rgba(139,105,20,.3) !important; }
 body[data-theme="light"] nav a { color: rgba(42,31,20,.65) !important; }
 body[data-theme="light"] nav a.active { color: #8B6914 !important; background: rgba(201,168,76,.15) !important; }
+body[data-theme="light"] .nav-group { border-top-color: rgba(139,105,20,.12) !important; }
+body[data-theme="light"] .nav-group summary { color: rgba(42,31,20,.52) !important; }
+body[data-theme="light"] .nav-group summary:hover { color: #8B6914 !important; background: rgba(201,168,76,.08) !important; }
 body[data-theme="light"] .btn-gold { color: #1a1410 !important; }
 body[data-theme="light"] .badge-active   { color: #1a6b47 !important; }
 body[data-theme="light"] .badge-inactive { color: rgba(42,31,20,.5) !important; }
@@ -526,41 +557,71 @@ window.toggleTheme = toggleTheme;
     <nav>
         <?php
         $current = basename($_SERVER['PHP_SELF']);
-        function navLink(string $href, string $iconHtml, string $label, string $current): void {
+        $navLink = static function (string $href, string $iconHtml, string $label, string $current): void {
             $file = basename($href);
             $active = ($file === $current) ? ' active' : '';
             echo '<a href="' . h($href) . '" class="' . h(trim($active)) . '"><span class="nav-icon">' . $iconHtml . '</span>' . h($label) . '</a>';
-        }
-        navLink('/admin/dashboard.php', '&#128200;', 'ダッシュボード', $current);
-        navLink('/admin/applicants.php', '&#128221;', 'エージェント申請', $current);
-        navLink('/admin/promotion_requests.php', '&#11014;', '昇格申請承認', $current);
-        navLink('/admin/agents.php', '&#128101;', 'メンバー管理', $current);
-        navLink('/admin/projects.php', '&#127919;', 'プロジェクト管理', $current);
-        navLink('/admin/templates.php', '&#127912;', 'テンプレート管理', $current);
-        navLink('/admin/template_reports.php', '&#128200;', 'LP成果分析', $current);
-        navLink('/admin/agent_activity.php', '&#128202;', '代理店活動', $current);
-        navLink('/admin/materials.php', '&#128230;', '紹介素材管理', $current);
-        navLink('/admin/notices.php', '&#128226;', 'お知らせ管理', $current);
-        navLink('/admin/broadcast.php', '&#128231;', '一斉メール送信', $current);
-        navLink('/admin/leads.php', '&#128229;', '問い合わせ管理', $current);
-        navLink('/admin/action_logs.php', '&#128336;', '操作ログ', $current);
-        navLink('/admin/login_logs.php', '&#128273;', 'ログイン記録', $current);
-        navLink('/admin/operations.php', '&#128680;', '運用チェック', $current);
-        navLink('/admin/integration_guide.php', '&#128506;', '外部連携ガイド', $current);
-        navLink('/admin/sso_settings.php', '&#128274;', 'SSO連携', $current);
-        navLink('/admin/external_partners.php', '&#128268;', '外部API連携', $current);
-        navLink('/admin/integration_outbox.php', '&#128230;', '外部連携Outbox', $current);
-        navLink('/admin/integration_logs.php', '&#128225;', '外部連携ログ', $current);
-        navLink('/admin/common_id.php', '&#128279;', '共通ID連携', $current);
-        navLink('/admin/common_id_mappings.php', '&#128269;', '共通ID検索', $current);
-        navLink('/admin/common_hub.php', '&#128101;', '共通顧客HUB', $current);
-        navLink('/admin/common_hub_alerts.php', '&#9888;', 'HUB確認', $current);
-        navLink('/admin/common_hub_fix.php', '&#128295;', 'HUB修正', $current);
+        };
+        $navGroup = static function (string $title, array $items, string $current, bool $defaultOpen = false) use ($navLink): void {
+            $isOpen = $defaultOpen;
+            foreach ($items as $item) {
+                if (basename($item[0]) === $current) {
+                    $isOpen = true;
+                    break;
+                }
+            }
+            echo '<details class="nav-group"' . ($isOpen ? ' open' : '') . '>';
+            echo '<summary>' . h($title) . '</summary>';
+            foreach ($items as $item) {
+                $navLink($item[0], $item[1], $item[2], $current);
+            }
+            echo '</details>';
+        };
+        $navLink('/admin/dashboard.php', '&#128200;', 'ダッシュボード', $current);
+        $navGroup('代理店管理', [
+            ['/admin/applicants.php', '&#128221;', 'エージェント申請'],
+            ['/admin/promotion_requests.php', '&#11014;', '昇格申請承認'],
+            ['/admin/agents.php', '&#128101;', 'メンバー管理'],
+            ['/admin/organization_map.php', '&#128506;', '代理店組織図'],
+            ['/admin/agent_parent_links.php', '&#128279;', '親子紐づけ変更'],
+        ], $current, in_array($current, ['applicants.php', 'promotion_requests.php', 'agents.php', 'organization_map.php', 'agent_parent_links.php'], true));
+        $navGroup('LP・プロジェクト', [
+            ['/admin/projects.php', '&#127919;', 'プロジェクト管理'],
+            ['/admin/templates.php', '&#127912;', 'テンプレート管理'],
+            ['/admin/materials.php', '&#128230;', '紹介素材管理'],
+            ['/admin/notices.php', '&#128226;', 'お知らせ管理'],
+        ], $current);
+        $navGroup('成果・問い合わせ', [
+            ['/admin/template_reports.php', '&#128200;', 'LP成果分析'],
+            ['/admin/agent_activity.php', '&#128202;', '代理店活動'],
+            ['/admin/leads.php', '&#128229;', '問い合わせ管理'],
+        ], $current);
+        $navGroup('外部連携', [
+            ['/admin/external_partner_wizard.php', '&#129513;', '連携セットアップ'],
+            ['/admin/integration_guide.php', '&#128214;', '連携ガイド'],
+            ['/admin/external_partners.php', '&#128268;', '連携先管理'],
+        ], $current);
+        $navGroup('共通顧客HUB', [
+            ['/admin/common_hub.php', '&#128101;', '顧客HUB'],
+            ['/admin/common_id_mappings.php', '&#128269;', '共通ID検索'],
+            ['/admin/customer_entitlements.php', '&#128179;', '購入権限'],
+        ], $current);
+        $systemItems = [
+            ['/admin/operations.php', '&#128680;', '運用チェック'],
+            ['/admin/broadcast.php', '&#128231;', '一斉メール送信'],
+            ['/admin/integration_logs.php', '&#128225;', '外部連携ログ'],
+            ['/admin/integration_outbox.php', '&#128228;', '送信待ち'],
+            ['/admin/common_hub_alerts.php', '&#9888;', 'HUB確認'],
+            ['/admin/action_logs.php', '&#128336;', '操作ログ'],
+            ['/admin/login_logs.php', '&#128273;', 'ログイン記録'],
+        ];
         if (isSuperAdmin()) {
-            navLink('/admin/staff.php', '&#128188;', '管理スタッフ', $current);
+            $systemItems[] = ['/admin/staff.php', '&#128188;', '管理スタッフ'];
         }
-        navLink('/admin/settings.php', '&#9881;', 'システム設定', $current);
-        navLink('/admin/update.php', '&#128260;', 'アップデート', $current);
+        $systemItems[] = ['/admin/sso_settings.php', '&#128274;', 'SSO連携'];
+        $systemItems[] = ['/admin/settings.php', '&#9881;', 'システム設定'];
+        $systemItems[] = ['/admin/update.php', '&#128260;', 'アップデート'];
+        $navGroup('運用・設定', $systemItems, $current);
         ?>
     </nav>
     <div class="sidebar-footer">

@@ -1,3 +1,58 @@
+## v3.6.152 (2026-08-18)
+- Added an administrator purchase entitlement screen with filters, status summary, common customer links, and CSV export.
+- Added external partner test buttons for purchase events, entitlement grants, and customer SSO token notifications in addition to the basic connection test.
+- Improved external integration logs with Japanese event labels and quick filters for purchase/entitlement, SSO, common customer, and failed logs.
+- Updated the external developer guide with the purchase entitlement, customer SSO, test, and log operations.
+- Kept database schema unchanged.
+
+## v3.6.151 (2026-08-18)
+- Fixed the update screen so successfully executed migration files are always recorded in `schema_migrations`.
+- Added a safe marker migration so `3.6.150` no longer remains in the pending migration list after it has run.
+
+## v3.6.150 (2026-08-18)
+- Added `customer_entitlements` to store product access granted by purchases, applications, and entitlement events.
+- Updated referral confirm and external event ingestion so purchase completion can save both transaction history and customer entitlement state.
+- Added a customer SSO token API at `POST /api/sso/customer-token` using the existing RS256/JWKS SSO signing model.
+- Added entitlement data to common customer profile responses and expanded the admin integration guide for purchase provisioning and customer SSO.
+
+## v3.6.149 (2026-08-17)
+- Added safe text helper fallbacks so runtime code does not fatal when `mbstring` is unavailable.
+- Updated external integration setup logging to use the safe text truncation helper.
+- Tightened update ZIP extraction path validation with a directory-boundary check.
+- Kept database schema unchanged.
+
+## v3.6.148 (2026-08-17)
+- Updated the external integration guide page so admins start from the setup wizard.
+- Added direct shortcuts for project_key confirmation, detailed external API settings, SSO settings, logs, outbox, and developer document downloads.
+- Added a handoff checklist for external developers covering base URL, site_key, API key, project_key, API URLs, and SSO information.
+- Kept database schema unchanged.
+
+## v3.6.147 (2026-08-17)
+- Strengthened the external integration setup wizard so admins can hand off all required API URLs to external developers.
+- Added common user resolve, referral capture, referral confirm, agency sync, common event, hierarchy, SSO launch, and JWKS URLs to the wizard handoff flow.
+- Added a project_key confirmation link and clarified that one external service should use one API key while products are separated by `project_key` and `product_code`.
+- Kept database schema unchanged.
+
+## v3.6.146 (2026-08-17)
+- Enhanced the organization map detail panel with LP URL, copy action, lead list link, direct child count, and total downstream member count.
+- Added parent link change follow-up links for failed `parent_updated` external integration logs.
+- Cleaned up the external integration log search/list labels and added a `parent_updated` check shortcut.
+- Kept database schema unchanged.
+
+## v3.6.145 (2026-08-17)
+- Added impact preview information to the parent-child link change screen.
+- Shows direct children, total downstream members, PV, leads, and unhandled leads before changing a parent link.
+- Strengthened the confirmation message so admins understand that downstream reports and external integrations are affected.
+- Updated the administrator guide for parent link changes.
+- Kept database schema unchanged.
+
+## v3.6.144 (2026-08-17)
+- Added the parent-child link change operation flow for agency members.
+- Added admin navigation to the parent link change screen and organization map.
+- Added post-change links to confirm the updated organization map and external integration logs.
+- Added administrator documentation for parent link changes, validation rules, audit logs, and `parent_updated` sync checks.
+- Kept database schema unchanged.
+
 ## v3.6.112 (2026-07-29)
 - Removed request-time DDL from the agency integration API and replaced it with a migration-required schema check.
 - Split agency integration lookups for `external_id` and legacy `agency_id`/`agent_code` so they are no longer queried through a combined OR condition.
