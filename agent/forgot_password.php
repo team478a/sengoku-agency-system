@@ -68,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                ->execute([$token, $exp, (int)$agent['id']]);
 
             $setupUrl = resetBuildSiteUrl($db) . '/agent/setup.php?token=' . $token;
-            $subject = '【戦国経済圏】パスワード再設定URLのご案内';
+            $subject = '【千ノ国代理店システム】パスワード再設定URLのご案内';
             $text = ($agent['person_name'] ?? '') . " 様\n\n"
                   . "パスワード再設定の申請を受け付けました。\n"
                   . "以下のURLから新しいパスワードを設定してください。\n\n"
@@ -100,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>パスワード再発行 | 戦国経済圏</title>
+<title>パスワード再発行 | 千ノ国代理店システム</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700;900&family=Noto+Sans+JP:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -170,7 +170,7 @@ input:focus { outline: none; border-color: var(--gold); background: rgba(255,255
 </head>
 <body>
 <div class="logo-wrap">
-    <p class="logo">⚔ 戦国経済圏</p>
+    <p class="logo">⚔ 千ノ国代理店システム</p>
     <p class="logo-sub">パスワード再発行</p>
 </div>
 

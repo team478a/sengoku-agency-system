@@ -114,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'test'
             } else {
                 $ok = $mailer->send(
                     $testTo,
-                    '【戦国経済圏】テストメール',
+                    '【千ノ国代理店システム】テストメール',
                     '<p>Resendメール送信のテストです。正常に受信できれば設定完了です。</p>',
                     'Resendメール送信のテストです。正常に受信できれば設定完了です。'
                 );
@@ -276,8 +276,8 @@ $agencyIntegrationEndpoint = getSiteBaseUrl() . '/api/integrations/agencies';
             <div class="form-group">
                 <label>送信者名</label>
                 <input type="text" name="mail_from_name"
-                       value="<?= h($s['mail_from_name'] ?? '戦国経済圏') ?>"
-                       placeholder="戦国経済圏">
+                       value="<?= h($s['mail_from_name'] ?? '千ノ国代理店システム') ?>"
+                       placeholder="千ノ国代理店システム">
             </div>
             <div class="form-group">
                 <label>本部メールアドレス（申請通知の受信先）*</label>
@@ -311,7 +311,7 @@ $agencyIntegrationEndpoint = getSiteBaseUrl() . '/api/integrations/agencies';
         <!-- Resend設定は維持 -->
         <input type="hidden" name="resend_api_key" value="<?= h($s['resend_api_key'] ?? '') ?>">
         <input type="hidden" name="mail_from"      value="<?= h($s['mail_from'] ?? '') ?>">
-        <input type="hidden" name="mail_from_name" value="<?= h($s['mail_from_name'] ?? '戦国経済圏') ?>">
+        <input type="hidden" name="mail_from_name" value="<?= h($s['mail_from_name'] ?? '千ノ国代理店システム') ?>">
         <input type="hidden" name="admin_email"    value="<?= h($s['admin_email'] ?? '') ?>">
         <input type="hidden" name="site_url"       value="<?= h($s['site_url'] ?? '') ?>">
         <input type="hidden" name="label_level1" value="<?= h($s['label_level1'] ?? 'アドバイザー') ?>">

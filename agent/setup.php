@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $agent) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>パスワード設定 | 戦国経済圏 アドバイザー</title>
+<title>パスワード設定 | 千ノ国代理店システム アドバイザー</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700;900&family=Noto+Sans+JP:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -123,7 +123,7 @@ input:focus { outline: none; border-color: var(--gold); background: rgba(255,255
 <body>
 
 <div class="logo-wrap">
-    <p class="logo">⚔ 戦国経済圏</p>
+    <p class="logo">⚔ 千ノ国代理店システム</p>
     <p class="logo-sub">アドバイザーマイページ</p>
 </div>
 

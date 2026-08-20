@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $resetUrl = adminResetBuildSiteUrl($db) . '/admin/reset_password.php?token=' . $token;
             $name = (string)(($admin['display_name'] ?? '') ?: $admin['username']);
-            $subject = '【戦国経済圏】管理者パスワード再設定URLのご案内';
+            $subject = '【千ノ国代理店システム】管理者パスワード再設定URLのご案内';
             $text = $name . " 様\n\n"
                   . "管理画面パスワード再設定の申請を受け付けました。\n"
                   . "以下のURLから新しいパスワードを設定してください。\n\n"
@@ -97,7 +97,7 @@ $csrfToken = getCsrfToken();
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>管理者パスワード再発行 | 戦国経済圏</title>
+<title>管理者パスワード再発行 | 千ノ国代理店システム</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -111,7 +111,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:#1a1410;color:#f5f0e8;min-
 </head>
 <body>
 <div class="wrap">
-    <div class="logo"><p>⚔ 戦国経済圏</p><small>管理パネル</small></div>
+    <div class="logo"><p>⚔ 千ノ国代理店システム</p><small>管理パネル</small></div>
     <div class="card">
         <h1>パスワード再発行</h1>
         <p class="lead">登録済みのメールアドレス、またはユーザー名を入力してください。再設定用URLをメールで送信します。</p>

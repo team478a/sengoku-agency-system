@@ -143,7 +143,7 @@ $totalNewLeads = array_sum(array_column($stats, 'new_leads'));
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>傘下組織図 | 戦国経済圏</title>
+<title>傘下組織図 | 千ノ国代理店システム</title>
 <style>
 body{margin:0;background:#100d09;color:#f8f1df;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif}
 .page{max-width:1180px;margin:0 auto;padding:28px 16px 56px}

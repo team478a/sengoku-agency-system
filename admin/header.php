@@ -8,7 +8,7 @@ requireAdminLogin();
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title><?= h($pageTitle ?? '管理画面') ?> | 戦国経済圏</title>
+<title><?= h($pageTitle ?? '管理画面') ?> | 千ノ国代理店システム</title>
 <style>
 :root {
     --gold:       #c9a84c;
@@ -551,7 +551,7 @@ window.toggleTheme = toggleTheme;
 <body>
 <aside class="sidebar" id="adminSidebar">
     <div class="sidebar-logo">
-        <span>戦国経済圏</span>
+        <span>千ノ国代理店システム</span>
         管理パネル
     </div>
     <nav>

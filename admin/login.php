@@ -54,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>管理画面ログイン | 戦国経済圏</title>
+<title>管理画面ログイン | 千ノ国代理店システム</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -83,7 +83,7 @@ input:focus{outline:none;border-color:#c9a84c;background:rgba(255,255,255,.07)}
 <body>
 <div class="wrap">
     <div class="logo">
-        <p>⚔ 戦国経済圏</p>
+        <p>⚔ 千ノ国代理店システム</p>
         <small>管理パネル</small>
     </div>
     <div class="card">
