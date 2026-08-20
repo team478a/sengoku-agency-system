@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/shared_bootstrap.php';
 
@@ -23,7 +23,11 @@ function isAdminLoggedIn(): bool {
 
 function requireAdminLogin(): void {
     if (!isAdminLoggedIn()) {
-        header('Location: /admin/login.php');
+        if (!headers_sent()) {
+            header('Location: /admin/login.php');
+        } else {
+            echo '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta http-equiv="refresh" content="0;url=/admin/login.php"><title>ログインへ移動</title></head><body><p>ログイン画面へ移動します。</p><p><a href="/admin/login.php">移動しない場合はこちら</a></p></body></html>';
+        }
         exit;
     }
 }
