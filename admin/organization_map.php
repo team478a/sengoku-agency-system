@@ -19,6 +19,9 @@ function orgMapHasColumn(string $table, string $column): bool {
 }
 
 function orgMapAgentLabel(array $agent, array $labels, array $positionLabels): string {
+    if (function_exists('getAgentRoleLabel')) {
+        return getAgentRoleLabel($agent);
+    }
     $level = (int)($agent['level'] ?? 1);
     if ($level === 1) {
         $type = (string)($agent['position_type'] ?? 'advisor');

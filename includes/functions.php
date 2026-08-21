@@ -73,6 +73,17 @@ function h($str): string {
     return htmlspecialchars((string)($str ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 }
 
+function renderAppIconLinks(): void {
+    echo '<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">' . PHP_EOL;
+    echo '<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">' . PHP_EOL;
+    echo '<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">' . PHP_EOL;
+    echo '<link rel="shortcut icon" href="/favicon.ico">' . PHP_EOL;
+    echo '<link rel="manifest" href="/site.webmanifest">' . PHP_EOL;
+    echo '<meta name="theme-color" content="#f7f2ee">' . PHP_EOL;
+    echo '<meta name="apple-mobile-web-app-title" content="千ノ国">' . PHP_EOL;
+    echo '<meta name="application-name" content="千ノ国代理店">' . PHP_EOL;
+}
+
 function sanitizeInput(string $input): string {
     return trim(strip_tags($input));
 }
@@ -1245,16 +1256,33 @@ function resolveLpReferralContext(array $agent, int $projectId = 0): array {
 // 繧｢繝峨ヰ繧､繧ｶ繝ｼ蜿門ｾ・// =============================
 function getAgentByCode(string $code): ?array {
     $db = getDB();
-    $stmt = $db->prepare("
-        SELECT a.*, t.html_file, t.slug AS template_slug, t.name AS template_name,
-               t.project_id AS template_project_id
-        FROM agents a
-        LEFT JOIN lp_templates t ON a.default_template_id = t.id AND t.status = 'active'
-        WHERE a.agent_code = ? AND a.status = 'active'
-        LIMIT 1
-    ");
-    $stmt->execute([$code]);
-    return $stmt->fetch() ?: null;
+    $templateProjectSelect = tableHasColumn('lp_templates', 'project_id')
+        ? 't.project_id AS template_project_id'
+        : 'NULL AS template_project_id';
+
+    try {
+        $stmt = $db->prepare("
+            SELECT a.*, t.html_file, t.slug AS template_slug, t.name AS template_name,
+                   {$templateProjectSelect}
+            FROM agents a
+            LEFT JOIN lp_templates t ON a.default_template_id = t.id AND t.status = 'active'
+            WHERE a.agent_code = ? AND a.status = 'active'
+            LIMIT 1
+        ");
+        $stmt->execute([$code]);
+        return $stmt->fetch() ?: null;
+    } catch (Throwable $e) {
+        error_log('Agent lookup with template failed: ' . $e->getMessage());
+    }
+
+    try {
+        $stmt = $db->prepare("SELECT * FROM agents WHERE agent_code = ? AND status = 'active' LIMIT 1");
+        $stmt->execute([$code]);
+        return $stmt->fetch() ?: null;
+    } catch (Throwable $e) {
+        error_log('Agent lookup failed: ' . $e->getMessage());
+        return null;
+    }
 }
 
 function getAgentById(int $id): ?array {
@@ -1334,7 +1362,12 @@ function getLpTemplateFields(int $templateId): array {
 
 function getLpTemplateFieldValue(array $agent, string $key, string $default = ''): string {
     $templateId = (int)($agent['default_template_id'] ?? 0);
-    $fields = getLpTemplateFields($templateId);
+    try {
+        $fields = getLpTemplateFields($templateId);
+    } catch (Throwable $e) {
+        error_log('LP template field lookup failed: ' . $e->getMessage());
+        $fields = [];
+    }
     if (empty($fields[$key])) {
         return $default;
     }
@@ -1429,7 +1462,12 @@ function injectLpSeoHead(string $html, array $agent, array $fields): string {
 
 function applyLpTemplateTokens(string $html, array $agent): string {
     $templateId = (int)($agent['default_template_id'] ?? 0);
-    $fields = getLpTemplateFields($templateId);
+    try {
+        $fields = getLpTemplateFields($templateId);
+    } catch (Throwable $e) {
+        error_log('LP template fields failed: ' . $e->getMessage());
+        $fields = [];
+    }
     if (!isset($fields['hero_image_pc']) && isset($fields['hero_image'])) {
         $fields['hero_image_pc'] = $fields['hero_image'];
     }
@@ -1468,7 +1506,12 @@ function applyLpTemplateTokens(string $html, array $agent): string {
         );
     }
 
-    return injectLpSeoHead($html, $agent, $fields);
+    try {
+        return injectLpSeoHead($html, $agent, $fields);
+    } catch (Throwable $e) {
+        error_log('LP SEO inject failed: ' . $e->getMessage());
+        return $html;
+    }
 }
 
 // =============================
@@ -1617,23 +1660,23 @@ function getLevelLabels(): array {
         $map  = [];
         foreach ($rows as $r) $map[$r['key_name']] = $r['value'];
         return [
-            1 => $map['label_level1'] ?? 'Advisor',
-            2 => $map['label_level2'] ?? 'Director',
-            3 => $map['label_level3'] ?? 'Agent',
+            1 => $map['label_level1'] ?? 'アドバイザー',
+            2 => $map['label_level2'] ?? 'ディレクター',
+            3 => $map['label_level3'] ?? 'エージェント',
         ];
     } catch (Exception $e) {
         return [
-            1 => 'Advisor',
-            2 => 'Director',
-            3 => 'Agent',
+            1 => 'アドバイザー',
+            2 => 'ディレクター',
+            3 => 'エージェント',
         ];
     }
 }
 function getAdvisorPositionLabels(): array {
     $defaults = [
-        'advisor' => 'Advisor',
-        'super_advisor' => 'Super Advisor',
-        'influencer' => 'Influencer',
+        'advisor' => 'アドバイザー',
+        'super_advisor' => 'スーパーアドバイザー',
+        'influencer' => 'インフルエンサー',
     ];
 
     try {
@@ -1673,6 +1716,80 @@ function getAdvisorPositionLabel(?string $positionType, ?string $positionLabel =
     $labels = getAdvisorPositionLabels();
     $key = normalizeAdvisorPosition((string)$positionType);
     return $labels[$key] ?? $labels['advisor'];
+}
+
+function getAgentPositionLabels(): array {
+    $defaults = [
+        'agent_candidate' => 'エージェント候補',
+    ];
+
+    try {
+        $db = getDB();
+        $stmt = $db->query("
+            SELECT key_name, value
+            FROM system_settings
+            WHERE key_name IN ('label_position_agent_candidate')
+        ");
+        $map = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $map[$row['key_name']] = trim((string)$row['value']);
+        }
+
+        return [
+            'agent_candidate' => !empty($map['label_position_agent_candidate']) ? $map['label_position_agent_candidate'] : $defaults['agent_candidate'],
+        ];
+    } catch (Exception $e) {
+        return $defaults;
+    }
+}
+
+function normalizeAgentPosition(?string $position): string {
+    $position = trim((string)$position);
+    return array_key_exists($position, getAgentPositionLabels()) ? $position : '';
+}
+
+function isAgentCandidate(array $agent): bool {
+    return (int)($agent['level'] ?? 1) === 3
+        && normalizeAgentPosition($agent['position_type'] ?? null) === 'agent_candidate';
+}
+
+function isAgentLike(array $agent): bool {
+    return (int)($agent['level'] ?? 1) >= 3;
+}
+
+function canManageDirectors(array $agent): bool {
+    return isAgentLike($agent);
+}
+
+function getAgentCandidateLabel(?string $positionLabel = null): string {
+    if ($positionLabel) {
+        return $positionLabel;
+    }
+    $labels = getAgentPositionLabels();
+    return $labels['agent_candidate'] ?? 'エージェント候補';
+}
+
+function getAgentRoleKey(array $agent): string {
+    $level = (int)($agent['level'] ?? 1);
+    if ($level === 3) {
+        return isAgentCandidate($agent) ? 'agent_candidate' : 'agent';
+    }
+    if ($level === 2) {
+        return 'director';
+    }
+    return normalizeAdvisorPosition((string)($agent['position_type'] ?? 'advisor'));
+}
+
+function getAgentRoleLabel(array $agent): string {
+    $level = (int)($agent['level'] ?? 1);
+    if ($level === 1) {
+        return getAdvisorPositionLabel($agent['position_type'] ?? null, $agent['position_label'] ?? null);
+    }
+    if ($level === 3 && isAgentCandidate($agent)) {
+        return getAgentCandidateLabel($agent['position_label'] ?? null);
+    }
+    $labels = getLevelLabels();
+    return $labels[$level] ?? 'メンバー';
 }
 
 // =============================
@@ -1799,6 +1916,14 @@ function buildExternalPartnerAgencyPayload(array $agent, string $event = 'upsert
         $status = 'inactive';
     }
 
+    $positionType = (string)($agent['position_type'] ?? '');
+    $positionLabel = (string)($agent['position_label'] ?? '');
+    if ($level === 1) {
+        $positionLabel = getAdvisorPositionLabel($positionType ?: null, $positionLabel ?: null);
+    } elseif ($level === 3 && isAgentCandidate($agent)) {
+        $positionLabel = getAgentCandidateLabel($positionLabel ?: null);
+    }
+
     return [
         'event' => $event,
         'source' => 'sengoku-ai',
@@ -1816,9 +1941,10 @@ function buildExternalPartnerAgencyPayload(array $agent, string $event = 'upsert
         'line_url' => (string)($agent['line_url'] ?? ''),
         'status' => $status === 'active' ? 'active' : 'inactive',
         'role_level' => $level,
-        'role_label' => getLevelLabel($level),
-        'position_type' => (string)($agent['position_type'] ?? ''),
-        'position_label' => getAdvisorPositionLabel($agent['position_type'] ?? null, $agent['position_label'] ?? null),
+        'role_key' => getAgentRoleKey($agent),
+        'role_label' => getAgentRoleLabel($agent),
+        'position_type' => $positionType,
+        'position_label' => $positionLabel,
         'lp_urls' => $lpUrls,
         'sso_urls' => buildSsoLaunchUrlPayload(),
         'updated_at' => date('c'),
@@ -2908,7 +3034,8 @@ function buildAgencySsoJwt(array $agent, ?string $returnTo = null, ?array $clien
         'exp' => $now + 60,
         'jti' => bin2hex(random_bytes(24)),
         'role_level' => (int)($agent['level'] ?? 1),
-        'role_label' => getLevelLabel((int)($agent['level'] ?? 1)),
+        'role_key' => getAgentRoleKey($agent),
+        'role_label' => getAgentRoleLabel($agent),
         'agency_name' => (string)($agent['agent_name'] ?? ''),
         'contact_name' => (string)($agent['person_name'] ?? ''),
         'contact_email' => (string)($agent['email'] ?? ''),

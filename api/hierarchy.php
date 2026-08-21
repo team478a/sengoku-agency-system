@@ -57,6 +57,12 @@ function apiTokenIsValid(string $requestToken): bool {
 
 function apiAgentPayload(array $agent, array $projects, array $labels, bool $includeContact, bool $includeSso): array {
     $level = (int)($agent['level'] ?? 1);
+    $positionLabel = (string)($agent['position_label'] ?? '');
+    if ($level === 1 && function_exists('getAdvisorPositionLabel')) {
+        $positionLabel = getAdvisorPositionLabel($agent['position_type'] ?? null, $positionLabel ?: null);
+    } elseif ($level === 3 && function_exists('isAgentCandidate') && isAgentCandidate($agent) && function_exists('getAgentCandidateLabel')) {
+        $positionLabel = getAgentCandidateLabel($positionLabel ?: null);
+    }
     $payload = [
         'id' => (int)$agent['id'],
         'agency_id' => (string)($agent['agent_code'] ?? ''),
@@ -65,11 +71,10 @@ function apiAgentPayload(array $agent, array $projects, array $labels, bool $inc
         'name' => (string)($agent['agent_name'] ?? ''),
         'person_name' => (string)($agent['person_name'] ?? ''),
         'level' => $level,
-        'role_label' => $level === 1
-            ? getAdvisorPositionLabel($agent['position_type'] ?? null, $agent['position_label'] ?? null)
-            : ($labels[$level] ?? 'メンバー'),
+        'role_key' => function_exists('getAgentRoleKey') ? getAgentRoleKey($agent) : (string)$level,
+        'role_label' => function_exists('getAgentRoleLabel') ? getAgentRoleLabel($agent) : ($labels[$level] ?? 'メンバー'),
         'position_type' => (string)($agent['position_type'] ?? ''),
-        'position_label' => (string)($agent['position_label'] ?? ''),
+        'position_label' => $positionLabel,
         'parent_id' => !empty($agent['parent_id']) ? (int)$agent['parent_id'] : null,
         'parent_agency_id' => $agent['parent_code'] ?? null,
         'parent_code' => $agent['parent_code'] ?? null,
@@ -185,6 +190,7 @@ $response = [
         'level2' => $labels[2] ?? 'ディレクター',
         'level3' => $labels[3] ?? 'エージェント',
         'positions' => getAdvisorPositionLabels(),
+        'agent_positions' => function_exists('getAgentPositionLabels') ? getAgentPositionLabels() : ['agent_candidate' => 'エージェント候補'],
     ],
     'projects' => array_map(static fn($project) => [
         'id' => (int)$project['id'],

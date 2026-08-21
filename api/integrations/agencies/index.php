@@ -163,6 +163,13 @@ function agencyApiDefaultTemplateId(PDO $db): ?int
 
 function agencyApiMapAgent(array $agent, bool $withChildren = false): array
 {
+    $level = (int)($agent['level'] ?? 1);
+    $positionLabel = (string)($agent['position_label'] ?? '');
+    if ($level === 1 && function_exists('getAdvisorPositionLabel')) {
+        $positionLabel = getAdvisorPositionLabel($agent['position_type'] ?? null, $positionLabel ?: null);
+    } elseif ($level === 3 && function_exists('isAgentCandidate') && isAgentCandidate($agent) && function_exists('getAgentCandidateLabel')) {
+        $positionLabel = getAgentCandidateLabel($positionLabel ?: null);
+    }
     $mapped = [
         'id' => (string)$agent['id'],
         'agency_id' => (string)($agent['agent_code'] ?? ''),
@@ -170,6 +177,11 @@ function agencyApiMapAgent(array $agent, bool $withChildren = false): array
         'external_id' => (string)($agent['external_id'] ?? ''),
         'name' => (string)($agent['agent_name'] ?? ''),
         'code' => (string)($agent['agent_code'] ?? ''),
+        'level' => $level,
+        'role_key' => function_exists('getAgentRoleKey') ? getAgentRoleKey($agent) : (string)$level,
+        'role_label' => function_exists('getAgentRoleLabel') ? getAgentRoleLabel($agent) : getLevelLabel($level),
+        'position_type' => (string)($agent['position_type'] ?? ''),
+        'position_label' => $positionLabel,
         'status' => (string)($agent['status'] ?? 'active'),
         'default_commission_rate' => isset($agent['default_commission_rate']) && $agent['default_commission_rate'] !== null
             ? (float)$agent['default_commission_rate']

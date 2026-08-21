@@ -281,6 +281,9 @@ class Mailer {
     }
 
     private function agentRoleLabel(array $agent): string {
+        if (function_exists('getAgentRoleLabel')) {
+            return getAgentRoleLabel($agent);
+        }
         $level = (int)($agent['level'] ?? 1);
         if ($level === 1 && function_exists('getAdvisorPositionLabel')) {
             return getAdvisorPositionLabel($agent['position_type'] ?? null, $agent['position_label'] ?? null);
@@ -293,6 +296,9 @@ class Mailer {
         $level = (int)($applicant['target_level'] ?? 1);
         if ($level === 1 && function_exists('getAdvisorPositionLabel')) {
             return getAdvisorPositionLabel($applicant['position_type'] ?? null, $applicant['position_label'] ?? null);
+        }
+        if ($level === 3 && ($applicant['position_type'] ?? '') === 'agent_candidate' && function_exists('getAgentCandidateLabel')) {
+            return getAgentCandidateLabel($applicant['position_label'] ?? null);
         }
         $labels = function_exists('getLevelLabels') ? getLevelLabels() : [1 => 'アドバイザー', 2 => 'ディレクター', 3 => 'エージェント'];
         return $labels[$level] ?? 'アドバイザー';

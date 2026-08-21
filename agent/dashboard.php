@@ -6,7 +6,7 @@ $db  = getDB();
 $aid = $currentAgent['id'];
 $myLv = (int)($currentAgent['level'] ?? 1);
 $levelLabels = getLevelLabels();
-$managedLevel = $myLv >= 3 ? 2 : 1;
+$managedLevel = canManageDirectors($currentAgent) ? 2 : 1;
 $managedLabel = $levelLabels[$managedLevel] ?? ($managedLevel === 2 ? 'ディレクター' : 'アドバイザー');
 $tokenMessage = '';
 $tokenMsgType = 'success';

@@ -27,7 +27,10 @@ function parentLinkDescendantIds(PDO $db, int $agentId): array {
     return $ids;
 }
 
-function parentLinkAllowedParentLevels(int $level): array {
+function parentLinkAllowedParentLevels(int $level, ?string $positionType = null): array {
+    if ($level === 3 && normalizeAgentPosition($positionType) === 'agent_candidate') {
+        return [3];
+    }
     if ($level === 2) {
         return [3];
     }
@@ -97,8 +100,8 @@ function parentLinkImpactStats(PDO $db, int $agentId, int $directChildren): arra
     return $stats;
 }
 
-function parentLinkCandidates(PDO $db, int $agentId, int $level): array {
-    $allowedLevels = parentLinkAllowedParentLevels($level);
+function parentLinkCandidates(PDO $db, int $agentId, int $level, ?string $positionType = null): array {
+    $allowedLevels = parentLinkAllowedParentLevels($level, $positionType);
     if (!$allowedLevels) {
         return [];
     }
@@ -107,11 +110,14 @@ function parentLinkCandidates(PDO $db, int $agentId, int $level): array {
     $levelPlaceholders = implode(',', array_fill(0, count($allowedLevels), '?'));
     $params = $allowedLevels;
     $sql = "
-        SELECT id, agent_code, agent_name, person_name, level
+        SELECT id, agent_code, agent_name, person_name, level, position_type, position_label
         FROM agents
         WHERE status = 'active'
           AND level IN ($levelPlaceholders)
     ";
+    if ($level === 3 && normalizeAgentPosition($positionType) === 'agent_candidate') {
+        $sql .= " AND (position_type IS NULL OR position_type <> 'agent_candidate')";
+    }
 
     if ($blockedIds) {
         $blockedPlaceholders = implode(',', array_fill(0, count($blockedIds), '?'));
@@ -125,12 +131,17 @@ function parentLinkCandidates(PDO $db, int $agentId, int $level): array {
     return $stmt->fetchAll();
 }
 
-function parentLinkValidate(PDO $db, int $agentId, int $level, ?int $parentId, array $labels): array {
+function parentLinkValidate(PDO $db, int $agentId, int $level, ?int $parentId, array $labels, ?string $positionType = null): array {
     if (!in_array($level, [1, 2, 3], true)) {
         return ['区分が不正です。'];
     }
     if ($level === 3) {
-        return [];
+        if (normalizeAgentPosition($positionType) !== 'agent_candidate') {
+            return $parentId ? ['エージェントは本部直属にしてください。'] : [];
+        }
+        if (!$parentId) {
+            return ['エージェント候補の上位にはエージェントを選択してください。'];
+        }
     }
     if (!$parentId) {
         return ['新しい上位を選択してください。'];
@@ -142,13 +153,17 @@ function parentLinkValidate(PDO $db, int $agentId, int $level, ?int $parentId, a
         return ['配下メンバーを上位に設定できません。'];
     }
 
-    $stmt = $db->prepare("SELECT level FROM agents WHERE id = ? AND status = 'active'");
+    $stmt = $db->prepare("SELECT level, position_type FROM agents WHERE id = ? AND status = 'active'");
     $stmt->execute([$parentId]);
-    $parentLevel = (int)($stmt->fetchColumn() ?: 0);
-    $allowedLevels = parentLinkAllowedParentLevels($level);
+    $parent = $stmt->fetch() ?: [];
+    $parentLevel = (int)($parent['level'] ?? 0);
+    $allowedLevels = parentLinkAllowedParentLevels($level, $positionType);
     if (!in_array($parentLevel, $allowedLevels, true)) {
         $allowedLabels = array_map(static fn($lv) => $labels[$lv] ?? ('Lv.' . $lv), $allowedLevels);
         return [($labels[$level] ?? '対象') . 'の上位には' . implode('または', $allowedLabels) . 'を選択してください。'];
+    }
+    if ($level === 3 && normalizeAgentPosition($positionType) === 'agent_candidate' && normalizeAgentPosition($parent['position_type'] ?? null) === 'agent_candidate') {
+        return ['エージェント候補の上位には、候補ではないエージェントを選択してください。'];
     }
 
     return [];
@@ -200,7 +215,8 @@ function parentLinkIntegritySummary(PDO $db): array {
             FROM agents a
             LEFT JOIN agents p ON p.id = a.parent_id
             WHERE
-                (a.level = 3 AND a.parent_id IS NOT NULL)
+                (a.level = 3 AND (a.position_type IS NULL OR a.position_type <> 'agent_candidate') AND a.parent_id IS NOT NULL)
+                OR (a.level = 3 AND a.position_type = 'agent_candidate' AND (p.level <> 3 OR p.position_type = 'agent_candidate' OR p.id IS NULL))
                 OR (a.level = 2 AND COALESCE(p.level, 0) <> 3)
                 OR (a.level = 1 AND COALESCE(p.level, 0) NOT IN (2, 3))
         ")->fetchColumn();
@@ -236,7 +252,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         try {
             $id = (int)($_POST['id'] ?? 0);
-            $stmt = $db->prepare('SELECT id, agent_name, person_name, agent_code, level, parent_id FROM agents WHERE id = ?');
+            $stmt = $db->prepare('SELECT id, agent_name, person_name, agent_code, level, parent_id, position_type, position_label FROM agents WHERE id = ?');
             $stmt->execute([$id]);
             $target = $stmt->fetch();
 
@@ -245,8 +261,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $msgType = 'error';
             } else {
                 $level = (int)($target['level'] ?? 1);
-                $newParentId = $level === 3 ? null : ((int)($_POST['parent_id'] ?? 0) ?: null);
-                $errors = parentLinkValidate($db, $id, $level, $newParentId, $labels);
+                $roleKey = function_exists('getAgentRoleKey') ? getAgentRoleKey($target) : '';
+                $newParentId = ($level === 3 && $roleKey !== 'agent_candidate') ? null : ((int)($_POST['parent_id'] ?? 0) ?: null);
+                $errors = parentLinkValidate($db, $id, $level, $newParentId, $labels, $target['position_type'] ?? null);
 
                 if ($errors) {
                     $message = implode(' ', $errors);
@@ -305,8 +322,8 @@ $countStmt->execute($params);
 $pag = paginate((int)$countStmt->fetchColumn(), $perPage, $page);
 
 $stmt = $db->prepare("
-    SELECT a.id, a.agent_code, a.agent_name, a.person_name, a.email, a.level, a.parent_id, a.status,
-           p.agent_name AS parent_name, p.person_name AS parent_person_name, p.agent_code AS parent_code,
+    SELECT a.id, a.agent_code, a.agent_name, a.person_name, a.email, a.level, a.parent_id, a.status, a.position_type, a.position_label,
+           p.agent_name AS parent_name, p.person_name AS parent_person_name, p.agent_code AS parent_code, p.level AS parent_level, p.position_type AS parent_position_type, p.position_label AS parent_position_label,
            (SELECT COUNT(*) FROM agents c WHERE c.parent_id = a.id) AS child_count
     FROM agents a
     LEFT JOIN agents p ON a.parent_id = p.id
@@ -343,6 +360,7 @@ $integrity = parentLinkIntegritySummary($db);
             <p style="color:var(--text-muted);font-size:.9rem;line-height:1.7;margin:0;">
                 「BさんがAさん配下になっているが、実際はCさん配下だった」というケースを修正します。
                 権限やLP設定は変更せず、上位の紐づけだけを変更します。
+                エージェント候補はエージェントと同じく、ディレクターの上位に設定できます。
             </p>
         </div>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
@@ -358,6 +376,7 @@ $integrity = parentLinkIntegritySummary($db);
     <p class="card-title">外部連携の確認ポイント</p>
     <ul style="margin:0;color:var(--text-muted);line-height:1.9;font-size:.9rem;">
         <li>親子紐づけを変更すると、外部連携先へ <code>parent_updated</code> イベントを送信します。</li>
+        <li>エージェント候補はエージェント配下に置き、ディレクターを配下に持てます。</li>
         <li>送信に失敗した場合は、外部連携ログ画面の「再送」または「10件再送」から再送できます。</li>
         <li>外部サービス側にも階層が反映されるため、変更前に影響範囲を確認してください。</li>
     </ul>
@@ -427,18 +446,21 @@ $integrity = parentLinkIntegritySummary($db);
             <?php if ($agents): foreach ($agents as $agent): ?>
                 <?php
                 $level = (int)($agent['level'] ?? 1);
-                $candidates = parentLinkCandidates($db, (int)$agent['id'], $level);
+                $roleKey = function_exists('getAgentRoleKey') ? getAgentRoleKey($agent) : '';
+                $roleLabel = function_exists('getAgentRoleLabel') ? getAgentRoleLabel($agent) : ($labels[$level] ?? ('Lv.' . $level));
+                $candidates = parentLinkCandidates($db, (int)$agent['id'], $level, $agent['position_type'] ?? null);
                 $currentParentLabel = !empty($agent['parent_id'])
                     ? trim(($agent['parent_name'] ?? '') . ' / ' . ($agent['parent_person_name'] ?? '') . ' / ' . ($agent['parent_code'] ?? ''))
                     : '本部直属';
                 $impact = parentLinkImpactStats($db, (int)$agent['id'], (int)($agent['child_count'] ?? 0));
+                $canChangeParent = !($level === 3 && $roleKey !== 'agent_candidate');
                 ?>
                 <tr>
                     <td>
                         <strong><?= h($agent['agent_name']) ?></strong><br>
                         <span style="font-size:.82rem;color:var(--text-muted);"><?= h($agent['person_name']) ?> / <?= h($agent['agent_code']) ?></span>
                     </td>
-                    <td><?= h($labels[$level] ?? ('Lv.' . $level)) ?></td>
+                    <td><?= h($roleLabel) ?></td>
                     <td><?= h($currentParentLabel) ?></td>
                     <td style="min-width:190px;">
                         <div style="display:flex;gap:.35rem;flex-wrap:wrap;">
@@ -452,7 +474,7 @@ $integrity = parentLinkIntegritySummary($db);
                         </div>
                     </td>
                     <td>
-                        <?php if ($level === 3): ?>
+                        <?php if (!$canChangeParent): ?>
                             <span style="color:var(--text-muted);">本部直属</span>
                         <?php else: ?>
                             <form id="parent-link-form-<?= (int)$agent['id'] ?>" method="post" onsubmit="return confirm('親子紐づけを変更します。配下表示・活動集計・外部連携先の階層にも反映されます。よろしいですか？')">
@@ -462,7 +484,7 @@ $integrity = parentLinkIntegritySummary($db);
                                     <option value="">選択してください</option>
                                     <?php foreach ($candidates as $candidate): ?>
                                     <option value="<?= (int)$candidate['id'] ?>" <?= ((int)($agent['parent_id'] ?? 0) === (int)$candidate['id']) ? 'selected' : '' ?>>
-                                        [<?= h($labels[(int)$candidate['level']] ?? ('Lv.' . $candidate['level'])) ?>] <?= h($candidate['agent_name']) ?> / <?= h($candidate['person_name']) ?> / <?= h($candidate['agent_code']) ?>
+                                        [<?= h(function_exists('getAgentRoleLabel') ? getAgentRoleLabel($candidate) : ($labels[(int)$candidate['level']] ?? ('Lv.' . $candidate['level']))) ?>] <?= h($candidate['agent_name']) ?> / <?= h($candidate['person_name']) ?> / <?= h($candidate['agent_code']) ?>
                                     </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -470,14 +492,14 @@ $integrity = parentLinkIntegritySummary($db);
                         <?php endif; ?>
                     </td>
                     <td>
-                        <?php if ($level === 3): ?>
+                        <?php if (!$canChangeParent): ?>
                             -
                         <?php else: ?>
                             <input form="parent-link-form-<?= (int)$agent['id'] ?>" type="text" name="change_reason" maxlength="200" placeholder="例: 登録時の紹介者修正" style="min-width:210px;">
                         <?php endif; ?>
                     </td>
                     <td>
-                        <?php if ($level === 3): ?>
+                        <?php if (!$canChangeParent): ?>
                             <span style="color:var(--text-muted);font-size:.85rem;">変更不要</span>
                         <?php else: ?>
                             <button form="parent-link-form-<?= (int)$agent['id'] ?>" type="submit" class="btn btn-gold btn-sm">変更する</button>

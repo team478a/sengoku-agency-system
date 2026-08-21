@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save'
         $message = '不正なリクエストです。'; $msgType = 'error';
     } else {
         $fields = ['resend_api_key', 'mail_from', 'mail_from_name', 'admin_email', 'site_url', 'label_level1', 'label_level2', 'label_level3',
-                   'label_position_advisor', 'label_position_super_advisor', 'label_position_influencer',
+                   'label_position_agent_candidate', 'label_position_advisor', 'label_position_super_advisor', 'label_position_influencer',
                    'mail_tpl_application_subject', 'mail_tpl_application_body',
                    'mail_tpl_approval_subject', 'mail_tpl_approval_body',
                    'mail_tpl_rejection_subject', 'mail_tpl_rejection_body',
@@ -211,6 +211,11 @@ $agencyIntegrationEndpoint = getSiteBaseUrl() . '/api/integrations/agencies';
                 <input type="text" name="label_level1" value="<?= h($s['label_level1'] ?? 'アドバイザー') ?>" placeholder="アドバイザー">
                 <p style="font-size:.72rem;color:var(--text-muted);margin-top:.3rem;">例：アドバイザー・メンバー・紹介者</p>
             </div>
+            <div class="form-group">
+                <label>上位候補の名称</label>
+                <input type="text" name="label_position_agent_candidate" value="<?= h($s['label_position_agent_candidate'] ?? 'エージェント候補') ?>" placeholder="エージェント候補">
+                <p style="font-size:.72rem;color:var(--text-muted);margin-top:.3rem;">例：エージェント候補・準エージェント</p>
+            </div>
         </div>
         <div style="margin-top:1rem;margin-bottom:1rem;">
             <p style="font-size:.86rem;color:var(--gold);font-weight:700;margin:0 0 .75rem;">アドバイザー区分名称</p>
@@ -255,6 +260,7 @@ $agencyIntegrationEndpoint = getSiteBaseUrl() . '/api/integrations/agencies';
         <input type="hidden" name="label_level1" value="<?= h($s['label_level1'] ?? 'アドバイザー') ?>">
         <input type="hidden" name="label_level2" value="<?= h($s['label_level2'] ?? 'ディレクター') ?>">
         <input type="hidden" name="label_level3" value="<?= h($s['label_level3'] ?? 'エージェント') ?>">
+        <input type="hidden" name="label_position_agent_candidate" value="<?= h($s['label_position_agent_candidate'] ?? 'エージェント候補') ?>">
 
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;">
             <div class="form-group">
@@ -317,6 +323,7 @@ $agencyIntegrationEndpoint = getSiteBaseUrl() . '/api/integrations/agencies';
         <input type="hidden" name="label_level1" value="<?= h($s['label_level1'] ?? 'アドバイザー') ?>">
         <input type="hidden" name="label_level2" value="<?= h($s['label_level2'] ?? 'ディレクター') ?>">
         <input type="hidden" name="label_level3" value="<?= h($s['label_level3'] ?? 'エージェント') ?>">
+        <input type="hidden" name="label_position_agent_candidate" value="<?= h($s['label_position_agent_candidate'] ?? 'エージェント候補') ?>">
 
         <!-- タブ切替 -->
         <div style="display:flex;gap:.5rem;margin-bottom:1.25rem;border-bottom:1px solid var(--border);padding-bottom:.75rem;">

@@ -677,6 +677,7 @@ INSERT IGNORE INTO system_settings (key_name, value) VALUES
 ('label_level3', 'エージェント'),
 ('label_level2', 'ディレクター'),
 ('label_level1', 'アドバイザー'),
+('label_position_agent_candidate', 'エージェント候補'),
 ('label_position_advisor', 'アドバイザー'),
 ('label_position_super_advisor', 'スーパーアドバイザー'),
 ('label_position_influencer', 'インフルエンサー'),

@@ -9,6 +9,7 @@ requireAdminLogin();
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?= h($pageTitle ?? '管理画面') ?> | 千ノ国代理店システム</title>
+<?php renderAppIconLinks(); ?>
 <style>
 :root {
     --gold:       #c9a84c;
