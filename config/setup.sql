@@ -26,6 +26,27 @@ CREATE TABLE IF NOT EXISTS projects (
     updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS external_product_rules (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    source_system_key VARCHAR(100) NOT NULL,
+    product_code VARCHAR(191) NOT NULL,
+    display_name VARCHAR(255) NOT NULL,
+    project_key VARCHAR(100) DEFAULT NULL,
+    project_id INT DEFAULT NULL,
+    validity_days INT DEFAULT NULL,
+    reward_eligibility VARCHAR(50) NOT NULL DEFAULT 'UNKNOWN',
+    entitlement_type VARCHAR(100) DEFAULT NULL,
+    target_service_key VARCHAR(100) DEFAULT NULL,
+    refund_policy VARCHAR(50) NOT NULL DEFAULT 'manual_review',
+    status VARCHAR(50) NOT NULL DEFAULT 'active',
+    notes TEXT DEFAULT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_external_product_rule (source_system_key, product_code),
+    INDEX idx_external_product_rules_project (project_key),
+    INDEX idx_external_product_rules_status (status, reward_eligibility)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS lp_templates (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     project_id      INT DEFAULT NULL,
@@ -484,6 +505,42 @@ CREATE TABLE IF NOT EXISTS integration_event_logs (
     INDEX idx_integration_logs_success (success, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS integration_inbox_events (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    source_system_key VARCHAR(100) NOT NULL,
+    event_id VARCHAR(191) NOT NULL,
+    event_version VARCHAR(32) NOT NULL DEFAULT '1.0',
+    event_type VARCHAR(100) NOT NULL,
+    occurred_at DATETIME DEFAULT NULL,
+    common_user_id VARCHAR(64) DEFAULT NULL,
+    external_user_id VARCHAR(191) DEFAULT NULL,
+    order_id VARCHAR(191) DEFAULT NULL,
+    order_item_id VARCHAR(191) DEFAULT NULL,
+    product_code VARCHAR(191) DEFAULT NULL,
+    product_rule_id INT DEFAULT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    amount_minor BIGINT DEFAULT NULL,
+    currency VARCHAR(10) NOT NULL DEFAULT 'JPY',
+    eligibility_status VARCHAR(50) NOT NULL DEFAULT 'UNKNOWN',
+    eligibility_reason VARCHAR(255) DEFAULT NULL,
+    referral_snapshot_json MEDIUMTEXT DEFAULT NULL,
+    correlation_id VARCHAR(100) DEFAULT NULL,
+    payload_hash VARCHAR(64) NOT NULL,
+    payload_json MEDIUMTEXT NOT NULL,
+    processing_status VARCHAR(50) NOT NULL DEFAULT 'received',
+    error_message TEXT DEFAULT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_integration_inbox_source_event (source_system_key, event_id),
+    INDEX idx_inbox_common (common_user_id),
+    INDEX idx_inbox_event_type (event_type, occurred_at),
+    INDEX idx_inbox_order (source_system_key, order_id, order_item_id),
+    INDEX idx_inbox_product (source_system_key, product_code),
+    INDEX idx_inbox_product_rule (product_rule_id),
+    INDEX idx_inbox_status (processing_status, created_at),
+    INDEX idx_inbox_correlation (correlation_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS referral_tokens (
     id INT AUTO_INCREMENT PRIMARY KEY,
     token VARCHAR(80) NOT NULL UNIQUE,
@@ -673,6 +730,14 @@ INSERT IGNORE INTO projects (id, slug, name, description, status, sort_order) VA
 INSERT IGNORE INTO projects (id, slug, name, description, status, sort_order) VALUES
 (2, 'ai-art-school', 'AIアート教室', 'AIアート教室・無料体験向けLPプロジェクト', 'active', 20);
 
+INSERT IGNORE INTO external_product_rules
+    (source_system_key, product_code, display_name, project_key, project_id, validity_days,
+     reward_eligibility, entitlement_type, target_service_key, refund_policy, status, notes)
+VALUES
+    ('AI_ART_SCHOOL', 'ai-art-course', 'AIアート教室 受講料金', 'ai-art-school', 2, NULL,
+     'NOT_ELIGIBLE', 'course_access', 'AI_ART_SCHOOL', 'manual_review', 'active',
+     'AIアート教室の受講料金は代理店報酬対象外です。');
+
 INSERT IGNORE INTO system_settings (key_name, value) VALUES
 ('label_level3', 'エージェント'),
 ('label_level2', 'ディレクター'),
@@ -744,3 +809,5 @@ INSERT IGNORE INTO sso_clients (client_key, name, audience, callback_url, status
 INSERT IGNORE INTO schema_migrations (version, description) VALUES ('3.6.67', 'common id lookup server error rescue');
 INSERT IGNORE INTO schema_migrations (version, description) VALUES ('3.6.68', 'external integration retry screen hardening');
 INSERT IGNORE INTO schema_migrations (version, description) VALUES ('3.6.69', 'external integration partner status and batch retry');
+INSERT IGNORE INTO schema_migrations (version, description) VALUES ('3.6.163', 'external sales event inbox contract');
+INSERT IGNORE INTO schema_migrations (version, description) VALUES ('3.6.164', 'external product reward eligibility rules');

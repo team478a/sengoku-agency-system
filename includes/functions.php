@@ -772,6 +772,175 @@ function logIntegrationEvent(array $data): void {
     }
 }
 
+function integrationInboxTablesReady(): bool {
+    return !empty(tableColumns('integration_inbox_events'));
+}
+
+function externalProductRulesTableReady(): bool {
+    return !empty(tableColumns('external_product_rules'));
+}
+
+function normalizeRewardEligibilityStatus(?string $status): string {
+    $status = strtoupper(trim((string)$status));
+    return in_array($status, ['ELIGIBLE', 'NOT_ELIGIBLE', 'UNKNOWN'], true) ? $status : 'UNKNOWN';
+}
+
+function normalizeRefundPolicy(?string $policy): string {
+    $policy = strtolower(trim((string)$policy));
+    return in_array($policy, ['revoke_entitlement', 'keep_entitlement', 'manual_review', 'none'], true) ? $policy : 'manual_review';
+}
+
+function findExternalProductRule(string $sourceSystemKey, string $productCode): ?array {
+    if (!externalProductRulesTableReady()) {
+        return null;
+    }
+    $sourceSystemKey = trim($sourceSystemKey);
+    $productCode = trim($productCode);
+    if ($sourceSystemKey === '' || $productCode === '') {
+        return null;
+    }
+
+    $stmt = getDB()->prepare("
+        SELECT epr.*, p.name AS project_name
+        FROM external_product_rules epr
+        LEFT JOIN projects p ON epr.project_id = p.id
+        WHERE epr.source_system_key = ? AND epr.product_code = ? AND epr.status = 'active'
+        LIMIT 1
+    ");
+    $stmt->execute([$sourceSystemKey, $productCode]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ?: null;
+}
+
+function resolveExternalProductRuleEligibility(string $sourceSystemKey, string $productCode): array {
+    if (!externalProductRulesTableReady()) {
+        return ['status' => 'UNKNOWN', 'reason' => 'product_rule_schema_not_ready', 'rule' => null];
+    }
+    if (trim($productCode) === '') {
+        return ['status' => 'UNKNOWN', 'reason' => 'product_code_missing', 'rule' => null];
+    }
+
+    $rule = findExternalProductRule($sourceSystemKey, $productCode);
+    if (!$rule) {
+        return ['status' => 'UNKNOWN', 'reason' => 'product_rule_not_found', 'rule' => null];
+    }
+
+    $status = normalizeRewardEligibilityStatus($rule['reward_eligibility'] ?? 'UNKNOWN');
+    $reason = match ($status) {
+        'ELIGIBLE' => 'product_rule_eligible',
+        'NOT_ELIGIBLE' => 'product_rule_not_eligible',
+        default => 'product_rule_unknown',
+    };
+    return ['status' => $status, 'reason' => $reason, 'rule' => $rule];
+}
+
+function normalizeIntegrationPayloadForHash($value) {
+    if (is_array($value)) {
+        if (!array_is_list($value)) {
+            ksort($value);
+        }
+        foreach ($value as $key => $child) {
+            $value[$key] = normalizeIntegrationPayloadForHash($child);
+        }
+    }
+    return $value;
+}
+
+function integrationPayloadHashValue($payload): string {
+    $normalized = normalizeIntegrationPayloadForHash($payload);
+    $json = json_encode($normalized, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    return hash('sha256', $json === false ? serialize($normalized) : $json);
+}
+
+function integrationInboxDateTimeOrNull($value): ?string {
+    $value = trim((string)$value);
+    if ($value === '') {
+        return null;
+    }
+    $time = strtotime($value);
+    return $time === false ? null : date('Y-m-d H:i:s', $time);
+}
+
+function saveIntegrationInboxEvent(array $data): array {
+    if (!integrationInboxTablesReady()) {
+        return [];
+    }
+
+    $sourceSystemKey = trim((string)($data['source_system_key'] ?? $data['service_code'] ?? $data['system_key'] ?? $data['service_key'] ?? ''));
+    $eventId = trim((string)($data['event_id'] ?? ''));
+    $eventType = trim((string)($data['event_type'] ?? $data['event'] ?? ''));
+    if ($sourceSystemKey === '' || $eventId === '' || $eventType === '') {
+        throw new InvalidArgumentException('source_system_key, event_id and event_type are required for integration inbox events.');
+    }
+
+    $payload = is_array($data['payload'] ?? null) ? $data['payload'] : $data;
+    $payloadHash = trim((string)($data['payload_hash'] ?? ''));
+    if (!preg_match('/^[a-f0-9]{64}$/i', $payloadHash)) {
+        $payloadHash = integrationPayloadHashValue($payload);
+    }
+
+    $db = getDB();
+    $existing = $db->prepare("SELECT * FROM integration_inbox_events WHERE source_system_key=? AND event_id=? LIMIT 1");
+    $existing->execute([$sourceSystemKey, $eventId]);
+    $row = $existing->fetch(PDO::FETCH_ASSOC);
+    if ($row) {
+        if (!hash_equals((string)$row['payload_hash'], $payloadHash)) {
+            throw new RuntimeException('同じevent_idで内容が異なる販売事実を受信しました。', 409);
+        }
+        $row['_idempotent'] = true;
+        return $row;
+    }
+
+    $referralSnapshot = $data['referral_snapshot'] ?? null;
+    $referralSnapshotJson = is_array($referralSnapshot)
+        ? json_encode($referralSnapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+        : (trim((string)$referralSnapshot) ?: null);
+    $payloadJson = json_encode(maskIntegrationPayloadForLog($payload), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+    $columns = tableColumns('integration_inbox_events');
+    $insertData = [
+        'source_system_key' => $sourceSystemKey,
+        'event_id' => $eventId,
+        'event_version' => trim((string)($data['event_version'] ?? '1.0')) ?: '1.0',
+        'event_type' => $eventType,
+        'occurred_at' => integrationInboxDateTimeOrNull($data['occurred_at'] ?? null),
+        'common_user_id' => trim((string)($data['common_user_id'] ?? '')) ?: null,
+        'external_user_id' => trim((string)($data['external_user_id'] ?? $data['service_user_id'] ?? $data['user_id'] ?? '')) ?: null,
+        'order_id' => trim((string)($data['order_id'] ?? $data['transaction_id'] ?? $data['application_id'] ?? '')) ?: null,
+        'order_item_id' => trim((string)($data['order_item_id'] ?? '')) ?: null,
+        'product_code' => trim((string)($data['product_code'] ?? '')) ?: null,
+        'quantity' => max(1, (int)($data['quantity'] ?? 1)),
+        'amount_minor' => array_key_exists('amount_minor', $data) && $data['amount_minor'] !== '' ? (int)$data['amount_minor'] : null,
+        'currency' => trim((string)($data['currency'] ?? 'JPY')) ?: 'JPY',
+        'eligibility_status' => normalizeRewardEligibilityStatus($data['eligibility_status'] ?? 'UNKNOWN'),
+        'referral_snapshot_json' => $referralSnapshotJson,
+        'correlation_id' => trim((string)($data['correlation_id'] ?? '')) ?: null,
+        'payload_hash' => $payloadHash,
+        'payload_json' => $payloadJson === false ? '{}' : $payloadJson,
+        'processing_status' => trim((string)($data['processing_status'] ?? 'received')) ?: 'received',
+        'error_message' => trim((string)($data['error_message'] ?? '')) ?: null,
+    ];
+    if (!empty($columns['product_rule_id'])) {
+        $insertData['product_rule_id'] = isset($data['product_rule_id']) && $data['product_rule_id'] !== '' ? (int)$data['product_rule_id'] : null;
+    }
+    if (!empty($columns['eligibility_reason'])) {
+        $insertData['eligibility_reason'] = trim((string)($data['eligibility_reason'] ?? '')) ?: null;
+    }
+
+    $fieldNames = array_keys($insertData);
+    $stmt = $db->prepare(
+        "INSERT INTO integration_inbox_events (" . implode(', ', $fieldNames) . ") VALUES (" . implode(', ', array_fill(0, count($fieldNames), '?')) . ")"
+    );
+    $stmt->execute(array_values($insertData));
+
+    $existing->execute([$sourceSystemKey, $eventId]);
+    $row = $existing->fetch(PDO::FETCH_ASSOC) ?: [];
+    if ($row) {
+        $row['_idempotent'] = false;
+    }
+    return $row;
+}
+
 function getCommonIdStats(): array {
     $defaults = [
         'common_users' => 0,

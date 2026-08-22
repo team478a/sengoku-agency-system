@@ -1,0 +1,35 @@
+CREATE TABLE IF NOT EXISTS integration_inbox_events (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    source_system_key VARCHAR(100) NOT NULL,
+    event_id VARCHAR(191) NOT NULL,
+    event_version VARCHAR(32) NOT NULL DEFAULT '1.0',
+    event_type VARCHAR(100) NOT NULL,
+    occurred_at DATETIME DEFAULT NULL,
+    common_user_id VARCHAR(64) DEFAULT NULL,
+    external_user_id VARCHAR(191) DEFAULT NULL,
+    order_id VARCHAR(191) DEFAULT NULL,
+    order_item_id VARCHAR(191) DEFAULT NULL,
+    product_code VARCHAR(191) DEFAULT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    amount_minor BIGINT DEFAULT NULL,
+    currency VARCHAR(10) NOT NULL DEFAULT 'JPY',
+    eligibility_status VARCHAR(50) NOT NULL DEFAULT 'UNKNOWN',
+    referral_snapshot_json MEDIUMTEXT DEFAULT NULL,
+    correlation_id VARCHAR(100) DEFAULT NULL,
+    payload_hash VARCHAR(64) NOT NULL,
+    payload_json MEDIUMTEXT NOT NULL,
+    processing_status VARCHAR(50) NOT NULL DEFAULT 'received',
+    error_message TEXT DEFAULT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_integration_inbox_source_event (source_system_key, event_id),
+    INDEX idx_inbox_common (common_user_id),
+    INDEX idx_inbox_event_type (event_type, occurred_at),
+    INDEX idx_inbox_order (source_system_key, order_id, order_item_id),
+    INDEX idx_inbox_product (source_system_key, product_code),
+    INDEX idx_inbox_status (processing_status, created_at),
+    INDEX idx_inbox_correlation (correlation_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT IGNORE INTO schema_migrations (version, description)
+VALUES ('3.6.163', 'external sales event inbox contract');

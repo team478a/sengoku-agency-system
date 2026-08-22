@@ -588,10 +588,11 @@ window.toggleTheme = toggleTheme;
         ], $current, in_array($current, ['applicants.php', 'promotion_requests.php', 'agents.php', 'organization_map.php', 'agent_parent_links.php'], true));
         $navGroup('LP・プロジェクト', [
             ['/admin/projects.php', '&#127919;', 'プロジェクト管理'],
+            ['/admin/product_rules.php', '&#128179;', '商品・報酬ルール'],
             ['/admin/templates.php', '&#127912;', 'テンプレート管理'],
             ['/admin/materials.php', '&#128230;', '紹介素材管理'],
             ['/admin/notices.php', '&#128226;', 'お知らせ管理'],
-        ], $current);
+        ], $current, in_array($current, ['projects.php', 'product_rules.php', 'templates.php', 'materials.php', 'notices.php'], true));
         $navGroup('成果・問い合わせ', [
             ['/admin/template_reports.php', '&#128200;', 'LP成果分析'],
             ['/admin/agent_activity.php', '&#128202;', '代理店活動'],
