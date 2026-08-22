@@ -34,7 +34,7 @@ if (!$client) {
 
 $commonUserId = trim((string)($data['common_user_id'] ?? ''));
 if ($commonUserId === '') {
-    $systemKey = trim((string)($data['system_key'] ?? $data['service_key'] ?? $auth['site_key'] ?? ''));
+    $systemKey = trim((string)($data['service_code'] ?? $data['system_key'] ?? $data['service_key'] ?? $auth['site_key'] ?? ''));
     $externalUserId = trim((string)($data['external_user_id'] ?? $data['service_user_id'] ?? $data['user_id'] ?? ''));
     if ($systemKey !== '' && $externalUserId !== '') {
         $link = findSystemAccountLink($systemKey, $externalUserId) ?: findCommonUserMapping($systemKey, $externalUserId);

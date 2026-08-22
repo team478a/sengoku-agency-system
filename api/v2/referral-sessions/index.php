@@ -37,7 +37,7 @@ if ($method === 'POST') {
         'token_row' => $validation['token'],
         'token' => $token,
         'session_key' => $data['session_key'] ?? null,
-        'service_key' => $data['service_key'] ?? ($auth['site_key'] ?? ''),
+        'service_key' => $data['service_code'] ?? $data['system_key'] ?? $data['service_key'] ?? ($auth['site_key'] ?? ''),
         'service_user_id' => $data['service_user_id'] ?? null,
         'common_user_id' => $data['common_user_id'] ?? null,
         'landing_url' => $data['landing_url'] ?? null,

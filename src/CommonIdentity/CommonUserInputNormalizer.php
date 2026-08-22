@@ -11,7 +11,7 @@ final class CommonUserInputNormalizer
      */
     public function normalize(array $data, string $fallbackSystemKey = ''): CommonUserInput
     {
-        $systemKey = trim((string)($data['system_key'] ?? $data['service_key'] ?? ''));
+        $systemKey = trim((string)($data['service_code'] ?? $data['system_key'] ?? $data['service_key'] ?? ''));
         if ($systemKey === '') {
             $systemKey = trim($fallbackSystemKey);
         }
@@ -30,4 +30,3 @@ final class CommonUserInputNormalizer
         );
     }
 }
-

@@ -252,7 +252,7 @@ function saveServiceUserMapping(array $data): array {
     if (!commonIdTablesReady()) {
         throw new RuntimeException('共通ID連携テーブルが未適用です。');
     }
-    $serviceKey = trim((string)($data['service_key'] ?? ''));
+    $serviceKey = trim((string)($data['service_code'] ?? $data['system_key'] ?? $data['service_key'] ?? ''));
     $serviceUserId = trim((string)($data['service_user_id'] ?? ''));
     if ($serviceKey === '' || !preg_match('/^[a-zA-Z0-9_\-]{2,100}$/', $serviceKey)) {
         throw new InvalidArgumentException('service_key の形式が不正です。');
@@ -396,7 +396,7 @@ function saveSystemAccountLink(array $data): array {
     if (empty(tableColumns('system_account_links'))) {
         throw new RuntimeException('system_account_links table is not migrated.');
     }
-    $systemKey = trim((string)($data['system_key'] ?? $data['service_key'] ?? ''));
+    $systemKey = trim((string)($data['service_code'] ?? $data['system_key'] ?? $data['service_key'] ?? ''));
     $externalUserId = trim((string)($data['external_user_id'] ?? $data['service_user_id'] ?? ''));
     if ($systemKey === '' || !preg_match('/^[a-zA-Z0-9_\-]{2,100}$/', $systemKey)) {
         throw new InvalidArgumentException('system_key is invalid.');
@@ -570,6 +570,60 @@ function loadCommonUserHubProfile(string $commonUserId): ?array {
     ];
 }
 
+function commonUserPrimaryAgencyAssignment(array $profile): ?array {
+    $relations = is_array($profile['agency_relations'] ?? null) ? $profile['agency_relations'] : [];
+    foreach ($relations as $relation) {
+        if (!is_array($relation)) {
+            continue;
+        }
+        $status = trim((string)($relation['status'] ?? 'active'));
+        if ($status !== '' && $status !== 'active') {
+            continue;
+        }
+        return [
+            'agent_id' => isset($relation['agent_id']) && $relation['agent_id'] !== null ? (int)$relation['agent_id'] : null,
+            'agent_code' => isset($relation['agent_code']) ? (string)$relation['agent_code'] : null,
+            'agent_name' => isset($relation['agent_name']) ? (string)$relation['agent_name'] : null,
+            'person_name' => isset($relation['person_name']) ? (string)$relation['person_name'] : null,
+            'project_id' => isset($relation['project_id']) && $relation['project_id'] !== null ? (int)$relation['project_id'] : null,
+            'project_key' => isset($relation['project_slug']) ? (string)$relation['project_slug'] : null,
+            'project_slug' => isset($relation['project_slug']) ? (string)$relation['project_slug'] : null,
+            'relation_type' => isset($relation['relation_type']) ? (string)$relation['relation_type'] : null,
+            'status' => $status ?: null,
+        ];
+    }
+
+    $user = is_array($profile['common_user'] ?? null) ? $profile['common_user'] : [];
+    foreach (['assigned_agent_id' => 'assigned', 'registration_referrer_agent_id' => 'registration_referrer'] as $field => $relationType) {
+        if (!empty($user[$field])) {
+            return [
+                'agent_id' => (int)$user[$field],
+                'agent_code' => null,
+                'agent_name' => null,
+                'person_name' => null,
+                'project_id' => null,
+                'project_key' => null,
+                'project_slug' => null,
+                'relation_type' => $relationType,
+                'status' => (string)($user['agent_link_status'] ?? 'linked'),
+            ];
+        }
+    }
+
+    return null;
+}
+
+function commonUserResolutionContractFields(array $profile, string $identityMatchStatus, int $unverifiedIdentityCandidateCount): array {
+    $agencyAssignment = commonUserPrimaryAgencyAssignment($profile);
+    $needsReview = $identityMatchStatus !== 'ok' || $unverifiedIdentityCandidateCount > 0;
+
+    return [
+        'resolution_status' => $needsReview ? 'MANUAL_REVIEW' : 'RESOLVED',
+        'referral_status' => $agencyAssignment ? 'CONFIRMED' : 'NONE',
+        'agency_assignment' => $agencyAssignment,
+    ];
+}
+
 function saveAgencyCustomerRelation(array $data): array {
     if (!commonIdTablesReady()) {
         throw new RuntimeException('共通ID連携テーブルが未適用です。');
@@ -578,7 +632,7 @@ function saveAgencyCustomerRelation(array $data): array {
     $agentId = !empty($data['agent_id']) ? (int)$data['agent_id'] : null;
     $projectId = !empty($data['project_id']) ? (int)$data['project_id'] : 0;
     $relationType = trim((string)($data['relation_type'] ?? 'referral')) ?: 'referral';
-    $sourceServiceKey = trim((string)($data['source_service_key'] ?? '')) ?: null;
+    $sourceServiceKey = trim((string)($data['source_service_key'] ?? $data['service_code'] ?? $data['system_key'] ?? $data['service_key'] ?? '')) ?: null;
     $sourceServiceUserId = trim((string)($data['source_service_user_id'] ?? '')) ?: null;
     $referralTokenId = !empty($data['referral_token_id']) ? (int)$data['referral_token_id'] : null;
     $referralSource = trim((string)($data['referral_source'] ?? '')) ?: null;
@@ -978,7 +1032,7 @@ function recordReferralSession(array $data): array {
         (string)$tokenRow['token'],
         (int)$tokenRow['agent_id'],
         (int)($tokenRow['project_id'] ?? 0),
-        trim((string)($data['service_key'] ?? '')) ?: ($tokenRow['destination_service_key'] ?? null),
+        trim((string)($data['service_code'] ?? $data['system_key'] ?? $data['service_key'] ?? '')) ?: ($tokenRow['destination_service_key'] ?? null),
         trim((string)($data['service_user_id'] ?? '')) ?: null,
         trim((string)($data['common_user_id'] ?? '')) ?: null,
         trim((string)($data['landing_url'] ?? '')) ?: null,
@@ -1003,7 +1057,7 @@ function saveCustomerTransaction(array $data): array {
         return [];
     }
     $commonUserId = trim((string)($data['common_user_id'] ?? ''));
-    $systemKey = trim((string)($data['source_system_key'] ?? $data['system_key'] ?? $data['service_key'] ?? ''));
+    $systemKey = trim((string)($data['source_system_key'] ?? $data['service_code'] ?? $data['system_key'] ?? $data['service_key'] ?? ''));
     $orderId = trim((string)($data['order_id'] ?? $data['transaction_id'] ?? ''));
     if ($commonUserId === '' || $systemKey === '' || $orderId === '') {
         return [];
@@ -3110,7 +3164,7 @@ function saveCustomerEntitlement(array $data): array {
         return [];
     }
     $commonUserId = trim((string)($data['common_user_id'] ?? ''));
-    $systemKey = trim((string)($data['system_key'] ?? $data['source_system_key'] ?? $data['service_key'] ?? ''));
+    $systemKey = trim((string)($data['service_code'] ?? $data['system_key'] ?? $data['source_system_key'] ?? $data['service_key'] ?? ''));
     if ($commonUserId === '' || $systemKey === '') {
         return [];
     }

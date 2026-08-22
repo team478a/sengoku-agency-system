@@ -50,7 +50,7 @@ function eventsApiPayload(array $data): array
 
 function eventsApiSystemKey(array $data, array $auth): string
 {
-    return eventsApiString($data, ['system_key', 'service_key'], (string)($auth['site_key'] ?? ''));
+    return eventsApiString($data, ['service_code', 'system_key', 'service_key'], (string)($auth['site_key'] ?? ''));
 }
 
 function eventsApiEventName(array $data): string

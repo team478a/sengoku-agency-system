@@ -24,6 +24,19 @@ final class CommonIdentityFoundationTest extends TestCase
         self::assertSame('common-456', $input->commonUserId);
     }
 
+    public function testNormalizerAcceptsServiceCodeAsFormalSystemAlias(): void
+    {
+        $normalizer = new CommonUserInputNormalizer();
+
+        $input = $normalizer->normalize([
+            'service_code' => ' SENGOKU_PASSPORT ',
+            'external_user_id' => ' user-123 ',
+        ], 'fallback');
+
+        self::assertSame('SENGOKU_PASSPORT', $input->systemKey);
+        self::assertSame('user-123', $input->externalUserId);
+    }
+
     public function testNormalizerUsesAuthenticatedPartnerAsFallbackSystemKey(): void
     {
         $normalizer = new CommonUserInputNormalizer();

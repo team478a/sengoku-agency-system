@@ -124,7 +124,7 @@ if ($method === 'POST' && ($tail === 'capture' || (($_GET['action'] ?? '') === '
     $session = recordReferralSession([
         'token_row' => $tokenRow,
         'session_key' => $data['referral_session_key'] ?? $data['session_key'] ?? '',
-        'service_key' => $data['system_key'] ?? $data['service_key'] ?? ($auth['site_key'] ?? ''),
+        'service_key' => $data['service_code'] ?? $data['system_key'] ?? $data['service_key'] ?? ($auth['site_key'] ?? ''),
         'service_user_id' => $data['external_user_id'] ?? $data['service_user_id'] ?? '',
         'common_user_id' => $data['common_user_id'] ?? '',
         'landing_url' => $data['landing_url'] ?? '',
@@ -140,7 +140,7 @@ if ($method === 'POST' && ($tail === 'capture' || (($_GET['action'] ?? '') === '
         'referral_token_id' => (int)$tokenRow['id'],
         'referral_session_key' => $session['session_key'] ?? null,
         'touchpoint_type' => $data['touchpoint_type'] ?? 'capture',
-        'source_system_key' => $data['system_key'] ?? $data['service_key'] ?? ($auth['site_key'] ?? ''),
+        'source_system_key' => $data['service_code'] ?? $data['system_key'] ?? $data['service_key'] ?? ($auth['site_key'] ?? ''),
         'source_external_user_id' => $data['external_user_id'] ?? $data['service_user_id'] ?? '',
         'source_url' => $data['referrer_url'] ?? '',
         'landing_url' => $data['landing_url'] ?? '',
@@ -197,7 +197,7 @@ if ($method === 'POST' && ($tail === 'confirm' || (($_GET['action'] ?? '') === '
         $tokenRow = $validation['token'];
     }
 
-    $systemKey = trim((string)($data['system_key'] ?? $data['service_key'] ?? ''));
+    $systemKey = trim((string)($data['service_code'] ?? $data['system_key'] ?? $data['service_key'] ?? ''));
     if ($systemKey === '') {
         $systemKey = (string)($auth['site_key'] ?? '');
     }

@@ -19,7 +19,7 @@ if ($idempotencyKey !== '') {
 if ($method === 'POST') {
     apiV2RequireFlag('external_registration_capture_enabled');
     $data = apiV2ReadJson();
-    $serviceKey = trim((string)($data['service_key'] ?? ''));
+    $serviceKey = trim((string)($data['service_code'] ?? $data['system_key'] ?? $data['service_key'] ?? ''));
     if ($serviceKey === '') {
         $serviceKey = (string)($auth['site_key'] ?? '');
     }
@@ -105,7 +105,7 @@ if ($method === 'GET') {
         ]);
     }
 
-    $serviceKey = trim((string)($_GET['service_key'] ?? ''));
+    $serviceKey = trim((string)($_GET['service_code'] ?? $_GET['system_key'] ?? $_GET['service_key'] ?? ''));
     if ($serviceKey === '') {
         $serviceKey = (string)($auth['site_key'] ?? '');
     }

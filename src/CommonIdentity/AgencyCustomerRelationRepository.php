@@ -41,7 +41,7 @@ final class AgencyCustomerRelationRepository
         $agentId = !empty($data['agent_id']) ? (int)$data['agent_id'] : null;
         $projectId = !empty($data['project_id']) ? (int)$data['project_id'] : 0;
         $relationType = trim((string)($data['relation_type'] ?? 'referral')) ?: 'referral';
-        $sourceServiceKey = trim((string)($data['source_service_key'] ?? '')) ?: null;
+        $sourceServiceKey = trim((string)($data['source_service_key'] ?? $data['service_code'] ?? $data['system_key'] ?? $data['service_key'] ?? '')) ?: null;
         $sourceServiceUserId = trim((string)($data['source_service_user_id'] ?? '')) ?: null;
         $referralTokenId = !empty($data['referral_token_id']) ? (int)$data['referral_token_id'] : null;
         $referralSource = trim((string)($data['referral_source'] ?? '')) ?: null;

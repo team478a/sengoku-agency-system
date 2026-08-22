@@ -156,18 +156,20 @@ function commonUsersApiResolve(array $data, array $auth): array {
     }
 
     $profile = loadCommonUserHubProfile($commonUserId);
-    return [
+    $identityMatchStatus = $unverifiedIdentityCandidateCount > 0 && $matchedBy === 'created' ? 'unverified_candidate_not_auto_merged' : 'ok';
+    $contractFields = commonUserResolutionContractFields($profile ?: [], $identityMatchStatus, $unverifiedIdentityCandidateCount);
+    return array_merge([
         'ok' => true,
         'common_user_id' => $commonUserId,
         'created' => $created,
         'matched_by' => $matchedBy,
-        'identity_match_status' => $unverifiedIdentityCandidateCount > 0 && $matchedBy === 'created' ? 'unverified_candidate_not_auto_merged' : 'ok',
+        'identity_match_status' => $identityMatchStatus,
         'unverified_identity_candidates_count' => $unverifiedIdentityCandidateCount,
         'common_user' => $profile['common_user'] ?? null,
         'system_links' => $profile['system_links'] ?? [],
         'identities' => $profile['identities'] ?? [],
         'agency_relations' => $profile['agency_relations'] ?? [],
-    ];
+    ], $contractFields);
 }
 
 function commonUsersApiSaveSystemLink(string $commonUserId, array $data, array $auth): array {
@@ -275,7 +277,7 @@ if ($method === 'GET') {
         $commonUserId = rawurldecode($tail);
     }
     if ($commonUserId === '') {
-        $systemKey = trim((string)($_GET['system_key'] ?? $_GET['service_key'] ?? ''));
+        $systemKey = trim((string)($_GET['service_code'] ?? $_GET['system_key'] ?? $_GET['service_key'] ?? ''));
         if ($systemKey === '') {
             $systemKey = (string)($auth['site_key'] ?? '');
         }
