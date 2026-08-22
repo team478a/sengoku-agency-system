@@ -15,32 +15,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = sanitizeInput($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    // ② ブルートフォース対策
-    if (checkLoginThrottle($ipHash, 'admin')) {
-        $error = 'ログイン試行回数が上限を超えました。15分後に再試行してください。';
-    } elseif ($username && $password) {
-        $db   = getDB();
-        $stmt = $db->prepare("SELECT * FROM admins WHERE username = ? LIMIT 1");
-        $stmt->execute([$username]);
-        $admin = $stmt->fetch();
+    try {
+        // ② ブルートフォース対策
+        if (checkLoginThrottle($ipHash, 'admin')) {
+            $error = 'ログイン試行回数が上限を超えました。15分後に再試行してください。';
+        } elseif ($username && $password) {
+            $db   = getDB();
+            $stmt = $db->prepare("SELECT * FROM admins WHERE username = ? LIMIT 1");
+            $stmt->execute([$username]);
+            $admin = $stmt->fetch();
 
-        $isActive = !$admin || !array_key_exists('status', $admin) || ($admin['status'] ?? 'active') === 'active';
-        if ($admin && $isActive && password_verify($password, $admin['password'])) {
-            clearLoginAttempts($ipHash, 'admin');
-            recordLoginLog('admin', $admin['id'], $username, true);
-            session_regenerate_id(true);
-            $_SESSION['admin_id']   = $admin['id'];
-            $_SESSION['admin_name'] = !empty($admin['display_name'] ?? '') ? $admin['display_name'] : $admin['username'];
-            $_SESSION['admin_role'] = $admin['role'] ?? 'super_admin';
-            header('Location: /admin/dashboard.php');
-            exit;
+            $isActive = !$admin || !array_key_exists('status', $admin) || ($admin['status'] ?? 'active') === 'active';
+            if ($admin && $isActive && password_verify($password, $admin['password'])) {
+                clearLoginAttempts($ipHash, 'admin');
+                recordLoginLog('admin', $admin['id'], $username, true);
+                session_regenerate_id(true);
+                $_SESSION['admin_id']   = $admin['id'];
+                $_SESSION['admin_name'] = !empty($admin['display_name'] ?? '') ? $admin['display_name'] : $admin['username'];
+                $_SESSION['admin_role'] = $admin['role'] ?? 'super_admin';
+                header('Location: /admin/dashboard.php');
+                exit;
+            }
+            recordLoginAttempt($ipHash, 'admin');
+            recordLoginLog('admin', null, $username, false);
+            $error = 'ユーザー名またはパスワードが正しくありません。';
+            sleep(1);
+        } else {
+            $error = 'ユーザー名とパスワードを入力してください。';
         }
-        recordLoginAttempt($ipHash, 'admin');
-        recordLoginLog('admin', null, $username, false);
-        $error = 'ユーザー名またはパスワードが正しくありません。';
-        sleep(1);
-    } else {
-        $error = 'ユーザー名とパスワードを入力してください。';
+    } catch (Throwable $e) {
+        error_log('Admin login failed unexpectedly: ' . $e->getMessage());
+        $error = 'ログイン処理中にエラーが発生しました。時間をおいて再度お試しください。';
     }
 }
 ?>
@@ -49,7 +54,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>管理画面ログイン | 戦国経済圏</title>
+<title>管理画面ログイン | 千ノ国代理店システム</title>
+<?php renderAppIconLinks(); ?>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -78,7 +84,7 @@ input:focus{outline:none;border-color:#c9a84c;background:rgba(255,255,255,.07)}
 <body>
 <div class="wrap">
     <div class="logo">
-        <p>⚔ 戦国経済圏</p>
+        <p>⚔ 千ノ国代理店システム</p>
         <small>管理パネル</small>
     </div>
     <div class="card">

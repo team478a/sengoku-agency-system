@@ -46,13 +46,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
 
                 $html = '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"></head><body style="font-family:sans-serif;color:#1a1410;padding:2rem;max-width:560px;margin:0 auto;">
                     <div style="background:linear-gradient(135deg,#13100D,#1a1510);padding:1.25rem 2rem;border-radius:6px 6px 0 0;text-align:center;">
-                        <p style="font-family:serif;font-size:1rem;font-weight:700;color:#E2C87A;letter-spacing:.1em;margin:0;">⚔ 戦国経済圏</p>
+                        <p style="font-family:serif;font-size:1rem;font-weight:700;color:#E2C87A;letter-spacing:.1em;margin:0;">⚔ 千ノ国代理店システム</p>
                     </div>
                     <div style="background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 6px 6px;padding:2rem;">
                         <h2 style="font-size:1rem;color:#1a1410;margin:0 0 1.5rem;padding-bottom:.75rem;border-bottom:2px solid #C9A84C;">' . htmlspecialchars($subj) . '</h2>
                         <p style="white-space:pre-line;line-height:1.9;font-size:.9rem;">' . nl2br(htmlspecialchars($bd)) . '</p>
                     </div>
-                    <p style="text-align:center;font-size:.72rem;color:#9ca3af;margin-top:1rem;">© 戦国経済圏</p>
+                    <p style="text-align:center;font-size:.72rem;color:#9ca3af;margin-top:1rem;">© 千ノ国代理店システム</p>
                 </body></html>';
 
                 if ($mailer->send($ag['email'], $subj, $html)) {
@@ -114,11 +114,11 @@ $agents = $db->query("SELECT id, agent_name, person_name, email FROM agents WHER
 
         <div class="form-group">
             <label>件名 *</label>
-            <input type="text" name="subject" required placeholder="【戦国経済圏】新しいテンプレートが追加されました">
+            <input type="text" name="subject" required placeholder="【千ノ国代理店システム】新しいテンプレートが追加されました">
         </div>
         <div class="form-group">
             <label>本文 *</label>
-            <textarea name="body" rows="10" required placeholder="{person_name} 様&#10;&#10;いつもお世話になっております。&#10;戦国経済圏 運営事務局です。&#10;&#10;..."></textarea>
+            <textarea name="body" rows="10" required placeholder="{person_name} 様&#10;&#10;いつもお世話になっております。&#10;千ノ国代理店システム 運営事務局です。&#10;&#10;..."></textarea>
         </div>
 
         <button type="submit" class="btn btn-gold"

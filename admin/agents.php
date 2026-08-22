@@ -7,8 +7,57 @@ $message = '';
 $msgType = 'success';
 $labels = getLevelLabels();
 $positionLabels = getAdvisorPositionLabels();
+$agentPositionLabels = getAgentPositionLabels();
 $editAgent = null;
 $csrf = getCsrfToken();
+
+function adminRoleOptions(array $labels, array $positionLabels, array $agentPositionLabels): array {
+    return [
+        'agent' => $labels[3] ?? 'エージェント',
+        'agent_candidate' => $agentPositionLabels['agent_candidate'] ?? 'エージェント候補',
+        'director' => $labels[2] ?? 'ディレクター',
+        'advisor' => $positionLabels['advisor'] ?? ($labels[1] ?? 'アドバイザー'),
+        'super_advisor' => $positionLabels['super_advisor'] ?? 'スーパーアドバイザー',
+        'influencer' => $positionLabels['influencer'] ?? 'インフルエンサー',
+    ];
+}
+
+function adminRoleSelectionFromPost(array $post, ?array $current = null): array {
+    $roleType = trim((string)($post['role_type'] ?? ''));
+    if ($roleType === '' && isset($post['level'])) {
+        $legacyLevel = (int)$post['level'];
+        if ($legacyLevel === 3) {
+            $roleType = normalizeAgentPosition($post['position_type'] ?? ($current['position_type'] ?? null)) === 'agent_candidate'
+                ? 'agent_candidate'
+                : 'agent';
+        } elseif ($legacyLevel === 2) {
+            $roleType = 'director';
+        } else {
+            $roleType = normalizeAdvisorPosition((string)($post['position_type'] ?? ($current['position_type'] ?? 'advisor')));
+        }
+    }
+    if ($roleType === '') {
+        $roleType = $current ? getAgentRoleKey($current) : 'advisor';
+    }
+
+    if ($roleType === 'agent_candidate') {
+        return ['role_key' => 'agent_candidate', 'level' => 3, 'position_type' => 'agent_candidate', 'position_label' => getAgentCandidateLabel()];
+    }
+    if ($roleType === 'agent') {
+        return ['role_key' => 'agent', 'level' => 3, 'position_type' => null, 'position_label' => null];
+    }
+    if ($roleType === 'director') {
+        return ['role_key' => 'director', 'level' => 2, 'position_type' => null, 'position_label' => null];
+    }
+
+    $advisorPosition = normalizeAdvisorPosition($roleType);
+    return [
+        'role_key' => $advisorPosition,
+        'level' => 1,
+        'position_type' => $advisorPosition,
+        'position_label' => getAdvisorPositionLabel($advisorPosition),
+    ];
+}
 
 function adminAgentLog(PDO $db, string $action, int $agentId, array $details = []): void {
     try {
@@ -48,13 +97,18 @@ function adminDescendantIds(PDO $db, int $agentId): array {
     return $ids;
 }
 
-function adminValidatePlacement(PDO $db, int $agentId, int $level, ?int $parentId, array $labels): array {
+function adminValidatePlacement(PDO $db, int $agentId, int $level, ?int $parentId, array $labels, ?string $positionType = null): array {
     $errors = [];
     if (!in_array($level, [1, 2, 3], true)) {
         return ['区分が不正です。'];
     }
     if ($level === 3) {
-        return [];
+        if (normalizeAgentPosition($positionType) !== 'agent_candidate') {
+            return $parentId ? ['エージェントは本部直属にしてください。'] : [];
+        }
+        if (!$parentId) {
+            return ['エージェント候補の上位にはエージェントを選択してください。'];
+        }
     }
     if (!$parentId) {
         return ['上位を選択してください。'];
@@ -65,15 +119,76 @@ function adminValidatePlacement(PDO $db, int $agentId, int $level, ?int $parentI
     if ($agentId > 0 && in_array($parentId, adminDescendantIds($db, $agentId), true)) {
         $errors[] = '配下メンバーを上位に設定できません。';
     }
-    $stmt = $db->prepare("SELECT level FROM agents WHERE id=? AND status='active'");
+    $stmt = $db->prepare("SELECT level, position_type FROM agents WHERE id=? AND status='active'");
     $stmt->execute([$parentId]);
-    $parentLevel = (int)($stmt->fetchColumn() ?: 0);
-    $allowed = $level === 1 ? [2, 3] : [$level + 1];
+    $parent = $stmt->fetch() ?: [];
+    $parentLevel = (int)($parent['level'] ?? 0);
+    $allowed = $level === 1 ? [2, 3] : ($level === 3 ? [3] : [$level + 1]);
     if (!in_array($parentLevel, $allowed, true)) {
         $allowedLabels = array_map(fn($lv) => $labels[$lv] ?? ('Lv.' . $lv), $allowed);
         $errors[] = ($labels[$level] ?? '対象') . 'の上位には' . implode('または', $allowedLabels) . 'を選択してください。';
     }
+    if ($level === 3 && normalizeAgentPosition($positionType) === 'agent_candidate' && normalizeAgentPosition($parent['position_type'] ?? null) === 'agent_candidate') {
+        $errors[] = 'エージェント候補の上位には、候補ではないエージェントを選択してください。';
+    }
     return $errors;
+}
+
+function adminAllowedParentLevelsFor(int $level, ?string $positionType = null): array {
+    if ($level === 3 && normalizeAgentPosition($positionType) === 'agent_candidate') {
+        return [3];
+    }
+    if ($level === 2) {
+        return [3];
+    }
+    if ($level === 1) {
+        return [2, 3];
+    }
+    return [];
+}
+
+function adminParentCandidates(PDO $db, int $agentId, int $level, ?string $positionType = null): array {
+    $allowedLevels = adminAllowedParentLevelsFor($level, $positionType);
+    if (!$allowedLevels) {
+        return [];
+    }
+
+    $blockedIds = $agentId > 0 ? array_merge([$agentId], adminDescendantIds($db, $agentId)) : [];
+    $levelPlaceholders = implode(',', array_fill(0, count($allowedLevels), '?'));
+    $sql = "SELECT id, agent_name, person_name, level, position_type, position_label FROM agents WHERE status='active' AND level IN ($levelPlaceholders)";
+    $params = $allowedLevels;
+    if ($level === 3 && normalizeAgentPosition($positionType) === 'agent_candidate') {
+        $sql .= " AND (position_type IS NULL OR position_type <> 'agent_candidate')";
+    }
+
+    if ($blockedIds) {
+        $blockedPlaceholders = implode(',', array_fill(0, count($blockedIds), '?'));
+        $sql .= " AND id NOT IN ($blockedPlaceholders)";
+        $params = array_merge($params, $blockedIds);
+    }
+
+    $sql .= ' ORDER BY level DESC, agent_name ASC';
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll();
+}
+
+function adminAgentBriefName(PDO $db, ?int $agentId): ?string {
+    if (!$agentId) {
+        return null;
+    }
+    $stmt = $db->prepare('SELECT agent_name, person_name, agent_code FROM agents WHERE id=?');
+    $stmt->execute([$agentId]);
+    $agent = $stmt->fetch();
+    if (!$agent) {
+        return null;
+    }
+    $parts = array_filter([
+        $agent['agent_name'] ?? '',
+        $agent['person_name'] ?? '',
+        $agent['agent_code'] ?? '',
+    ], static fn($value) => trim((string)$value) !== '');
+    return implode(' / ', $parts);
 }
 
 function lpModeLabel(array $ag): string {
@@ -136,9 +251,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } elseif ($action === 'role_update') {
                 $id = (int)($_POST['id'] ?? 0);
-                $level = (int)($_POST['level'] ?? 1);
-                $parentId = $level === 3 ? null : ((int)($_POST['parent_id'] ?? 0) ?: null);
-                $errors = adminValidatePlacement($db, $id, $level, $parentId, $labels);
+                $current = getAgentById($id);
+                $role = adminRoleSelectionFromPost($_POST, $current ?: null);
+                $level = (int)$role['level'];
+                $parentId = ($level === 3 && $role['role_key'] !== 'agent_candidate') ? null : ((int)($_POST['parent_id'] ?? 0) ?: null);
+                $errors = adminValidatePlacement($db, $id, $level, $parentId, $labels, $role['position_type']);
                 if ($errors) {
                     $message = implode(' ', $errors);
                     $msgType = 'error';
@@ -150,18 +267,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $db->prepare('UPDATE agents SET setup_token=?, setup_token_exp=?, password=NULL WHERE id=?')->execute([$token, $exp, $id]);
                         $setupUrl = adminBuildSetupUrl($token);
                     }
-                    $rolePositionType = $level === 1 ? 'advisor' : null;
-                    $rolePositionLabel = $level === 1 ? getAdvisorPositionLabel($rolePositionType) : null;
                     $db->prepare('UPDATE agents SET level=?, parent_id=?, position_type=?, position_label=? WHERE id=?')
-                       ->execute([$level, $parentId, $rolePositionType, $rolePositionLabel, $id]);
-                    adminAgentLog($db, 'role_update', $id, ['level' => $level, 'parent_id' => $parentId]);
+                       ->execute([$level, $parentId, $role['position_type'], $role['position_label'], $id]);
+                    adminAgentLog($db, 'role_update', $id, ['role_key' => $role['role_key'], 'level' => $level, 'parent_id' => $parentId]);
                     syncAgentToExternalPartner($id, 'role_updated');
                     $message = '権限を更新しました。' . ($setupUrl ? ' 初回設定URL: ' . $setupUrl : '');
                 }
+            } elseif ($action === 'parent_update') {
+                $id = (int)($_POST['id'] ?? 0);
+                $target = getAgentById($id);
+                if (!$target) {
+                    $message = '対象メンバーが見つかりません。';
+                    $msgType = 'error';
+                } else {
+                    $level = (int)($target['level'] ?? 1);
+                    $roleKey = getAgentRoleKey($target);
+                    $parentId = ($level === 3 && $roleKey !== 'agent_candidate') ? null : ((int)($_POST['parent_id'] ?? 0) ?: null);
+                    $errors = adminValidatePlacement($db, $id, $level, $parentId, $labels, $target['position_type'] ?? null);
+                    if ($errors) {
+                        $message = implode(' ', $errors);
+                        $msgType = 'error';
+                    } else {
+                        $oldParentId = !empty($target['parent_id']) ? (int)$target['parent_id'] : null;
+                        $reason = trim((string)($_POST['change_reason'] ?? ''));
+                        if ($reason !== '') {
+                            $reason = function_exists('mb_substr') ? mb_substr($reason, 0, 200) : substr($reason, 0, 200);
+                        }
+                        $db->prepare('UPDATE agents SET parent_id=? WHERE id=?')->execute([$parentId, $id]);
+                        adminAgentLog($db, 'parent_update', $id, [
+                            'old_parent_id' => $oldParentId,
+                            'old_parent_name' => adminAgentBriefName($db, $oldParentId),
+                            'new_parent_id' => $parentId,
+                            'new_parent_name' => adminAgentBriefName($db, $parentId),
+                            'level' => $level,
+                            'reason' => $reason,
+                        ]);
+                        syncAgentToExternalPartner($id, 'parent_updated');
+                        $message = '上位の紐づけを変更しました。';
+                    }
+                }
             } elseif (in_array($action, ['create', 'update'], true)) {
                 $id = (int)($_POST['id'] ?? 0);
-                $level = (int)($_POST['level'] ?? 1);
-                $parentId = $level === 3 ? null : ((int)($_POST['parent_id'] ?? 0) ?: null);
+                $current = $id > 0 ? getAgentById($id) : null;
+                $role = adminRoleSelectionFromPost($_POST, $current ?: null);
+                $level = (int)$role['level'];
+                $parentId = ($level === 3 && $role['role_key'] !== 'agent_candidate') ? null : ((int)($_POST['parent_id'] ?? 0) ?: null);
                 $data = [
                     'agent_code' => sanitizeInput($_POST['agent_code'] ?? ''),
                     'agent_name' => sanitizeInput($_POST['agent_name'] ?? ''),
@@ -184,8 +334,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'notify_slack' => isset($_POST['notify_slack']) ? 1 : 0,
                     'slack_webhook' => sanitizeInput($_POST['slack_webhook'] ?? ''),
                     'profile_image' => sanitizeInput($_POST['current_profile_image'] ?? ''),
-                    'position_type' => $level === 1 ? normalizeAdvisorPosition((string)($_POST['position_type'] ?? ($_POST['current_position_type'] ?? 'advisor'))) : null,
-                    'position_label' => $level === 1 ? getAdvisorPositionLabel(normalizeAdvisorPosition((string)($_POST['position_type'] ?? ($_POST['current_position_type'] ?? 'advisor')))) : null,
+                    'position_type' => $role['position_type'],
+                    'position_label' => $role['position_label'],
                 ];
                 if (!empty($_FILES['profile_image']['tmp_name'])) {
                     $ext = strtolower(pathinfo($_FILES['profile_image']['name'], PATHINFO_EXTENSION));
@@ -211,9 +361,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $emailStmt->execute($emailParams);
                 if ($emailStmt->fetch()) $errors[] = 'このメールアドレスはすでに登録されています。';
                 if ($action === 'update') {
-                    $errors = array_merge($errors, adminValidatePlacement($db, $id, $level, $parentId, $labels));
+                    $errors = array_merge($errors, adminValidatePlacement($db, $id, $level, $parentId, $labels, $role['position_type']));
                 } else {
-                    $errors = array_merge($errors, adminValidatePlacement($db, 0, $level, $parentId, $labels));
+                    $errors = array_merge($errors, adminValidatePlacement($db, 0, $level, $parentId, $labels, $role['position_type']));
                 }
                 if ($errors) {
                     $message = implode(' ', $errors);
@@ -255,7 +405,8 @@ $stmt = $db->prepare("SELECT a.*, t.name AS template_name, p.agent_name AS paren
 $stmt->execute($params);
 $agents = $stmt->fetchAll();
 $templates = getActiveTemplates();
-$agentsList = $db->query("SELECT id, agent_name, person_name, level FROM agents WHERE level IN (2,3) AND status='active' ORDER BY level DESC, agent_name")->fetchAll();
+$agentsList = $db->query("SELECT id, agent_name, person_name, level, position_type, position_label FROM agents WHERE level IN (2,3) AND status='active' ORDER BY level DESC, agent_name")->fetchAll();
+$roleOptions = adminRoleOptions($labels, $positionLabels, $agentPositionLabels);
 ?>
 
 <?php if ($message): ?>
@@ -279,29 +430,22 @@ $agentsList = $db->query("SELECT id, agent_name, person_name, level FROM agents 
             <div class="form-group"><label>メールアドレス *</label><input type="email" name="email" value="<?= h($editAgent['email'] ?? '') ?>" required></div>
             <div class="form-group"><label>電話番号</label><input type="tel" name="phone" value="<?= h($editAgent['phone'] ?? '') ?>"></div>
             <div class="form-group"><label>LINE URL</label><input type="url" name="line_url" id="lineUrlInput" value="<?= h($editAgent['line_url'] ?? '') ?>" placeholder="https://lin.ee/..."></div>
+            <?php $selectedRole = $editAgent ? getAgentRoleKey($editAgent) : 'advisor'; ?>
             <div class="form-group">
                 <label>区分</label>
-                <select name="level">
-                    <option value="1" <?= ((int)($editAgent['level'] ?? 1) === 1) ? 'selected' : '' ?>><?= h($labels[1] ?? 'アドバイザー') ?></option>
-                    <option value="2" <?= ((int)($editAgent['level'] ?? 1) === 2) ? 'selected' : '' ?>><?= h($labels[2] ?? 'ディレクター') ?></option>
-                    <option value="3" <?= ((int)($editAgent['level'] ?? 1) === 3) ? 'selected' : '' ?>><?= h($labels[3] ?? 'エージェント') ?></option>
-                </select>
-            </div>
-            <?php $selectedPosition = normalizeAdvisorPosition((string)($editAgent['position_type'] ?? 'advisor')); ?>
-            <div class="form-group">
-                <label>アドバイザー種別</label>
-                <select name="position_type">
-                    <?php foreach ($positionLabels as $key => $name): ?>
-                    <option value="<?= h($key) ?>" <?= $selectedPosition === $key ? 'selected' : '' ?>><?= h($name) ?></option>
+                <select name="role_type">
+                    <?php foreach ($roleOptions as $key => $name): ?>
+                    <option value="<?= h($key) ?>" <?= $selectedRole === $key ? 'selected' : '' ?>><?= h($name) ?></option>
                     <?php endforeach; ?>
                 </select>
+                <small style="display:block;color:var(--text-muted);margin-top:.35rem;">エージェント候補は上位エージェント配下に置き、エージェントと同じくディレクターを配下に管理できます。</small>
             </div>
             <div class="form-group">
                 <label>上位</label>
                 <select name="parent_id">
                     <option value="">本部直属</option>
                     <?php foreach ($agentsList as $parent): ?>
-                    <option value="<?= (int)$parent['id'] ?>" <?= ((int)($editAgent['parent_id'] ?? 0) === (int)$parent['id']) ? 'selected' : '' ?>>[<?= h($labels[(int)$parent['level']] ?? 'Lv.'.$parent['level']) ?>] <?= h($parent['agent_name']) ?>（<?= h($parent['person_name']) ?>）</option>
+                    <option value="<?= (int)$parent['id'] ?>" <?= ((int)($editAgent['parent_id'] ?? 0) === (int)$parent['id']) ? 'selected' : '' ?>>[<?= h(getAgentRoleLabel($parent)) ?>] <?= h($parent['agent_name']) ?>（<?= h($parent['person_name']) ?>）</option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -334,20 +478,20 @@ $agentsList = $db->query("SELECT id, agent_name, person_name, level FROM agents 
     </form>
 </div>
 
-<div style="display:flex;gap:.5rem;align-items:center;margin-bottom:1rem;">
-    <form method="get" style="display:flex;gap:.5rem;flex:1;"><input type="text" name="q" value="<?= h($search) ?>" placeholder="名称・担当者名・コードで検索" style="flex:1;padding:.5rem .8rem;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:4px;color:var(--paper);font-family:inherit;"><button type="submit" class="btn btn-outline">検索</button><?php if ($search): ?><a href="/admin/agents.php" class="btn btn-outline">クリア</a><?php endif; ?></form>
+<div style="display:flex;gap:.5rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap;">
+    <form method="get" style="display:flex;gap:.5rem;flex:1;min-width:280px;"><input type="text" name="q" value="<?= h($search) ?>" placeholder="名称・担当者名・コードで検索" style="flex:1;padding:.5rem .8rem;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:4px;color:var(--paper);font-family:inherit;"><button type="submit" class="btn btn-outline">検索</button><?php if ($search): ?><a href="/admin/agents.php" class="btn btn-outline">クリア</a><?php endif; ?></form>
+    <a href="/admin/export_csv.php?type=bank_accounts<?= $search !== '' ? '&q=' . urlencode($search) : '' ?>" class="btn btn-outline">振込先CSV</a>
 </div>
 
 <div class="card" style="padding:0;">
     <div class="table-scroll">
     <table class="admin-agents-table">
-        <thead><tr><th>コード</th><th>区分</th><th>アドバイザー種別</th><th>名称</th><th>担当者</th><th>上位</th><th>テンプレート</th><th>LP導線</th><th>LP URL</th><th>状態</th><th>操作</th></tr></thead>
+        <thead><tr><th>コード</th><th>区分</th><th>名称</th><th>担当者</th><th>上位</th><th>テンプレート</th><th>LP導線</th><th>LP URL</th><th>状態</th><th>操作</th></tr></thead>
         <tbody>
         <?php if ($agents): foreach ($agents as $ag): ?>
             <tr>
                 <td style="font-family:monospace;font-size:.82rem;color:var(--gold)"><?= h($ag['agent_code']) ?></td>
-                <td><?= h($labels[(int)($ag['level'] ?? 1)] ?? 'Lv.'.($ag['level'] ?? 1)) ?></td>
-                <td><?= ((int)($ag['level'] ?? 1) === 1) ? h(getAdvisorPositionLabel($ag['position_type'] ?? null, $ag['position_label'] ?? null)) : '-' ?></td>
+                <td><?= h(getAgentRoleLabel($ag)) ?></td>
                 <td><?= h($ag['agent_name']) ?></td>
                 <td><?= h($ag['person_name']) ?></td>
                 <td><?= h($ag['parent_name'] ?? '-') ?></td>
@@ -356,7 +500,8 @@ $agentsList = $db->query("SELECT id, agent_name, person_name, level FROM agents 
                 <td><a href="/a/<?= h($ag['agent_code']) ?>" target="_blank" style="color:var(--gold);text-decoration:none;">/a/<?= h($ag['agent_code']) ?></a></td>
                 <td><span class="badge badge-<?= $ag['status'] === 'active' ? 'active' : 'inactive' ?>"><?= $ag['status'] === 'active' ? '公開中' : '停止中' ?></span></td>
                 <td class="agent-actions" style="white-space:nowrap;">
-                    <form method="post" style="display:inline-flex;gap:.25rem;align-items:center;margin-bottom:.25rem;"><input type="hidden" name="csrf_token" value="<?= h($csrf) ?>"><input type="hidden" name="action" value="role_update"><input type="hidden" name="id" value="<?= (int)$ag['id'] ?>"><select name="level" style="width:auto;padding:.25rem .45rem;font-size:.75rem;"><option value="1" <?= ((int)($ag['level'] ?? 1) === 1) ? 'selected' : '' ?>><?= h($labels[1] ?? 'アドバイザー') ?></option><option value="2" <?= ((int)($ag['level'] ?? 1) === 2) ? 'selected' : '' ?>><?= h($labels[2] ?? 'ディレクター') ?></option><option value="3" <?= ((int)($ag['level'] ?? 1) === 3) ? 'selected' : '' ?>><?= h($labels[3] ?? 'エージェント') ?></option></select><select name="parent_id" style="width:auto;max-width:180px;padding:.25rem .45rem;font-size:.75rem;"><option value="">本部直属</option><?php foreach ($agentsList as $parent): if ((int)$parent['id'] === (int)$ag['id']) continue; ?><option value="<?= (int)$parent['id'] ?>" <?= ((int)($ag['parent_id'] ?? 0) === (int)$parent['id']) ? 'selected' : '' ?>>[<?= h($labels[(int)$parent['level']] ?? 'Lv.'.$parent['level']) ?>] <?= h($parent['agent_name']) ?></option><?php endforeach; ?></select><label style="font-size:.72rem;"><input type="checkbox" name="reset_setup" value="1"> 初回設定URL</label><button type="submit" class="btn btn-gold btn-sm">権限保存</button></form><br>
+                    <form method="post" style="display:inline-flex;gap:.25rem;align-items:center;margin-bottom:.25rem;flex-wrap:wrap;"><input type="hidden" name="csrf_token" value="<?= h($csrf) ?>"><input type="hidden" name="action" value="role_update"><input type="hidden" name="id" value="<?= (int)$ag['id'] ?>"><select name="role_type" style="width:auto;padding:.25rem .45rem;font-size:.75rem;"><?php $agRoleKey = getAgentRoleKey($ag); foreach ($roleOptions as $roleKey => $roleName): ?><option value="<?= h($roleKey) ?>" <?= $agRoleKey === $roleKey ? 'selected' : '' ?>><?= h($roleName) ?></option><?php endforeach; ?></select><select name="parent_id" style="width:auto;max-width:180px;padding:.25rem .45rem;font-size:.75rem;"><option value="">本部直属</option><?php foreach ($agentsList as $parent): if ((int)$parent['id'] === (int)$ag['id']) continue; ?><option value="<?= (int)$parent['id'] ?>" <?= ((int)($ag['parent_id'] ?? 0) === (int)$parent['id']) ? 'selected' : '' ?>>[<?= h(getAgentRoleLabel($parent)) ?>] <?= h($parent['agent_name']) ?></option><?php endforeach; ?></select><label style="font-size:.72rem;"><input type="checkbox" name="reset_setup" value="1"> 初回設定URL</label><button type="submit" class="btn btn-gold btn-sm">権限保存</button></form><br>
+                    <a href="/admin/agent_parent_links.php?q=<?= h(rawurlencode((string)$ag['agent_code'])) ?>" class="btn btn-outline btn-sm">親子変更</a>
                     <a href="/admin/agents.php?edit=<?= (int)$ag['id'] ?>" class="btn btn-outline btn-sm">編集</a>
                     <form method="post" style="display:inline;" onsubmit="return confirm('初回設定URLを再発行します。よろしいですか？')"><input type="hidden" name="csrf_token" value="<?= h($csrf) ?>"><input type="hidden" name="action" value="reset_password"><input type="hidden" name="id" value="<?= (int)$ag['id'] ?>"><button type="submit" class="btn btn-outline btn-sm" style="color:var(--gold);">PW再発行</button></form>
                     <form method="post" style="display:inline;"><input type="hidden" name="csrf_token" value="<?= h($csrf) ?>"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= (int)$ag['id'] ?>"><button type="submit" class="btn btn-outline btn-sm"><?= $ag['status'] === 'active' ? '停止' : '再開' ?></button></form>
@@ -364,7 +509,7 @@ $agentsList = $db->query("SELECT id, agent_name, person_name, level FROM agents 
                 </td>
             </tr>
         <?php endforeach; else: ?>
-            <tr><td colspan="11" style="text-align:center;color:var(--text-muted);padding:3rem;">メンバーがまだ登録されていません。</td></tr>
+            <tr><td colspan="10" style="text-align:center;color:var(--text-muted);padding:3rem;">メンバーがまだ登録されていません。</td></tr>
         <?php endif; ?>
         </tbody>
     </table>

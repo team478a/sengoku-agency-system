@@ -72,7 +72,8 @@ GET  /api/v2/referral-relations/by-common-user/{common_user_id}
 - `wallet_address`
 - `referral_token`
 - `agent_code`
-- `project_slug`
+- `project_key`（正式名）
+- `project_slug`（既存互換）
 
 ## Phase 3: 紹介トークン
 

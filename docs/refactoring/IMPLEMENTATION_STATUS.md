@@ -1,0 +1,501 @@
+# Implementation Status
+
+## v3.6.104 CI Readiness Coverage
+
+Status: completed
+
+Implemented in this phase:
+
+- Added characterization coverage for `LandingPageRenderer`.
+- Covered template file resolution, template include scope, token-render callback execution, and preview-bar injection.
+- Checked CI visibility from the local environment.
+
+Runtime behavior changed: no
+
+Database changed: no
+
+Existing LP URLs, preview URLs, database schema, and external API contracts changed: no
+
+Remaining Phase 6 work:
+
+- Monitor GitHub Actions from an authenticated GitHub session and address any CI-environment-only failures.
+
+## v3.6.103 LandingPage Rendering Foundation
+
+Status: completed
+
+Implemented in this phase:
+
+- Added `LandingPageRenderer`.
+- Routed normal LP display template rendering through the renderer.
+- Routed LP preview template rendering and preview-bar injection through the renderer.
+- Routed remaining LP template lookup in `lp.php` through `LandingPageTemplateRepository`.
+
+Runtime behavior changed: limited to internal LP rendering delegation
+
+Database changed: no
+
+Existing LP URLs, preview URLs, fallback template behavior, template token replacement, SEO injection, referral tracking, access logging, and external API contracts changed: no
+
+Remaining Phase 6 work:
+
+- Monitor GitHub Actions from an authenticated GitHub session and address any CI-environment-only failures.
+
+## v3.6.102 Template Repository Foundation
+
+Status: completed
+
+Implemented in this phase:
+
+- Added `LandingPageTemplateRepository`.
+- Routed active template lookup, template-by-ID lookup, project template fallback resolution, and template project ID lookup through the repository.
+- Routed LP template customizer field persistence through the repository.
+- Routed admin template create, update, delete, status toggle, edit lookup, and list retrieval through the repository.
+- Routed SEO source lookup through the repository.
+
+Runtime behavior changed: limited to internal LP template storage/query delegation
+
+Database changed: no
+
+Existing admin URLs, LP URLs, uploaded file paths, template field keys, public helper names, and external API contracts changed: no
+
+Remaining Phase 6 work:
+
+- Monitor the first GitHub Actions run and address any CI-environment-only failures.
+
+## v3.6.101 Notification Channel Foundation
+
+Status: completed
+
+Implemented in this phase:
+
+- Added email, LINE, Chatwork, and Slack notification channel classes.
+- Added `LeadNotifier`.
+- Added `LeadNotificationMessageBuilder`.
+- Added `JsonWebhookClient`.
+- Routed the legacy `Notifier` class through the new notification services.
+
+Runtime behavior changed: limited to internal notification delegation
+
+Database changed: no
+
+Existing `Notifier` constructor, `send()` return keys, notification settings, message text, webhook URLs, and API contracts changed: no
+
+Remaining Phase 6 work:
+
+- Monitor the first GitHub Actions run and address any CI-environment-only failures.
+
+## v3.6.100 Access Logging Foundation
+
+Status: completed
+
+Implemented in this phase:
+
+- Added `AccessLogRecorder`.
+- Routed `logAccess()` through `AccessLogRecorder`.
+- Preserved access log columns, LP template project lookup, referral token ID, and referral session key handling.
+
+Runtime behavior changed: limited to internal access-log delegation
+
+Database changed: no
+
+Existing `logAccess()` call sites, LP URLs, activity reports, access log table columns, and webhook/API contracts changed: no
+
+Remaining Phase 6 work:
+
+- Monitor the first GitHub Actions run and address any CI-environment-only failures.
+
+## v3.6.99 LandingPage SEO Metadata Foundation
+
+Status: completed
+
+Implemented in this phase:
+
+- Added `SeoMetadataBuilder`.
+- Routed `buildLpSeoMeta()` through `SeoMetadataBuilder`.
+- Routed `injectLpSeoHead()` through `SeoMetadataBuilder`.
+- Added characterization coverage for title, canonical URL, OG image, and JSON-LD head injection.
+
+Runtime behavior changed: limited to internal SEO metadata delegation
+
+Database changed: no
+
+Existing LP helper function names, LP template calls, title fallback order, canonical URL shape, and SEO tag set changed: no
+
+Remaining Phase 6 work:
+
+- Monitor the first GitHub Actions run and address any CI-environment-only failures.
+
+## v3.6.98 Activity Trend And Ranking Foundation
+
+Status: completed
+
+Implemented in this phase:
+
+- Added `ActivityTrendService`.
+- Routed `agent/dashboard.php` 30-day PV and lead trend arrays through `ActivityTrendService`.
+- Added `ActivityDownlineRankingService`.
+- Routed `agent/reports.php` downline activity rows and PV/lead rankings through `ActivityDownlineRankingService`.
+- Added characterization coverage for ranking order.
+
+Runtime behavior changed: limited to internal query-service delegation
+
+Database changed: no
+
+Existing dashboard URLs, report URLs, filters, graph data shape, and ranking labels changed: no
+
+Remaining Phase 7 work:
+
+- Monitor the first GitHub Actions run and address any CI-environment-only failures.
+
+## v3.6.97 Activity Presentation Foundation
+
+Status: completed
+
+Implemented in this phase:
+
+- Added `ActivitySummaryCards`.
+- Routed `admin/agent_activity.php` summary cards through `ActivitySummaryCards`.
+- Routed `agent/downline_activity.php` summary cards through `ActivitySummaryCards`.
+- Added characterization tests for activity summary card labels and values.
+
+Runtime behavior changed: limited to internal presentation delegation
+
+Database changed: no
+
+Existing activity page URLs, queries, labels, and values changed: no
+
+Remaining Phase 7 work:
+
+- Monitor the first GitHub Actions run and address any CI-environment-only failures.
+
+## v3.6.96 CI CSV Contract Test Execution
+
+Status: completed
+
+Implemented in this phase:
+
+- Added a MariaDB service to `.github/workflows/ci.yml`.
+- Added CI execution of `composer test:csv-contract`.
+- Kept CSV contract test data isolated in connection-local temporary tables.
+
+Runtime behavior changed: no
+
+Database changed: no
+
+Existing CSV URLs and CSV column order changed: no
+
+Remaining CSV foundation work:
+
+- Monitor the first GitHub Actions run and address any CI-environment-only failures.
+
+## v3.6.95 CSV Contract Test Foundation
+
+Status: completed
+
+Implemented in this phase:
+
+- Added `scripts/run-csv-contract-tests.php`.
+- Added `composer test:csv-contract`.
+- Covered DB-backed row contracts for:
+  - `LeadCsvExportService`
+  - `SubAgentCsvExportService`
+  - `RecruitmentLinkCsvExportService`
+  - `TemplateReportCsvExportService`
+  - `LoginLogCsvExportService`
+
+Runtime behavior changed: no
+
+Database changed: no
+
+Existing CSV URLs and CSV column order changed: no
+
+Remaining CSV foundation work:
+
+- CI execution was added in v3.6.96.
+
+## v3.6.94 Audit CSV Foundation
+
+Status: completed
+
+Implemented in this phase:
+
+- Added `src/Audit` class:
+  - `LoginLogCsvExportService`
+- Routed `admin/export_csv.php?type=login_logs` row generation through `LoginLogCsvExportService`.
+
+Runtime behavior changed: limited to internal query delegation
+
+Database changed: no
+
+Existing CSV URLs and CSV column order changed: no
+
+Remaining CSV foundation work:
+
+- Run DB-backed CSV contract tests in an environment with a PDO MySQL driver.
+
+## v3.6.93 Reporting CSV Foundation
+
+Status: completed
+
+Implemented in this phase:
+
+- Added `src/Reporting` class:
+  - `TemplateReportCsvExportService`
+- Routed `admin/export_csv.php?type=template_reports` row generation through `TemplateReportCsvExportService`.
+
+Runtime behavior changed: limited to internal query delegation
+
+Database changed: no
+
+Existing CSV URLs and CSV column order changed: no
+
+Remaining CSV foundation work:
+
+- Run DB-backed CSV contract tests in an environment with a PDO MySQL driver.
+
+## v3.6.92 Agency Recruitment Link CSV Foundation
+
+Status: completed
+
+Implemented in this phase:
+
+- Added `src/Agency` class:
+  - `RecruitmentLinkCsvExportService`
+- Routed `agent/export_csv.php?type=recruitment_links` row generation through `RecruitmentLinkCsvExportService`.
+
+Runtime behavior changed: limited to internal query delegation
+
+Database changed: no
+
+Existing CSV URLs and CSV column order changed: no
+
+Remaining CSV foundation work:
+
+- Run DB-backed CSV contract tests in an environment with a PDO MySQL driver.
+
+## v3.6.91 Agency CSV Foundation
+
+Status: completed
+
+Implemented in this phase:
+
+- Added `src/Agency` class:
+  - `SubAgentCsvExportService`
+- Routed `agent/export_csv.php?type=sub_agents` row generation through `SubAgentCsvExportService`.
+
+Runtime behavior changed: limited to internal query delegation
+
+Database changed: no
+
+Existing CSV URLs and CSV column order changed: no
+
+Remaining CSV foundation work:
+
+- Template report CSV extraction was completed in v3.6.93.
+- Run DB-backed CSV contract tests in an environment with a PDO MySQL driver.
+
+## v3.6.90 Lead CSV Foundation
+
+Status: completed
+
+Implemented in this phase:
+
+- Added `src/Lead` class:
+  - `LeadCsvExportService`
+- Routed `admin/export_csv.php?type=leads` row generation through `LeadCsvExportService`.
+- Routed `agent/export_csv.php?type=leads` row generation through `LeadCsvExportService`.
+
+Runtime behavior changed: limited to internal query delegation
+
+Database changed: no
+
+Existing CSV URLs and CSV column order changed: no
+
+Remaining CSV foundation work:
+
+- Template report CSV extraction was completed in v3.6.93.
+- Run DB-backed CSV contract tests in an environment with a PDO MySQL driver.
+
+## v3.6.89 Activity CSV Foundation
+
+Status: completed
+
+Implemented in this phase:
+
+- Added all-row export support to `ActivityQueryService`.
+- Routed `admin/export_csv.php?type=agent_activity` through `ActivityQueryService`.
+- Routed `agent/export_csv.php?type=downline_activity` through `ActivityQueryService`.
+
+Runtime behavior changed: limited to internal query delegation
+
+Database changed: no
+
+Existing CSV URLs and CSV column order changed: no
+
+Remaining CSV foundation work:
+
+- Sub-agent CSV extraction was completed in v3.6.91.
+- Run DB-backed CSV contract tests in an environment with a PDO MySQL driver.
+
+## v3.6.88 Activity Foundation
+
+Status: in progress
+
+Implemented in this phase:
+
+- Added `src/Activity` class:
+  - `ActivityQueryService`
+- Routed `admin/agent_activity.php` activity aggregation through `ActivityQueryService`.
+- Routed `agent/downline_activity.php` downline activity aggregation through `ActivityQueryService`.
+
+Runtime behavior changed: limited to internal query delegation
+
+Database changed: no
+
+Existing page URLs, filters, sort options, CSV links, and display labels changed: no
+
+Remaining Phase 7 work:
+
+- Add dedicated activity trend and ranking query services.
+- Add DB-backed integration tests once local test database configuration is available.
+
+## v3.6.87 LandingPage / Notification Foundation
+
+Status: in progress
+
+Implemented in this phase:
+
+- Added `src/LandingPage` classes:
+  - `LandingPageUrlBuilder`
+  - `LandingPageText`
+  - `ResponsiveImageBuilder`
+- Added `src/Notification` classes:
+  - `TemplateVariableReplacer`
+- Routed existing LP URL helpers, query parameter handling, absolute URL handling, plain text normalization, and responsive image HTML through `src/LandingPage`.
+- Routed existing mail template variable replacement through `src/Notification`.
+
+Runtime behavior changed: limited to internal delegation
+
+Database changed: no
+
+Existing LP URLs, template tags, and mail variable names changed: no
+
+Remaining Phase 6 work:
+
+
+## v3.6.86 Admin Foundation
+
+Status: in progress
+
+Implemented in this phase:
+
+- Added `src/Admin` classes:
+  - `AdminDateFormatter`
+  - `AdminTextFormatter`
+  - `AdminBadgeRenderer`
+  - `OperationsQueryService`
+- Routed `admin/integration_outbox.php` display helpers through shared admin classes.
+- Routed `admin/operations.php` safe query helpers and display helpers through shared admin classes.
+
+Runtime behavior changed: limited to internal delegation
+
+Database changed: no
+
+Existing admin page URLs changed: no
+
+Remaining Phase 5 work:
+
+- Move full POST handling into controller/application services.
+- Move full dashboard SQL into query services.
+- Extract templates for the target admin screens.
+
+## v3.6.85 CommonIdentity / Referral Foundation
+
+Status: in progress
+
+Implemented in this phase:
+
+- Added `src/CommonIdentity` classes:
+  - `CommonUserInput`
+  - `CommonUserInputNormalizer`
+- Added `src/Referral` classes:
+  - `ReferralTokenResolver`
+  - `TouchpointFingerprint`
+- Routed current common user API input normalization through `CommonUserInputNormalizer`.
+- Routed current referral API common user input normalization through `CommonUserInputNormalizer`.
+- Routed referral token resolution and touchpoint IP/user-agent hashing through `src/Referral` classes.
+
+Runtime behavior changed: limited to internal delegation
+
+Database changed: no
+
+Existing API URLs changed: no
+
+## v3.6.84 Integration / Outbox Foundation
+
+Status: in progress
+
+Implemented in this phase:
+
+- Added `src/Integration/Outbox` classes:
+  - `RetryPolicy`
+  - `OutboxClaimService`
+  - `OutboxRepository`
+  - `DeadLetterService`
+- Kept existing compatibility functions and routed them through the new services:
+  - `integrationOutboxSupportsClaims`
+  - `getIntegrationOutboxClaimTimeoutSeconds`
+  - `recoverStaleIntegrationOutboxClaims`
+  - `claimIntegrationOutboxEventById`
+  - `claimDueIntegrationOutboxEvents`
+  - `updateIntegrationOutboxEventAfterAttempt`
+  - `resetIntegrationOutboxEventForRetry`
+  - `moveIntegrationOutboxEventToDlq`
+
+Runtime behavior changed: limited to Outbox internal delegation
+
+Database changed: no
+
+Existing admin/cron/API entrypoints changed: no
+
+## v3.6.83 Shared Foundation
+
+Status: in progress
+
+Implemented in this phase:
+
+- Added shared API authentication and scope authorization classes.
+- Added shared IP restriction, schema checker, API exception payload, HTTP client, logger, and clock classes.
+- Kept existing public functions as compatibility wrappers:
+  - `apiV2Authenticate`
+  - `apiV2RequireScope`
+  - `apiTokenIsValid`
+  - `agencyApiKeyIsValid`
+  - `agencyApiPartnerByKey`
+  - `agencyApiRequireScope`
+- Added `includes/shared_bootstrap.php` so production can load `src/` classes even without Composer autoload.
+
+Runtime behavior changed: limited to shared authentication internals
+
+Database changed: no
+
+Existing API URLs changed: no
+
+## v3.6.82 Modular Monolith Foundation
+
+Status: in progress
+
+Implemented in this phase:
+
+- Added Composer project metadata and PSR-4 autoload mapping for `SenNoKuni\\`.
+- Added PHPUnit, PHPStan, and syntax lint configuration.
+- Added GitHub Actions CI for lint, tests, and static analysis.
+- Added initial characterization tests for legacy entrypoints and function names.
+- Added small Shared module foundation classes under `src/Shared`.
+
+Runtime behavior changed: no
+
+Database changed: no
+
+Existing API contracts changed: no

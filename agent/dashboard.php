@@ -6,7 +6,7 @@ $db  = getDB();
 $aid = $currentAgent['id'];
 $myLv = (int)($currentAgent['level'] ?? 1);
 $levelLabels = getLevelLabels();
-$managedLevel = $myLv >= 3 ? 2 : 1;
+$managedLevel = canManageDirectors($currentAgent) ? 2 : 1;
 $managedLabel = $levelLabels[$managedLevel] ?? ($managedLevel === 2 ? 'ディレクター' : 'アドバイザー');
 $tokenMessage = '';
 $tokenMsgType = 'success';
@@ -211,36 +211,10 @@ if (isset($_GET['regen_token']) && $myLv >= 2) {
 }
 
 // ── 過去30日のPV・問い合わせ推移（グラフ用） ──
-$pvDaily = $db->prepare("
-    SELECT DATE(created_at) AS d, COUNT(*) AS cnt
-    FROM access_logs
-    WHERE agent_id=? AND type='pv' $accessProjectSql AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-    GROUP BY DATE(created_at)
-    ORDER BY d ASC
-");
-$pvDaily->execute(array_merge([$aid], $accessProjectParams));
-$pvData = $pvDaily->fetchAll(\PDO::FETCH_KEY_PAIR);
-
-$leadDaily = $db->prepare("
-    SELECT DATE(created_at) AS d, COUNT(*) AS cnt
-    FROM leads
-    WHERE agent_id IN ($visiblePlaceholders) $leadProjectSql AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-    GROUP BY DATE(created_at)
-    ORDER BY d ASC
-");
-$leadDaily->execute(array_merge($visibleAgentIds, $leadProjectParams));
-$leadData = $leadDaily->fetchAll(\PDO::FETCH_KEY_PAIR);
-
-// 過去30日の日付配列を生成
-$labels = [];
-$pvVals  = [];
-$leadVals = [];
-for ($i = 29; $i >= 0; $i--) {
-    $date = date('Y-m-d', strtotime("-{$i} days"));
-    $labels[]  = date('m/d', strtotime($date));
-    $pvVals[]   = (int)($pvData[$date]  ?? 0);
-    $leadVals[] = (int)($leadData[$date] ?? 0);
-}
+$trend = (new \SenNoKuni\Activity\ActivityTrendService($db))->dailySeries($aid, $visibleAgentIds, $dashboardProjectId, 30);
+$labels = $trend['labels'];
+$pvVals = $trend['pv'];
+$leadVals = $trend['leads'];
 
 // ── 最新問い合わせ5件 ──
 $recentLeads = $db->prepare("

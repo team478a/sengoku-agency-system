@@ -97,6 +97,16 @@ $projects = $projectsReady ? getProjects(false) : [];
   </div>
 <?php else: ?>
   <div class="card">
+    <p class="card-title">商品・プロジェクト追加の手順</p>
+    <ol style="font-size:.86rem;color:var(--text-muted);line-height:1.9;margin:0;padding-left:1.2rem;">
+      <li>この画面で商品・案件ごとのプロジェクトを追加します。</li>
+      <li><code>project_key</code> は外部サービス連携で使う正式な案件識別子です。英数字・ハイフン・アンダーバーで決めてください。</li>
+      <li>追加後、テンプレート管理でこのプロジェクトにLPを紐づけます。</li>
+      <li>外部サービスへは、外部API連携の「外部サービス用APIキー」と、この画面の <code>project_key</code> を渡します。</li>
+    </ol>
+  </div>
+
+  <div class="card">
     <p class="card-title"><?= $editProject ? 'プロジェクトを編集' : '新規プロジェクト追加' ?></p>
     <form method="post">
       <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>">
@@ -105,8 +115,9 @@ $projects = $projectsReady ? getProjects(false) : [];
 
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;">
         <div class="form-group">
-          <label>スラッグ *</label>
+          <label>project_key（スラッグ） *</label>
           <input type="text" name="slug" value="<?= h($editProject['slug'] ?? '') ?>" placeholder="new-project" required>
+          <p style="font-size:.72rem;color:var(--text-muted);margin-top:.3rem;">例: <code>sengoku-influencer</code>, <code>ai-art-school</code>。外部サービスにもこの値を渡します。</p>
         </div>
         <div class="form-group">
           <label>プロジェクト名 *</label>
@@ -139,7 +150,7 @@ $projects = $projectsReady ? getProjects(false) : [];
   <div class="card table-scroll" style="padding:0;">
     <table>
       <thead>
-        <tr><th>順</th><th>プロジェクト</th><th>スラッグ</th><th>状態</th><th>LP数</th><th>素材数</th><th>問い合わせ</th><th>操作</th></tr>
+        <tr><th>順</th><th>プロジェクト</th><th>project_key</th><th>状態</th><th>LP数</th><th>素材数</th><th>問い合わせ</th><th>操作</th></tr>
       </thead>
       <tbody>
       <?php foreach ($projects as $project): ?>
@@ -159,7 +170,13 @@ $projects = $projectsReady ? getProjects(false) : [];
               <p style="font-size:.72rem;color:var(--text-muted);margin-top:.2rem;"><?= h(mb_strimwidth($project['description'], 0, 70, '…')) ?></p>
             <?php endif; ?>
           </td>
-          <td style="font-family:monospace;color:var(--gold);"><?= h($project['slug']) ?></td>
+          <td>
+            <?php $projectKeyId = 'projectKey' . $pid; ?>
+            <div style="display:flex;gap:.45rem;align-items:center;flex-wrap:wrap;">
+              <code id="<?= h($projectKeyId) ?>" style="color:var(--gold);"><?= h($project['slug']) ?></code>
+              <button type="button" class="btn btn-outline btn-sm" onclick="copyProjectKey('<?= h($projectKeyId) ?>')">コピー</button>
+            </div>
+          </td>
           <td><span class="badge badge-<?= $project['status'] === 'active' ? 'active' : 'inactive' ?>"><?= $project['status'] === 'active' ? '公開中' : '停止中' ?></span></td>
           <td><?= number_format($tplCount) ?></td>
           <td><?= number_format($matCount) ?></td>
@@ -189,5 +206,26 @@ $projects = $projectsReady ? getProjects(false) : [];
     </table>
   </div>
 <?php endif; ?>
+
+<script>
+async function copyProjectKey(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const text = el.textContent.trim();
+  try {
+    await navigator.clipboard.writeText(text);
+    alert('project_keyをコピーしました。');
+  } catch (e) {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    document.execCommand('copy');
+    sel.removeAllRanges();
+    alert('project_keyをコピーしました。');
+  }
+}
+</script>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

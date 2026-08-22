@@ -677,6 +677,7 @@ INSERT IGNORE INTO system_settings (key_name, value) VALUES
 ('label_level3', 'エージェント'),
 ('label_level2', 'ディレクター'),
 ('label_level1', 'アドバイザー'),
+('label_position_agent_candidate', 'エージェント候補'),
 ('label_position_advisor', 'アドバイザー'),
 ('label_position_super_advisor', 'スーパーアドバイザー'),
 ('label_position_influencer', 'インフルエンサー'),
@@ -706,14 +707,14 @@ INSERT IGNORE INTO system_settings (key_name, value) VALUES
 ('sso_public_key', ''),
 ('resend_api_key', ''),
 ('mail_from', ''),
-('mail_from_name', '戦国経済圏'),
-('mail_tpl_application_subject', '【戦国経済圏】新規エージェント申請が届きました'),
+('mail_from_name', '千ノ国代理店システム'),
+('mail_tpl_application_subject', '【千ノ国代理店システム】新規エージェント申請が届きました'),
 ('mail_tpl_application_body', '新しい申請が届きました。管理画面からご確認ください。'),
-('mail_tpl_approval_subject', '【戦国経済圏】承認されました'),
+('mail_tpl_approval_subject', '【千ノ国代理店システム】承認されました'),
 ('mail_tpl_approval_body', '{person_name} 様  承認されました。以下のURLからパスワードを設定して、マイページにアクセスしてください。 {setup_url}  LP URL：{lp_url} マイページ：{mypage_url}'),
-('mail_tpl_rejection_subject', '【戦国経済圏】申請について'),
+('mail_tpl_rejection_subject', '【千ノ国代理店システム】申請について'),
 ('mail_tpl_rejection_body', '{person_name} 様  申請を確認しましたが、今回は承認を見送らせていただきました。'),
-('mail_tpl_promo_request_subject', '【戦国経済圏】昇格申請が届きました'),
+('mail_tpl_promo_request_subject', '【千ノ国代理店システム】昇格申請が届きました'),
 ('mail_tpl_promo_request_body', '{person_name}（{agent_code}）から昇格申請が届きました。マイページから確認・承認してください。{mypage_url}');
 
 

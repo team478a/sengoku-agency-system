@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - feature/**
+  pull_request:
+
+jobs:
+  php:
+    runs-on: ubuntu-latest
+
+    services:
+      mariadb:
+        image: mariadb:10.6
+        env:
+          MARIADB_DATABASE: sengoku_csv_contract
+          MARIADB_USER: sengoku
+          MARIADB_PASSWORD: sengoku
+          MARIADB_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, pdo_mysql
+          coverage: none
+
+      - name: Validate Composer
+        run: composer validate --strict
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: PHP syntax lint
+        run: composer lint
+
+      - name: PHPUnit
+        run: composer test
+
+      - name: Wait for MariaDB
+        run: |
+          php -r 'for ($i = 0; $i < 30; $i++) { try { new PDO("mysql:host=127.0.0.1;port=3306;dbname=sengoku_csv_contract;charset=utf8mb4", "sengoku", "sengoku"); exit(0); } catch (Throwable $e) { sleep(2); } } fwrite(STDERR, "MariaDB is not ready.\n"); exit(1);'
+
+      - name: CSV contract tests
+        run: composer test:csv-contract
+        env:
+          CSV_CONTRACT_DSN: mysql:host=127.0.0.1;port=3306;dbname=sengoku_csv_contract;charset=utf8mb4
+          CSV_CONTRACT_USER: sengoku
+          CSV_CONTRACT_PASS: sengoku
+
+      - name: PHPStan
+        run: composer analyse

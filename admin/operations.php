@@ -6,42 +6,47 @@ $db = getDB();
 $now = date('Y-m-d H:i:s');
 
 function opsTableReady(string $table): bool {
-    return !empty(tableColumns($table));
+    return opsQueryService()->tableReady($table, static fn(string $tableName): array => tableColumns($tableName));
 }
 
 function opsCount(string $sql, array $params = []): int {
-    try {
-        $stmt = getDB()->prepare($sql);
-        $stmt->execute($params);
-        return (int)$stmt->fetchColumn();
-    } catch (Throwable $e) {
-        return 0;
-    }
+    return opsQueryService()->count($sql, $params);
 }
 
 function opsRows(string $sql, array $params = []): array {
-    try {
-        $stmt = getDB()->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-    } catch (Throwable $e) {
-        return [];
-    }
+    return opsQueryService()->rows($sql, $params);
 }
 
 function opsDate(?string $value): string {
-    if (!$value) return '-';
-    $ts = strtotime($value);
-    return $ts ? date('Y/m/d H:i', $ts) : '-';
+    return opsDateFormatter()->minute($value);
 }
 
 function opsStatusBadge(string $label, string $type = 'ok'): string {
-    $styles = [
-        'ok' => 'background:rgba(44,143,99,.16);color:#2c8f63;',
-        'warn' => 'background:rgba(201,168,76,.18);color:#8B6914;',
-        'ng' => 'background:rgba(180,55,55,.16);color:#b43737;',
-    ];
-    return '<span style="display:inline-block;padding:.25rem .6rem;border-radius:999px;font-weight:700;font-size:.78rem;' . ($styles[$type] ?? $styles['ok']) . '">' . h($label) . '</span>';
+    return opsBadgeRenderer()->inlineStatus($label, $type);
+}
+
+function opsQueryService(): \SenNoKuni\Admin\OperationsQueryService {
+    static $service = null;
+    if ($service === null) {
+        $service = new \SenNoKuni\Admin\OperationsQueryService(getDB());
+    }
+    return $service;
+}
+
+function opsDateFormatter(): \SenNoKuni\Admin\AdminDateFormatter {
+    static $formatter = null;
+    if ($formatter === null) {
+        $formatter = new \SenNoKuni\Admin\AdminDateFormatter();
+    }
+    return $formatter;
+}
+
+function opsBadgeRenderer(): \SenNoKuni\Admin\AdminBadgeRenderer {
+    static $renderer = null;
+    if ($renderer === null) {
+        $renderer = new \SenNoKuni\Admin\AdminBadgeRenderer();
+    }
+    return $renderer;
 }
 
 $hasPartners = opsTableReady('external_partner_sites');

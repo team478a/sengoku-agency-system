@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/shared_bootstrap.php';
 
 header('Content-Type: application/json; charset=UTF-8');
 header('Access-Control-Allow-Origin: *');
@@ -31,58 +32,37 @@ function apiSetting(string $key): string {
 
 function apiRequestToken(): string {
     $headers = function_exists('getallheaders') ? getallheaders() : [];
-    $auth = $headers['Authorization'] ?? $headers['authorization'] ?? ($_SERVER['HTTP_AUTHORIZATION'] ?? '');
-    if (preg_match('/Bearer\s+(.+)/i', (string)$auth, $m)) {
-        return trim($m[1]);
+    return apiAuthenticator()->extractRequestKey($headers, $_SERVER, $_GET);
+}
+
+function apiAuthenticator(): \SenNoKuni\Shared\Auth\ApiKeyAuthenticator {
+    static $authenticator = null;
+    if ($authenticator === null) {
+        $authenticator = new \SenNoKuni\Shared\Auth\ApiKeyAuthenticator(
+            getDB(),
+            static fn(string $key, string $default = ''): string => apiSetting($key) !== '' ? apiSetting($key) : $default,
+            static fn(string $table, string $column): bool => function_exists('tableHasColumn') && tableHasColumn($table, $column),
+        );
     }
-    $apiKey = $headers['x-api-key'] ?? $headers['X-API-Key'] ?? $_SERVER['HTTP_X_API_KEY'] ?? '';
-    if (trim((string)$apiKey) !== '') {
-        return trim((string)$apiKey);
-    }
-    return trim((string)($_SERVER['HTTP_X_API_TOKEN'] ?? ($_GET['token'] ?? '')));
+    return $authenticator;
 }
 
 function apiHasConfiguredToken(): bool {
-    if (apiSetting('external_api_token') !== '') {
-        return true;
-    }
-    try {
-        if (!function_exists('tableHasColumn') || !tableHasColumn('external_partner_sites', 'inbound_api_key')) {
-            return false;
-        }
-        $count = (int)getDB()->query("SELECT COUNT(*) FROM external_partner_sites WHERE status='active' AND COALESCE(inbound_api_key, '') <> ''")->fetchColumn();
-        return $count > 0;
-    } catch (Throwable $e) {
-        return false;
-    }
+    return apiAuthenticator()->hasConfiguredKey();
 }
 
 function apiTokenIsValid(string $requestToken): bool {
-    if ($requestToken === '') {
-        return false;
-    }
-    $legacyToken = apiSetting('external_api_token');
-    if ($legacyToken !== '' && hash_equals($legacyToken, $requestToken)) {
-        return true;
-    }
-    try {
-        if (!function_exists('tableHasColumn') || !tableHasColumn('external_partner_sites', 'inbound_api_key')) {
-            return false;
-        }
-        $rows = getDB()->query("SELECT inbound_api_key FROM external_partner_sites WHERE status='active' AND COALESCE(inbound_api_key, '') <> ''")->fetchAll(PDO::FETCH_COLUMN);
-        foreach ($rows as $token) {
-            if (hash_equals((string)$token, $requestToken)) {
-                return true;
-            }
-        }
-    } catch (Throwable $e) {
-        return false;
-    }
-    return false;
+    return apiAuthenticator()->authenticate($requestToken)->authenticated;
 }
 
 function apiAgentPayload(array $agent, array $projects, array $labels, bool $includeContact, bool $includeSso): array {
     $level = (int)($agent['level'] ?? 1);
+    $positionLabel = (string)($agent['position_label'] ?? '');
+    if ($level === 1 && function_exists('getAdvisorPositionLabel')) {
+        $positionLabel = getAdvisorPositionLabel($agent['position_type'] ?? null, $positionLabel ?: null);
+    } elseif ($level === 3 && function_exists('isAgentCandidate') && isAgentCandidate($agent) && function_exists('getAgentCandidateLabel')) {
+        $positionLabel = getAgentCandidateLabel($positionLabel ?: null);
+    }
     $payload = [
         'id' => (int)$agent['id'],
         'agency_id' => (string)($agent['agent_code'] ?? ''),
@@ -91,11 +71,10 @@ function apiAgentPayload(array $agent, array $projects, array $labels, bool $inc
         'name' => (string)($agent['agent_name'] ?? ''),
         'person_name' => (string)($agent['person_name'] ?? ''),
         'level' => $level,
-        'role_label' => $level === 1
-            ? getAdvisorPositionLabel($agent['position_type'] ?? null, $agent['position_label'] ?? null)
-            : ($labels[$level] ?? 'メンバー'),
+        'role_key' => function_exists('getAgentRoleKey') ? getAgentRoleKey($agent) : (string)$level,
+        'role_label' => function_exists('getAgentRoleLabel') ? getAgentRoleLabel($agent) : ($labels[$level] ?? 'メンバー'),
         'position_type' => (string)($agent['position_type'] ?? ''),
-        'position_label' => (string)($agent['position_label'] ?? ''),
+        'position_label' => $positionLabel,
         'parent_id' => !empty($agent['parent_id']) ? (int)$agent['parent_id'] : null,
         'parent_agency_id' => $agent['parent_code'] ?? null,
         'parent_code' => $agent['parent_code'] ?? null,
@@ -108,6 +87,7 @@ function apiAgentPayload(array $agent, array $projects, array $labels, bool $inc
     foreach ($projects as $project) {
         $payload['lp_urls'][] = [
             'project_id' => (int)$project['id'],
+            'project_key' => (string)$project['slug'],
             'project_slug' => (string)$project['slug'],
             'project_name' => (string)$project['name'],
             'url' => buildAgentProjectLpUrl((string)($agent['agent_code'] ?? ''), $project),
@@ -210,6 +190,7 @@ $response = [
         'level2' => $labels[2] ?? 'ディレクター',
         'level3' => $labels[3] ?? 'エージェント',
         'positions' => getAdvisorPositionLabels(),
+        'agent_positions' => function_exists('getAgentPositionLabels') ? getAgentPositionLabels() : ['agent_candidate' => 'エージェント候補'],
     ],
     'projects' => array_map(static fn($project) => [
         'id' => (int)$project['id'],

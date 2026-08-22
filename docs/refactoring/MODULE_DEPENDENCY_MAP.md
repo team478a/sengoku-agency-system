@@ -1,0 +1,348 @@
+# Module Dependency Map
+
+Updated: 2026-07-29
+
+This file is the Phase 0-2 module dependency map requested by the modular-monolith foundation instructions.
+
+## Current Foundation
+
+```text
+legacy entrypoints
+  -> includes/functions.php
+  -> config/database.php
+
+src/Shared
+  -> Auth
+  -> Config
+  -> Database
+  -> Http
+  -> Log
+  -> Time
+
+src/Integration/Outbox
+  -> Shared/Database through PDO
+  -> RetryPolicy
+  -> OutboxClaimService
+  -> OutboxRepository
+  -> DeadLetterService
+
+src/CommonIdentity
+  -> CommonUserInput
+  -> CommonUserInputNormalizer
+
+src/Referral
+  -> ReferralTokenResolver
+  -> TouchpointFingerprint
+
+src/Admin
+  -> AdminDateFormatter
+  -> AdminTextFormatter
+  -> AdminBadgeRenderer
+  -> OperationsQueryService
+
+src/LandingPage
+  -> LandingPageUrlBuilder
+  -> LandingPageText
+  -> ResponsiveImageBuilder
+  -> SeoMetadataBuilder
+
+src/Notification
+  -> TemplateVariableReplacer
+
+src/Activity
+  -> ActivityQueryService
+  -> ActivitySummaryCards
+  -> ActivityTrendService
+  -> ActivityDownlineRankingService
+
+src/Lead
+  -> LeadCsvExportService
+
+src/Agency
+  -> SubAgentCsvExportService
+  -> RecruitmentLinkCsvExportService
+
+src/Reporting
+  -> TemplateReportCsvExportService
+
+src/Audit
+  -> LoginLogCsvExportService
+
+api/v2/bootstrap.php
+  -> includes/shared_bootstrap.php
+  -> src/Shared/Auth
+
+api/hierarchy.php
+  -> includes/shared_bootstrap.php
+  -> src/Shared/Auth
+
+api/integrations/agencies/index.php
+  -> includes/shared_bootstrap.php
+  -> src/Shared/Auth
+
+api/common-users/index.php
+  -> includes/shared_bootstrap.php
+  -> src/CommonIdentity
+
+api/referrals/index.php
+  -> includes/shared_bootstrap.php
+  -> src/CommonIdentity
+  -> src/Referral
+
+includes/functions.php Outbox compatibility wrappers
+  -> includes/shared_bootstrap.php
+  -> src/Integration/Outbox
+
+includes/functions.php referral compatibility wrappers
+  -> includes/shared_bootstrap.php
+  -> src/Referral
+
+includes/functions.php LP compatibility wrappers
+  -> includes/shared_bootstrap.php
+  -> src/LandingPage
+
+includes/functions.php LP SEO compatibility wrappers
+  -> includes/shared_bootstrap.php
+  -> src/LandingPage/SeoMetadataBuilder
+
+includes/mailer.php template replacement
+  -> includes/shared_bootstrap.php
+  -> src/Notification
+
+admin/agent_activity.php
+  -> includes/shared_bootstrap.php
+  -> src/Activity
+
+agent/downline_activity.php
+  -> includes/shared_bootstrap.php
+  -> src/Activity
+
+admin/agent_activity.php summary cards
+  -> includes/shared_bootstrap.php
+  -> src/Activity/ActivitySummaryCards
+
+agent/downline_activity.php summary cards
+  -> includes/shared_bootstrap.php
+  -> src/Activity/ActivitySummaryCards
+
+agent/dashboard.php trend chart
+  -> includes/shared_bootstrap.php
+  -> src/Activity/ActivityTrendService
+
+agent/reports.php downline rankings
+  -> includes/shared_bootstrap.php
+  -> src/Activity/ActivityDownlineRankingService
+
+admin/export_csv.php activity export
+  -> includes/shared_bootstrap.php
+  -> src/Activity
+
+agent/export_csv.php activity export
+  -> includes/shared_bootstrap.php
+  -> src/Activity
+
+admin/export_csv.php lead export
+  -> includes/shared_bootstrap.php
+  -> src/Lead
+
+agent/export_csv.php lead export
+  -> includes/shared_bootstrap.php
+  -> src/Lead
+
+agent/export_csv.php sub-agent export
+  -> includes/shared_bootstrap.php
+  -> src/Agency
+
+agent/export_csv.php recruitment-link export
+  -> includes/shared_bootstrap.php
+  -> src/Agency
+
+admin/export_csv.php template report export
+  -> includes/shared_bootstrap.php
+  -> src/Reporting
+
+admin/export_csv.php login-log export
+  -> includes/shared_bootstrap.php
+  -> src/Audit
+
+admin/integration_outbox.php
+  -> includes/shared_bootstrap.php
+  -> src/Admin
+
+admin/operations.php
+  -> includes/shared_bootstrap.php
+  -> src/Admin
+
+scripts/run-csv-contract-tests.php
+  -> includes/shared_bootstrap.php
+  -> src/Lead
+  -> src/Agency
+  -> src/Reporting
+  -> src/Audit
+```
+
+## Rule
+
+New business logic should be placed under `src/` and legacy functions should remain as compatibility wrappers until a phase explicitly migrates their internals.
+
+## Lead CSV Foundation
+
+New dependency direction:
+
+```text
+admin/export_csv.php lead export
+  -> LeadCsvExportService
+  -> PDO
+
+agent/export_csv.php lead export
+  -> LeadCsvExportService
+  -> PDO
+```
+
+Notes:
+
+- CSV response formatting remains in the entrypoint files.
+- Lead query and row generation logic now lives in `src/Lead`.
+- No dependency is introduced from `src/Lead` back to admin or agent entrypoints.
+
+## Agency CSV Foundation
+
+New dependency direction:
+
+```text
+agent/export_csv.php sub-agent export
+  -> SubAgentCsvExportService
+  -> PDO
+```
+
+Notes:
+
+- CSV response formatting remains in `agent/export_csv.php`.
+- Sub-agent query and row generation logic now lives in `src/Agency`.
+- No dependency is introduced from `src/Agency` back to agent entrypoints.
+
+## Agency Recruitment Link CSV Foundation
+
+New dependency direction:
+
+```text
+agent/export_csv.php recruitment-link export
+  -> RecruitmentLinkCsvExportService
+  -> PDO
+```
+
+Notes:
+
+- CSV response formatting remains in `agent/export_csv.php`.
+- Recruitment-link query and row generation logic now lives in `src/Agency`.
+- No dependency is introduced from `src/Agency` back to agent entrypoints.
+
+## Reporting CSV Foundation
+
+New dependency direction:
+
+```text
+admin/export_csv.php template report export
+  -> TemplateReportCsvExportService
+  -> PDO
+```
+
+Notes:
+
+- CSV response formatting remains in `admin/export_csv.php`.
+- Template report query and row generation logic now lives in `src/Reporting`.
+- No dependency is introduced from `src/Reporting` back to admin entrypoints.
+
+## Audit CSV Foundation
+
+New dependency direction:
+
+```text
+admin/export_csv.php login-log export
+  -> LoginLogCsvExportService
+  -> PDO
+```
+
+Notes:
+
+- CSV response formatting remains in `admin/export_csv.php`.
+- Login-log query and row generation logic now lives in `src/Audit`.
+- No dependency is introduced from `src/Audit` back to admin entrypoints.
+
+## CSV Contract Test Foundation
+
+New dependency direction:
+
+```text
+scripts/run-csv-contract-tests.php
+  -> LeadCsvExportService
+  -> SubAgentCsvExportService
+  -> RecruitmentLinkCsvExportService
+  -> TemplateReportCsvExportService
+  -> LoginLogCsvExportService
+  -> PDO
+```
+
+Notes:
+
+- The test runner uses connection-local temporary tables.
+- Production tables are not dropped, truncated, or altered by the test runner.
+- The runner is intentionally separate from legacy admin and agent entrypoints.
+
+## Activity Presentation Foundation
+
+New dependency direction:
+
+```text
+admin/agent_activity.php summary cards
+  -> ActivitySummaryCards
+
+agent/downline_activity.php summary cards
+  -> ActivitySummaryCards
+```
+
+Notes:
+
+- Activity query logic remains in `ActivityQueryService`.
+- Summary-card labels, value casting, and presentation metadata now live in `src/Activity`.
+- No dependency is introduced from `src/Activity` back to admin or agent entrypoints.
+
+## Activity Trend And Ranking Foundation
+
+New dependency direction:
+
+```text
+agent/dashboard.php trend chart
+  -> ActivityTrendService
+  -> PDO
+
+agent/reports.php downline rankings
+  -> ActivityDownlineRankingService
+  -> PDO
+```
+
+Notes:
+
+- Dashboard trend labels and data arrays remain shaped for the existing canvas chart JavaScript.
+- Downline report row keys remain compatible with the existing report table and ranking widgets.
+- No dependency is introduced from `src/Activity` back to agent entrypoints.
+
+## LandingPage SEO Metadata Foundation
+
+New dependency direction:
+
+```text
+includes/functions.php buildLpSeoMeta()
+  -> SeoMetadataBuilder
+  -> LandingPageText
+  -> LandingPageUrlBuilder
+
+includes/functions.php injectLpSeoHead()
+  -> SeoMetadataBuilder
+```
+
+Notes:
+
+- LP templates continue to call the existing global helper functions.
+- SEO title, description, canonical, Open Graph, Twitter Card, and JSON-LD generation now live in `src/LandingPage`.
+- No dependency is introduced from `src/LandingPage` back to legacy template files.

@@ -129,6 +129,20 @@ function updaterRunSqlFile(PDO $db, string $path): int {
     return $count;
 }
 
+function updaterMarkMigrationApplied(PDO $db, string $version, ?string $description = null): void {
+    $db->exec("CREATE TABLE IF NOT EXISTS schema_migrations (
+        version VARCHAR(50) PRIMARY KEY,
+        description TEXT,
+        applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $stmt = $db->prepare("INSERT INTO schema_migrations (version, description, applied_at)
+        VALUES (?, ?, NOW())
+        ON DUPLICATE KEY UPDATE
+            description = COALESCE(VALUES(description), description),
+            applied_at = applied_at");
+    $stmt->execute([$version, $description]);
+}
+
 function updaterNormalizeZipPath(string $name): string {
     $name = str_replace('\\', '/', $name);
     $name = ltrim($name, '/');
@@ -221,7 +235,8 @@ function updaterInstallZip(string $zipPath, string $baseDir, array &$log): void 
             throw new RuntimeException('ディレクトリを作成できません: ' . $name);
         }
         $dirReal = realpath($destinationDir);
-        if ($dirReal === false || strpos($dirReal, $baseReal) !== 0) {
+        $basePrefix = rtrim($baseReal, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+        if ($dirReal === false || ($dirReal !== $baseReal && strpos($dirReal, $basePrefix) !== 0)) {
             $log[] = '安全でないパスをスキップ: ' . $rawName;
             continue;
         }
@@ -254,6 +269,7 @@ try {
             $pending = updaterPendingMigrations($db, $MIGRATIONS_DIR);
             foreach ($pending as $migration) {
                 $count = updaterRunSqlFile($db, $migration['file']);
+                updaterMarkMigrationApplied($db, $migration['version'], basename($migration['file']));
                 $log[] = $migration['version'] . ': ' . $count . '件実行';
             }
             $message = $pending ? 'DBマイグレーションを適用しました。' : '未適用のDBマイグレーションはありません。';
@@ -267,6 +283,7 @@ try {
             $pending = updaterPendingMigrations($db, $MIGRATIONS_DIR);
             foreach ($pending as $migration) {
                 $count = updaterRunSqlFile($db, $migration['file']);
+                updaterMarkMigrationApplied($db, $migration['version'], basename($migration['file']));
                 $log[] = 'マイグレーション ' . $migration['version'] . ': ' . $count . '件実行';
             }
             $message = '更新が完了しました。';

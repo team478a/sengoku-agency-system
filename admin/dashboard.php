@@ -4,23 +4,41 @@ require_once __DIR__ . '/header.php';
 
 $db = getDB();
 
+function dashboardCount(PDO $db, string $sql): int {
+    try {
+        return (int)$db->query($sql)->fetchColumn();
+    } catch (Throwable $e) {
+        error_log('Admin dashboard count failed: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+function dashboardRows(PDO $db, string $sql): array {
+    try {
+        return $db->query($sql)->fetchAll();
+    } catch (Throwable $e) {
+        error_log('Admin dashboard rows failed: ' . $e->getMessage());
+        return [];
+    }
+}
+
 // 集計
 $stats = [
-    'agents'    => $db->query("SELECT COUNT(*) FROM agents WHERE status='active'")->fetchColumn(),
-    'templates' => $db->query("SELECT COUNT(*) FROM lp_templates WHERE status='active'")->fetchColumn(),
-    'leads'     => $db->query("SELECT COUNT(*) FROM leads")->fetchColumn(),
-    'new_leads' => $db->query("SELECT COUNT(*) FROM leads WHERE status='new'")->fetchColumn(),
-    'today_pv'  => $db->query("SELECT COUNT(*) FROM access_logs WHERE type='pv' AND DATE(created_at)=CURDATE()")->fetchColumn(),
-    'line_clicks'=> $db->query("SELECT COUNT(*) FROM access_logs WHERE type='line_click' AND DATE(created_at)=CURDATE()")->fetchColumn(),
+    'agents'      => dashboardCount($db, "SELECT COUNT(*) FROM agents WHERE status='active'"),
+    'templates'   => dashboardCount($db, "SELECT COUNT(*) FROM lp_templates WHERE status='active'"),
+    'leads'       => dashboardCount($db, "SELECT COUNT(*) FROM leads"),
+    'new_leads'   => dashboardCount($db, "SELECT COUNT(*) FROM leads WHERE status='new'"),
+    'today_pv'    => dashboardCount($db, "SELECT COUNT(*) FROM access_logs WHERE type='pv' AND DATE(created_at)=CURDATE()"),
+    'line_clicks' => dashboardCount($db, "SELECT COUNT(*) FROM access_logs WHERE type='line_click' AND DATE(created_at)=CURDATE()"),
 ];
 
 // 最新問い合わせ5件
-$recentLeads = $db->query("
+$recentLeads = dashboardRows($db, "
     SELECT l.*, a.agent_name, a.person_name
     FROM leads l
     JOIN agents a ON l.agent_id = a.id
     ORDER BY l.created_at DESC LIMIT 5
-")->fetchAll();
+");
 
 $statusLabels = ['new'=>'新規', 'contacted'=>'対応中', 'prospect'=>'成約見込み', 'won'=>'成約', 'lost'=>'失注', 'closed'=>'対応済'];
 ?>

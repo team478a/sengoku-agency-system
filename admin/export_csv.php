@@ -32,6 +32,99 @@ function adminCsvColumns(PDO $db, string $table): array {
     return $columns;
 }
 
+if ($type === 'bank_accounts') {
+    $labels = getLevelLabels();
+    $agentColumns = adminCsvColumns($db, 'agents');
+    $bankFields = [
+        'bank_name',
+        'bank_branch_name',
+        'bank_branch_code',
+        'bank_account_type',
+        'bank_account_number',
+        'bank_account_holder',
+        'bank_account_holder_kana',
+    ];
+
+    $bankSelects = [];
+    foreach ($bankFields as $field) {
+        $bankSelects[] = !empty($agentColumns[$field]) ? "a.{$field}" : "'' AS {$field}";
+    }
+    $updatedAtSelect = !empty($agentColumns['updated_at'])
+        ? 'a.updated_at'
+        : (!empty($agentColumns['created_at']) ? 'a.created_at AS updated_at' : "'' AS updated_at");
+
+    $search = sanitizeInput($_GET['q'] ?? '');
+    $wheres = [];
+    $params = [];
+    if ($search !== '') {
+        $searchFields = ['a.agent_name', 'a.person_name', 'a.agent_code', 'a.email'];
+        if (!empty($agentColumns['login_email'])) {
+            $searchFields[] = 'a.login_email';
+        }
+        if (!empty($agentColumns['phone'])) {
+            $searchFields[] = 'a.phone';
+        }
+        $wheres[] = '(' . implode(' LIKE ? OR ', $searchFields) . ' LIKE ?)';
+        $kw = '%' . $search . '%';
+        foreach ($searchFields as $_) {
+            $params[] = $kw;
+        }
+    }
+    $where = $wheres ? 'WHERE ' . implode(' AND ', $wheres) : '';
+
+    $stmt = $db->prepare("
+        SELECT
+            a.agent_code,
+            a.agent_name,
+            a.person_name,
+            a.email,
+            a.phone,
+            a.level,
+            a.status,
+            {$updatedAtSelect},
+            p.agent_name AS parent_name,
+            p.agent_code AS parent_code,
+            " . implode(",\n            ", $bankSelects) . "
+        FROM agents a
+        LEFT JOIN agents p ON a.parent_id=p.id
+        {$where}
+        ORDER BY a.level DESC, p.agent_name ASC, a.agent_name ASC, a.person_name ASC, a.id ASC
+    ");
+    $stmt->execute($params);
+
+    $rows = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $agent) {
+        $parent = trim((string)($agent['parent_name'] ?? ''));
+        if (!empty($agent['parent_code'])) {
+            $parent .= ($parent !== '' ? ' / ' : '') . $agent['parent_code'];
+        }
+        $rows[] = [
+            $agent['agent_code'] ?? '',
+            $labels[(int)($agent['level'] ?? 0)] ?? ('Lv.' . (int)($agent['level'] ?? 0)),
+            $agent['agent_name'] ?? '',
+            $agent['person_name'] ?? '',
+            $agent['email'] ?? '',
+            $agent['phone'] ?? '',
+            $parent,
+            ($agent['status'] ?? '') === 'active' ? '公開中' : '停止中',
+            $agent['bank_name'] ?? '',
+            $agent['bank_branch_name'] ?? '',
+            $agent['bank_branch_code'] ?? '',
+            $agent['bank_account_type'] ?? '',
+            $agent['bank_account_number'] ?? '',
+            $agent['bank_account_holder'] ?? '',
+            $agent['bank_account_holder_kana'] ?? '',
+            $agent['updated_at'] ?? '',
+        ];
+    }
+
+    adminCsvOutput(
+        'bank_accounts_' . date('Ymd_His') . '.csv',
+        ['コード', '区分', '名称', '担当者', 'メール', '電話', '上位', '状態', '銀行名', '支店名', '支店コード', '口座種別', '口座番号', '口座名義', '口座名義カナ', '更新日時'],
+        $rows
+    );
+}
+
 if ($type === 'leads') {
     $statusLabels = [
         'new' => '新規',

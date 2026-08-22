@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/shared_bootstrap.php';
 
 // =============================
 // 繧ｻ繝・す繝ｧ繝ｳ繝ｻ隱崎ｨｼ
@@ -22,7 +23,11 @@ function isAdminLoggedIn(): bool {
 
 function requireAdminLogin(): void {
     if (!isAdminLoggedIn()) {
-        header('Location: /admin/login.php');
+        if (!headers_sent()) {
+            header('Location: /admin/login.php');
+        } else {
+            echo '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta http-equiv="refresh" content="0;url=/admin/login.php"><title>ログインへ移動</title></head><body><p>ログイン画面へ移動します。</p><p><a href="/admin/login.php">移動しない場合はこちら</a></p></body></html>';
+        }
         exit;
     }
 }
@@ -66,6 +71,17 @@ function requireSuperAdmin(): void {
 // =============================
 function h($str): string {
     return htmlspecialchars((string)($str ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+}
+
+function renderAppIconLinks(): void {
+    echo '<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">' . PHP_EOL;
+    echo '<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">' . PHP_EOL;
+    echo '<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">' . PHP_EOL;
+    echo '<link rel="shortcut icon" href="/favicon.ico">' . PHP_EOL;
+    echo '<link rel="manifest" href="/site.webmanifest">' . PHP_EOL;
+    echo '<meta name="theme-color" content="#f7f2ee">' . PHP_EOL;
+    echo '<meta name="apple-mobile-web-app-title" content="千ノ国">' . PHP_EOL;
+    echo '<meta name="application-name" content="千ノ国代理店">' . PHP_EOL;
 }
 
 function sanitizeInput(string $input): string {
@@ -909,41 +925,18 @@ function saveReferralAlias(array $data): array {
 }
 
 function resolveReferralTokenInput(string $value, string $aliasType = ''): array {
-    $value = trim($value);
-    if ($value === '') {
-        return ['valid' => false, 'reason' => 'empty'];
-    }
-    $direct = validateReferralToken($value);
-    if (!empty($direct['valid'])) {
-        $direct['resolved_by'] = 'canonical_token';
-        $direct['canonical_referral_token'] = $direct['token']['token'] ?? $value;
-        return $direct;
-    }
+    return referralTokenResolver()->resolve($value, $aliasType);
+}
 
-    $types = [];
-    if (trim($aliasType) !== '') {
-        $types[] = trim($aliasType);
+function referralTokenResolver(): \SenNoKuni\Referral\ReferralTokenResolver {
+    static $resolver = null;
+    if ($resolver === null) {
+        $resolver = new \SenNoKuni\Referral\ReferralTokenResolver(
+            static fn(string $token): array => validateReferralToken($token),
+            static fn(string $type, string $value): ?array => findReferralAlias($type, $value),
+        );
     }
-    foreach (['ref', 'referral_code', 'shopping_referral_code', 'wallet_invite_token', 'passport_ref'] as $type) {
-        if (!in_array($type, $types, true)) {
-            $types[] = $type;
-        }
-    }
-    foreach ($types as $type) {
-        $alias = findReferralAlias($type, $value);
-        if (!$alias || empty($alias['canonical_token'])) {
-            continue;
-        }
-        $validation = validateReferralToken((string)$alias['canonical_token']);
-        if (!empty($validation['valid'])) {
-            $validation['resolved_by'] = 'alias:' . $type;
-            $validation['referral_alias'] = $alias;
-            $validation['canonical_referral_token'] = $validation['token']['token'] ?? $alias['canonical_token'];
-            return $validation;
-        }
-        return $validation + ['resolved_by' => 'alias:' . $type, 'referral_alias' => $alias];
-    }
-    return ['valid' => false, 'reason' => $direct['reason'] ?? 'not_found'];
+    return $resolver;
 }
 
 function recordReferralSession(array $data): array {
@@ -1105,11 +1098,7 @@ function getSiteBaseUrl(): string {
 }
 
 function buildAgentProjectLpUrl(string $agentCode, ?array $project = null): string {
-    $url = getSiteBaseUrl() . '/a/' . rawurlencode($agentCode);
-    if (!empty($project['slug'])) {
-        $url .= '?project=' . rawurlencode((string)$project['slug']);
-    }
-    return $url;
+    return landingPageUrlBuilder()->agentProjectUrl($agentCode, $project);
 }
 
 function getProjectById(int $projectId): ?array {
@@ -1152,11 +1141,15 @@ function currentRequestUrl(): string {
 }
 
 function appendUrlQueryParams(string $url, array $params): string {
-    $params = array_filter($params, static fn($value) => $value !== null && $value !== '');
-    if (!$params) {
-        return $url;
+    return landingPageUrlBuilder()->appendQueryParams($url, $params);
+}
+
+function landingPageUrlBuilder(): \SenNoKuni\LandingPage\LandingPageUrlBuilder {
+    static $builder = null;
+    if ($builder === null) {
+        $builder = new \SenNoKuni\LandingPage\LandingPageUrlBuilder(getSiteBaseUrl());
     }
-    return $url . (str_contains($url, '?') ? '&' : '?') . http_build_query($params);
+    return $builder;
 }
 
 function lpReferralFeaturesEnabled(): bool {
@@ -1165,16 +1158,7 @@ function lpReferralFeaturesEnabled(): bool {
 }
 
 function getLpProjectIdFromTemplate(?int $templateId): int {
-    if (!$templateId || !tableHasColumn('lp_templates', 'project_id')) {
-        return 0;
-    }
-    try {
-        $stmt = getDB()->prepare("SELECT project_id FROM lp_templates WHERE id=? LIMIT 1");
-        $stmt->execute([$templateId]);
-        return (int)$stmt->fetchColumn();
-    } catch (Throwable $e) {
-        return 0;
-    }
+    return lpTemplateRepository()->projectIdForTemplate((int)$templateId);
 }
 
 function ensureLpReferralTokenForAgent(array $agent, int $projectId = 0): ?array {
@@ -1272,16 +1256,33 @@ function resolveLpReferralContext(array $agent, int $projectId = 0): array {
 // 繧｢繝峨ヰ繧､繧ｶ繝ｼ蜿門ｾ・// =============================
 function getAgentByCode(string $code): ?array {
     $db = getDB();
-    $stmt = $db->prepare("
-        SELECT a.*, t.html_file, t.slug AS template_slug, t.name AS template_name,
-               t.project_id AS template_project_id
-        FROM agents a
-        LEFT JOIN lp_templates t ON a.default_template_id = t.id AND t.status = 'active'
-        WHERE a.agent_code = ? AND a.status = 'active'
-        LIMIT 1
-    ");
-    $stmt->execute([$code]);
-    return $stmt->fetch() ?: null;
+    $templateProjectSelect = tableHasColumn('lp_templates', 'project_id')
+        ? 't.project_id AS template_project_id'
+        : 'NULL AS template_project_id';
+
+    try {
+        $stmt = $db->prepare("
+            SELECT a.*, t.html_file, t.slug AS template_slug, t.name AS template_name,
+                   {$templateProjectSelect}
+            FROM agents a
+            LEFT JOIN lp_templates t ON a.default_template_id = t.id AND t.status = 'active'
+            WHERE a.agent_code = ? AND a.status = 'active'
+            LIMIT 1
+        ");
+        $stmt->execute([$code]);
+        return $stmt->fetch() ?: null;
+    } catch (Throwable $e) {
+        error_log('Agent lookup with template failed: ' . $e->getMessage());
+    }
+
+    try {
+        $stmt = $db->prepare("SELECT * FROM agents WHERE agent_code = ? AND status = 'active' LIMIT 1");
+        $stmt->execute([$code]);
+        return $stmt->fetch() ?: null;
+    } catch (Throwable $e) {
+        error_log('Agent lookup failed: ' . $e->getMessage());
+        return null;
+    }
 }
 
 function getAgentById(int $id): ?array {
@@ -1294,26 +1295,11 @@ function getAgentById(int $id): ?array {
 // =============================
 // 繝・Φ繝励Ξ繝ｼ繝亥叙蠕・// =============================
 function getActiveTemplates(): array {
-    $db = getDB();
-    if (tableHasColumn('lp_templates', 'project_id')) {
-        $stmt = $db->query("
-            SELECT t.*, p.name AS project_name
-            FROM lp_templates t
-            LEFT JOIN projects p ON t.project_id = p.id
-            WHERE t.status = 'active'
-            ORDER BY COALESCE(p.sort_order, 9999) ASC, t.sort_order ASC
-        ");
-        return $stmt->fetchAll();
-    }
-    $stmt = $db->query("SELECT * FROM lp_templates WHERE status = 'active' ORDER BY sort_order ASC");
-    return $stmt->fetchAll();
+    return lpTemplateRepository()->activeTemplates();
 }
 
 function getTemplateById(int $id): ?array {
-    $db = getDB();
-    $stmt = $db->prepare("SELECT * FROM lp_templates WHERE id = ? LIMIT 1");
-    $stmt->execute([$id]);
-    return $stmt->fetch() ?: null;
+    return lpTemplateRepository()->find($id);
 }
 
 function getActiveTemplatesByProject(): array {
@@ -1344,24 +1330,18 @@ function getAgentProjectTemplateMap(int $agentId): array {
 
 function getProjectTemplateForAgent(array $agent, int $projectId): ?array {
     if ($projectId <= 0) return null;
-    $db = getDB();
+    $templates = lpTemplateRepository();
     $agentId = (int)($agent['id'] ?? 0);
     $map = getAgentProjectTemplateMap($agentId);
     if (!empty($map[$projectId])) {
-        $stmt = $db->prepare("SELECT * FROM lp_templates WHERE id=? AND project_id=? AND status='active' LIMIT 1");
-        $stmt->execute([(int)$map[$projectId], $projectId]);
-        $template = $stmt->fetch();
+        $template = $templates->activeProjectTemplate((int)$map[$projectId], $projectId);
         if ($template) return $template;
     }
     if ((int)($agent['template_project_id'] ?? 0) === $projectId && !empty($agent['default_template_id'])) {
-        $stmt = $db->prepare("SELECT * FROM lp_templates WHERE id=? AND project_id=? AND status='active' LIMIT 1");
-        $stmt->execute([(int)$agent['default_template_id'], $projectId]);
-        $template = $stmt->fetch();
+        $template = $templates->activeProjectTemplate((int)$agent['default_template_id'], $projectId);
         if ($template) return $template;
     }
-    $stmt = $db->prepare("SELECT * FROM lp_templates WHERE project_id=? AND status='active' ORDER BY sort_order ASC, id ASC LIMIT 1");
-    $stmt->execute([$projectId]);
-    return $stmt->fetch() ?: null;
+    return $templates->firstActiveForProject($projectId);
 }
 
 function getAgentProjectLpUrls(array $agent): array {
@@ -1377,25 +1357,17 @@ function getAgentProjectLpUrls(array $agent): array {
 }
 
 function getLpTemplateFields(int $templateId): array {
-    if ($templateId <= 0) return [];
-    $db = getDB();
-    try {
-        $db->query("SELECT 1 FROM lp_template_fields LIMIT 1");
-    } catch (Throwable $e) {
-        return [];
-    }
-    $stmt = $db->prepare("SELECT * FROM lp_template_fields WHERE template_id=?");
-    $stmt->execute([$templateId]);
-    $fields = [];
-    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $fields[$row['field_key']] = $row;
-    }
-    return $fields;
+    return lpTemplateRepository()->fields($templateId);
 }
 
 function getLpTemplateFieldValue(array $agent, string $key, string $default = ''): string {
     $templateId = (int)($agent['default_template_id'] ?? 0);
-    $fields = getLpTemplateFields($templateId);
+    try {
+        $fields = getLpTemplateFields($templateId);
+    } catch (Throwable $e) {
+        error_log('LP template field lookup failed: ' . $e->getMessage());
+        $fields = [];
+    }
     if (empty($fields[$key])) {
         return $default;
     }
@@ -1415,173 +1387,87 @@ function lpImage(array $agent, string $key, string $default = ''): string {
 function lpResponsiveImage(array $agent, string $pcKey = 'hero_image_pc', string $spKey = 'hero_image_sp', string $alt = '', string $class = ''): string {
     $pc = getLpTemplateFieldValue($agent, $pcKey, getLpTemplateFieldValue($agent, 'hero_image', ''));
     $sp = getLpTemplateFieldValue($agent, $spKey, $pc);
-    if ($pc === '' && $sp === '') {
-        return '';
-    }
-    $img = '<picture>';
-    if ($sp !== '') {
-        $img .= '<source media="(max-width: 768px)" srcset="' . h($sp) . '">';
-    }
-    $img .= '<img src="' . h($pc ?: $sp) . '" alt="' . h($alt) . '"' . ($class !== '' ? ' class="' . h($class) . '"' : '') . '>';
-    $img .= '</picture>';
-    return $img;
+    return landingPageResponsiveImageBuilder()->picture($pc, $sp, $alt, $class);
 }
 
 function lpPlainText(string $value, int $maxLength = 160): string {
-    $value = trim(preg_replace('/\s+/u', ' ', strip_tags(html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8'))) ?: '');
-    if ($maxLength > 0 && function_exists('mb_strlen') && mb_strlen($value, 'UTF-8') > $maxLength) {
-        return mb_substr($value, 0, $maxLength - 1, 'UTF-8') . '窶ｦ';
+    return landingPageTextFormatter()->plainText($value, $maxLength);
+}
+
+function lpTemplateRepository(): \SenNoKuni\LandingPage\LandingPageTemplateRepository {
+    static $repository = null;
+    if ($repository === null) {
+        $repository = new \SenNoKuni\LandingPage\LandingPageTemplateRepository(
+            getDB(),
+            tableColumns('lp_templates')
+        );
     }
-    if ($maxLength > 0 && !function_exists('mb_strlen') && strlen($value) > $maxLength) {
-        return substr($value, 0, $maxLength - 3) . '...';
-    }
-    return $value;
+    return $repository;
 }
 
 function lpAbsoluteUrl(string $url): string {
-    $url = trim($url);
-    if ($url === '') return '';
-    if (preg_match('/^https?:\/\//i', $url)) return $url;
-    if ($url[0] !== '/') $url = '/' . $url;
-    return getSiteBaseUrl() . $url;
+    return landingPageUrlBuilder()->absoluteUrl($url);
+}
+
+function landingPageTextFormatter(): \SenNoKuni\LandingPage\LandingPageText {
+    static $formatter = null;
+    if ($formatter === null) {
+        $formatter = new \SenNoKuni\LandingPage\LandingPageText();
+    }
+    return $formatter;
+}
+
+function landingPageResponsiveImageBuilder(): \SenNoKuni\LandingPage\ResponsiveImageBuilder {
+    static $builder = null;
+    if ($builder === null) {
+        $builder = new \SenNoKuni\LandingPage\ResponsiveImageBuilder();
+    }
+    return $builder;
+}
+
+function landingPageSeoMetadataBuilder(): \SenNoKuni\LandingPage\SeoMetadataBuilder {
+    static $builder = null;
+    if ($builder === null) {
+        $builder = new \SenNoKuni\LandingPage\SeoMetadataBuilder(getSiteBaseUrl());
+    }
+    return $builder;
+}
+
+function landingPageRenderer(): \SenNoKuni\LandingPage\LandingPageRenderer {
+    static $renderer = null;
+    if ($renderer === null) {
+        $renderer = new \SenNoKuni\LandingPage\LandingPageRenderer(
+            dirname(__DIR__),
+            static fn(string $html, array $agent): string => applyLpTemplateTokens($html, $agent)
+        );
+    }
+    return $renderer;
 }
 
 function getLpTemplateSeoSource(int $templateId): array {
-    if ($templateId <= 0) return [];
-    try {
-        $db = getDB();
-        $stmt = $db->prepare("
-            SELECT t.*, p.slug AS project_slug, p.name AS project_name, p.description AS project_description
-            FROM lp_templates t
-            LEFT JOIN projects p ON t.project_id = p.id
-            WHERE t.id=?
-            LIMIT 1
-        ");
-        $stmt->execute([$templateId]);
-        return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-    } catch (Throwable $e) {
-        return [];
-    }
+    return lpTemplateRepository()->seoSource($templateId);
 }
 
 function buildLpSeoMeta(array $agent, array $fields): array {
     $templateId = (int)($agent['default_template_id'] ?? 0);
     $template = getLpTemplateSeoSource($templateId);
-    $templateName = lpPlainText((string)($template['name'] ?? $agent['template_name'] ?? ''), 70);
-    $projectName = lpPlainText((string)($template['project_name'] ?? ''), 70);
-    $heroTitle = lpPlainText((string)($fields['hero_title']['value_text'] ?? ''), 70);
-    $seoTitle = lpPlainText((string)($fields['seo_title']['value_text'] ?? ''), 70);
-    $title = $seoTitle ?: ($heroTitle ?: ($templateName ?: ($projectName ?: 'LP')));
-    if ($projectName !== '' && stripos($title, $projectName) === false) {
-        $title .= ' | ' . $projectName;
-    }
-
-    $description = lpPlainText((string)($fields['seo_description']['value_text'] ?? ''), 160);
-    if ($description === '') {
-        $description = lpPlainText((string)($fields['hero_body']['value_text'] ?? ''), 160);
-    }
-    if ($description === '') {
-        $description = lpPlainText((string)($template['description'] ?? $template['project_description'] ?? ''), 160);
-    }
-    if ($description === '') {
-        $description = $title . ' information page. Please check the details and contact us from LINE or the inquiry form.';
-    }
-
-    $agentCode = (string)($agent['agent_code'] ?? '');
-    $project = [];
-    if (!empty($template['project_slug'])) {
-        $project = ['slug' => $template['project_slug']];
-    }
-    $canonical = $agentCode !== '' && $agentCode !== 'preview'
-        ? buildAgentProjectLpUrl($agentCode, $project)
-        : getSiteBaseUrl() . ($_SERVER['REQUEST_URI'] ?? '/');
-
-    $image = '';
-    foreach (['og_image', 'hero_image_pc', 'hero_image', 'background_image', 'hero_image_sp'] as $key) {
-        if (!empty($fields[$key]['value_file'])) {
-            $image = lpAbsoluteUrl((string)$fields[$key]['value_file']);
-            break;
-        }
-        if (!empty($fields[$key]['value_text'])) {
-            $image = lpAbsoluteUrl((string)$fields[$key]['value_text']);
-            break;
-        }
-    }
-    if ($image === '' && !empty($template['thumbnail_url'])) {
-        $image = lpAbsoluteUrl((string)$template['thumbnail_url']);
-    }
-
-    return [
-        'title' => $title,
-        'description' => $description,
-        'canonical' => $canonical,
-        'image' => $image,
-        'project_name' => $projectName,
-        'template_name' => $templateName,
-    ];
+    return landingPageSeoMetadataBuilder()->build($agent, $fields, $template, $_SERVER['REQUEST_URI'] ?? '/');
 }
 
 function injectLpSeoHead(string $html, array $agent, array $fields): string {
-    $seo = buildLpSeoMeta($agent, $fields);
-    $jsonLd = [
-        '@context' => 'https://schema.org',
-        '@type' => 'WebPage',
-        'name' => $seo['title'],
-        'description' => $seo['description'],
-        'url' => $seo['canonical'],
-        'inLanguage' => 'ja',
-        'about' => [
-            '@type' => 'Service',
-            'name' => $seo['project_name'] ?: $seo['template_name'] ?: $seo['title'],
-            'description' => $seo['description'],
-        ],
-        'potentialAction' => [
-            '@type' => 'ContactAction',
-            'target' => $seo['canonical'],
-        ],
-    ];
-    if ($seo['image'] !== '') {
-        $jsonLd['image'] = $seo['image'];
-        $jsonLd['primaryImageOfPage'] = [
-            '@type' => 'ImageObject',
-            'url' => $seo['image'],
-        ];
-    }
-
-    $head = "\n" .
-        '<title>' . h($seo['title']) . "</title>\n" .
-        '<meta name="description" content="' . h($seo['description']) . "\">\n" .
-        '<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">' . "\n" .
-        '<link rel="canonical" href="' . h($seo['canonical']) . "\">\n" .
-        '<meta property="og:type" content="website">' . "\n" .
-        '<meta property="og:locale" content="ja_JP">' . "\n" .
-        '<meta property="og:title" content="' . h($seo['title']) . "\">\n" .
-        '<meta property="og:description" content="' . h($seo['description']) . "\">\n" .
-        '<meta property="og:url" content="' . h($seo['canonical']) . "\">\n" .
-        ($seo['image'] !== '' ? '<meta property="og:image" content="' . h($seo['image']) . "\">\n" : '') .
-        '<meta name="twitter:card" content="' . ($seo['image'] !== '' ? 'summary_large_image' : 'summary') . "\">\n" .
-        '<meta name="twitter:title" content="' . h($seo['title']) . "\">\n" .
-        '<meta name="twitter:description" content="' . h($seo['description']) . "\">\n" .
-        ($seo['image'] !== '' ? '<meta name="twitter:image" content="' . h($seo['image']) . "\">\n" : '') .
-        '<script type="application/ld+json">' . json_encode($jsonLd, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "</script>\n";
-
-    $patterns = [
-        '/<title\b[^>]*>.*?<\/title>\s*/is',
-        '/<meta\s+name=["\']description["\'][^>]*>\s*/i',
-        '/<meta\s+name=["\']robots["\'][^>]*>\s*/i',
-        '/<link\s+rel=["\']canonical["\'][^>]*>\s*/i',
-        '/<meta\s+property=["\']og:[^"\']+["\'][^>]*>\s*/i',
-        '/<meta\s+name=["\']twitter:[^"\']+["\'][^>]*>\s*/i',
-        '/<script\s+type=["\']application\/ld\+json["\'][^>]*>.*?<\/script>\s*/is',
-    ];
-    $html = preg_replace($patterns, '', $html);
-    $html = preg_replace('/(<head\b[^>]*>)/i', '$1' . $head, $html, 1, $count);
-    return $count ? $html : $head . $html;
+    $templateId = (int)($agent['default_template_id'] ?? 0);
+    $template = getLpTemplateSeoSource($templateId);
+    return landingPageSeoMetadataBuilder()->injectHead($html, $agent, $fields, $template, $_SERVER['REQUEST_URI'] ?? '/');
 }
 
 function applyLpTemplateTokens(string $html, array $agent): string {
     $templateId = (int)($agent['default_template_id'] ?? 0);
-    $fields = getLpTemplateFields($templateId);
+    try {
+        $fields = getLpTemplateFields($templateId);
+    } catch (Throwable $e) {
+        error_log('LP template fields failed: ' . $e->getMessage());
+        $fields = [];
+    }
     if (!isset($fields['hero_image_pc']) && isset($fields['hero_image'])) {
         $fields['hero_image_pc'] = $fields['hero_image'];
     }
@@ -1620,50 +1506,25 @@ function applyLpTemplateTokens(string $html, array $agent): string {
         );
     }
 
-    return injectLpSeoHead($html, $agent, $fields);
+    try {
+        return injectLpSeoHead($html, $agent, $fields);
+    } catch (Throwable $e) {
+        error_log('LP SEO inject failed: ' . $e->getMessage());
+        return $html;
+    }
 }
 
 // =============================
 // 繧｢繧ｯ繧ｻ繧ｹ繝ｭ繧ｰ
 // =============================
 function logAccess(int $agentId, string $type = 'pv', ?int $templateId = null, array $context = []): void {
-    try {
-        $db = getDB();
-        $cols = tableColumns('access_logs');
-        $ipHash = hash('sha256', $_SERVER['REMOTE_ADDR'] ?? '');
-        $ua = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500);
-        $projectId = null;
-        if (!empty($cols['project_id']) && $templateId && tableHasColumn('lp_templates', 'project_id')) {
-            $projectStmt = $db->prepare("SELECT project_id FROM lp_templates WHERE id=?");
-            $projectStmt->execute([$templateId]);
-            $projectId = (int)$projectStmt->fetchColumn() ?: null;
-        }
-
-        $insertColumns = ['agent_id', 'type', 'ip_hash', 'user_agent'];
-        $insertValues = [$agentId, $type, $ipHash, $ua];
-        if (!empty($cols['template_id'])) {
-            $insertColumns[] = 'template_id';
-            $insertValues[] = $templateId ?: null;
-        }
-        if (!empty($cols['project_id'])) {
-            $insertColumns[] = 'project_id';
-            $insertValues[] = $projectId;
-        }
-        if (!empty($cols['referral_token_id'])) {
-            $insertColumns[] = 'referral_token_id';
-            $insertValues[] = !empty($context['referral_token_id']) ? (int)$context['referral_token_id'] : null;
-        }
-        if (!empty($cols['referral_session_key'])) {
-            $insertColumns[] = 'referral_session_key';
-            $insertValues[] = trim((string)($context['referral_session_key'] ?? '')) ?: null;
-        }
-
-        $placeholders = implode(',', array_fill(0, count($insertColumns), '?'));
-        $stmt = $db->prepare("INSERT INTO access_logs (" . implode(',', $insertColumns) . ") VALUES ($placeholders)");
-        $stmt->execute($insertValues);
-    } catch (Exception $e) {
-        error_log('Access log error: ' . $e->getMessage());
-    }
+    $recorder = new \SenNoKuni\Activity\AccessLogRecorder(
+        getDB(),
+        tableColumns('access_logs'),
+        static fn(string $column): bool => tableHasColumn('lp_templates', $column),
+        static fn(string $message): bool => error_log($message)
+    );
+    $recorder->record($agentId, $type, $templateId, $context, $_SERVER);
 }
 
 // =============================
@@ -1679,114 +1540,16 @@ class Notifier {
     }
 
     public function send(): array {
-        $results = [];
-
-        if ($this->agent['notify_email']) {
-            $results['email'] = $this->sendEmail();
-        }
-        if ($this->agent['notify_line'] && $this->agent['line_messaging_token'] && $this->agent['line_user_id']) {
-            $results['line'] = $this->sendLine();
-        }
-        if ($this->agent['notify_chatwork'] && $this->agent['chatwork_webhook']) {
-            $results['chatwork'] = $this->sendChatwork();
-        }
-        if ($this->agent['notify_slack'] && $this->agent['slack_webhook']) {
-            $results['slack'] = $this->sendSlack();
-        }
-
-        return $results;
-    }
-
-    private function buildMessage(): string {
-        $a = $this->agent;
-        $l = $this->lead;
-        $sourceName = $l['source_agent_name'] ?? $a['agent_name'];
-        $sourceCode = $l['source_agent_code'] ?? ($a['agent_code'] ?? '');
-        $lines = [
-            "[Sengoku] New lead received",
-            "------------------------------",
-            "Customer",
-            "Name: {$l['name']}",
-            "Email: {$l['email']}",
-            "Phone: " . ($l['phone'] ?: 'N/A'),
-            "Message",
-            $l['message'],
-            "------------------------------",
-            "Received: " . date('Y-m-d H:i'),
-            "Source LP: {$sourceName}" . ($sourceCode ? " (/a/{$sourceCode})" : ""),
-            "Notify to: {$a['agent_name']}",
-        ];
-        return implode("\n", $lines);
-    }
-    private function sendEmail(): bool {
-        $to      = $this->agent['email'];
-        $subject = "[Sengoku] New lead - " . $this->lead['name'];
-        $body    = $this->buildMessage();
-        $headers = implode("\r\n", [
-            'From: noreply@' . ($_SERVER['HTTP_HOST'] ?? 'sengoku.example.com'),
-            'Content-Type: text/plain; charset=UTF-8',
-            'X-Mailer: PHP/' . PHP_VERSION,
-        ]);
-        $result = @mail($to, mb_encode_mimeheader($subject, 'UTF-8', 'B'), $body, $headers);
-        if (!$result) {
-            error_log("Email send failed to: $to");
-        }
-        return $result;
-    }
-
-    private function sendLine(): bool {
-        // LINE Messaging API (Push Message)
-        $body = json_encode([
-            'to' => $this->agent['line_user_id'],
-            'messages' => [[
-                'type' => 'text',
-                'text' => $this->buildMessage(),
-            ]],
-        ]);
-        return $this->postJson(
-            'https://api.line.me/v2/bot/message/push',
-            $body,
-            ['Authorization: Bearer ' . $this->agent['line_messaging_token']]
+        $webhookClient = new \SenNoKuni\Notification\JsonWebhookClient(static fn(string $message): bool => error_log($message));
+        $notifier = new \SenNoKuni\Notification\LeadNotifier(
+            new \SenNoKuni\Notification\LeadNotificationMessageBuilder(),
+            new \SenNoKuni\Notification\EmailNotificationChannel(static fn(string $message): bool => error_log($message)),
+            new \SenNoKuni\Notification\LineNotificationChannel($webhookClient),
+            new \SenNoKuni\Notification\ChatworkNotificationChannel(),
+            new \SenNoKuni\Notification\SlackNotificationChannel($webhookClient)
         );
-    }
 
-    private function sendChatwork(): bool {
-        $msg = urlencode($this->buildMessage());
-        $ch = curl_init($this->agent['chatwork_webhook']);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => "payload=" . $msg,
-            CURLOPT_TIMEOUT        => 10,
-        ]);
-        $result = curl_exec($ch);
-        $ok = ($result !== false);
-        curl_close($ch);
-        return $ok;
-    }
-
-    private function sendSlack(): bool {
-        $body = json_encode(['text' => $this->buildMessage()]);
-        return $this->postJson($this->agent['slack_webhook'], $body);
-    }
-
-    private function postJson(string $url, string $body, array $headers = []): bool {
-        $defaultHeaders = ['Content-Type: application/json'];
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => $body,
-            CURLOPT_HTTPHEADER     => array_merge($defaultHeaders, $headers),
-            CURLOPT_TIMEOUT        => 10,
-        ]);
-        $result = curl_exec($ch);
-        $ok = ($result !== false);
-        if (!$ok) {
-            error_log("postJson failed to $url: " . curl_error($ch));
-        }
-        curl_close($ch);
-        return $ok;
+        return $notifier->send($this->agent, $this->lead, $_SERVER);
     }
 }
 
@@ -1897,23 +1660,23 @@ function getLevelLabels(): array {
         $map  = [];
         foreach ($rows as $r) $map[$r['key_name']] = $r['value'];
         return [
-            1 => $map['label_level1'] ?? 'Advisor',
-            2 => $map['label_level2'] ?? 'Director',
-            3 => $map['label_level3'] ?? 'Agent',
+            1 => $map['label_level1'] ?? 'アドバイザー',
+            2 => $map['label_level2'] ?? 'ディレクター',
+            3 => $map['label_level3'] ?? 'エージェント',
         ];
     } catch (Exception $e) {
         return [
-            1 => 'Advisor',
-            2 => 'Director',
-            3 => 'Agent',
+            1 => 'アドバイザー',
+            2 => 'ディレクター',
+            3 => 'エージェント',
         ];
     }
 }
 function getAdvisorPositionLabels(): array {
     $defaults = [
-        'advisor' => 'Advisor',
-        'super_advisor' => 'Super Advisor',
-        'influencer' => 'Influencer',
+        'advisor' => 'アドバイザー',
+        'super_advisor' => 'スーパーアドバイザー',
+        'influencer' => 'インフルエンサー',
     ];
 
     try {
@@ -1953,6 +1716,80 @@ function getAdvisorPositionLabel(?string $positionType, ?string $positionLabel =
     $labels = getAdvisorPositionLabels();
     $key = normalizeAdvisorPosition((string)$positionType);
     return $labels[$key] ?? $labels['advisor'];
+}
+
+function getAgentPositionLabels(): array {
+    $defaults = [
+        'agent_candidate' => 'エージェント候補',
+    ];
+
+    try {
+        $db = getDB();
+        $stmt = $db->query("
+            SELECT key_name, value
+            FROM system_settings
+            WHERE key_name IN ('label_position_agent_candidate')
+        ");
+        $map = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $map[$row['key_name']] = trim((string)$row['value']);
+        }
+
+        return [
+            'agent_candidate' => !empty($map['label_position_agent_candidate']) ? $map['label_position_agent_candidate'] : $defaults['agent_candidate'],
+        ];
+    } catch (Exception $e) {
+        return $defaults;
+    }
+}
+
+function normalizeAgentPosition(?string $position): string {
+    $position = trim((string)$position);
+    return array_key_exists($position, getAgentPositionLabels()) ? $position : '';
+}
+
+function isAgentCandidate(array $agent): bool {
+    return (int)($agent['level'] ?? 1) === 3
+        && normalizeAgentPosition($agent['position_type'] ?? null) === 'agent_candidate';
+}
+
+function isAgentLike(array $agent): bool {
+    return (int)($agent['level'] ?? 1) >= 3;
+}
+
+function canManageDirectors(array $agent): bool {
+    return isAgentLike($agent);
+}
+
+function getAgentCandidateLabel(?string $positionLabel = null): string {
+    if ($positionLabel) {
+        return $positionLabel;
+    }
+    $labels = getAgentPositionLabels();
+    return $labels['agent_candidate'] ?? 'エージェント候補';
+}
+
+function getAgentRoleKey(array $agent): string {
+    $level = (int)($agent['level'] ?? 1);
+    if ($level === 3) {
+        return isAgentCandidate($agent) ? 'agent_candidate' : 'agent';
+    }
+    if ($level === 2) {
+        return 'director';
+    }
+    return normalizeAdvisorPosition((string)($agent['position_type'] ?? 'advisor'));
+}
+
+function getAgentRoleLabel(array $agent): string {
+    $level = (int)($agent['level'] ?? 1);
+    if ($level === 1) {
+        return getAdvisorPositionLabel($agent['position_type'] ?? null, $agent['position_label'] ?? null);
+    }
+    if ($level === 3 && isAgentCandidate($agent)) {
+        return getAgentCandidateLabel($agent['position_label'] ?? null);
+    }
+    $labels = getLevelLabels();
+    return $labels[$level] ?? 'メンバー';
 }
 
 // =============================
@@ -2079,6 +1916,14 @@ function buildExternalPartnerAgencyPayload(array $agent, string $event = 'upsert
         $status = 'inactive';
     }
 
+    $positionType = (string)($agent['position_type'] ?? '');
+    $positionLabel = (string)($agent['position_label'] ?? '');
+    if ($level === 1) {
+        $positionLabel = getAdvisorPositionLabel($positionType ?: null, $positionLabel ?: null);
+    } elseif ($level === 3 && isAgentCandidate($agent)) {
+        $positionLabel = getAgentCandidateLabel($positionLabel ?: null);
+    }
+
     return [
         'event' => $event,
         'source' => 'sengoku-ai',
@@ -2096,9 +1941,10 @@ function buildExternalPartnerAgencyPayload(array $agent, string $event = 'upsert
         'line_url' => (string)($agent['line_url'] ?? ''),
         'status' => $status === 'active' ? 'active' : 'inactive',
         'role_level' => $level,
-        'role_label' => getLevelLabel($level),
-        'position_type' => (string)($agent['position_type'] ?? ''),
-        'position_label' => getAdvisorPositionLabel($agent['position_type'] ?? null, $agent['position_label'] ?? null),
+        'role_key' => getAgentRoleKey($agent),
+        'role_label' => getAgentRoleLabel($agent),
+        'position_type' => $positionType,
+        'position_label' => $positionLabel,
         'lp_urls' => $lpUrls,
         'sso_urls' => buildSsoLaunchUrlPayload(),
         'updated_at' => date('c'),
@@ -2430,196 +2276,71 @@ function getIntegrationOutboxStatusLabels(): array {
 }
 
 function integrationOutboxSupportsClaims(): bool {
-    return tableHasColumn('integration_outbox_events', 'claim_token')
-        && tableHasColumn('integration_outbox_events', 'claimed_at')
-        && tableHasColumn('integration_outbox_events', 'claim_expires_at')
-        && tableHasColumn('integration_outbox_events', 'worker_id');
+    return integrationOutboxClaimService()->supportsClaims();
 }
 
 function getIntegrationOutboxClaimTimeoutSeconds(): int {
-    $seconds = (int)getSystemSettingValue('external_partner_outbox_claim_timeout_seconds', '300');
-    return min(3600, max(60, $seconds));
+    return integrationOutboxClaimService()->timeoutSeconds();
+}
+
+function integrationOutboxClaimService(): \SenNoKuni\Integration\Outbox\OutboxClaimService {
+    static $service = null;
+    if ($service === null) {
+        $service = new \SenNoKuni\Integration\Outbox\OutboxClaimService(
+            getDB(),
+            static fn(string $table, string $column): bool => tableHasColumn($table, $column),
+            static fn(string $key, string $default = ''): string => getSystemSettingValue($key, $default),
+        );
+    }
+    return $service;
+}
+
+function integrationOutboxRepository(): \SenNoKuni\Integration\Outbox\OutboxRepository {
+    static $repository = null;
+    if ($repository === null) {
+        $repository = new \SenNoKuni\Integration\Outbox\OutboxRepository(
+            getDB(),
+            integrationOutboxClaimService(),
+            new \SenNoKuni\Integration\Outbox\RetryPolicy(),
+        );
+    }
+    return $repository;
+}
+
+function integrationOutboxDeadLetterService(): \SenNoKuni\Integration\Outbox\DeadLetterService {
+    static $service = null;
+    if ($service === null) {
+        $service = new \SenNoKuni\Integration\Outbox\DeadLetterService(
+            getDB(),
+            integrationOutboxClaimService(),
+        );
+    }
+    return $service;
 }
 
 function recoverStaleIntegrationOutboxClaims(): int {
-    if (!integrationOutboxSupportsClaims()) {
-        return 0;
-    }
-    $stmt = getDB()->prepare("
-        UPDATE integration_outbox_events
-        SET status='failed',
-            claim_token=NULL,
-            claimed_at=NULL,
-            claim_expires_at=NULL,
-            worker_id=NULL,
-            next_attempt_at=NOW(),
-            last_error=CASE
-                WHEN last_error IS NULL OR last_error = '' THEN 'Outbox worker claim expired.'
-                ELSE CONCAT(last_error, '\nOutbox worker claim expired.')
-            END,
-            updated_at=NOW()
-        WHERE status='processing'
-          AND claim_expires_at IS NOT NULL
-          AND claim_expires_at < NOW()
-    ");
-    $stmt->execute();
-    return $stmt->rowCount();
+    return integrationOutboxClaimService()->recoverStaleClaims();
 }
 
 function claimIntegrationOutboxEventById(int $id, string $workerId = ''): ?array {
     if ($id <= 0 || empty(tableColumns('integration_outbox_events'))) {
         return null;
     }
-    if (!integrationOutboxSupportsClaims()) {
-        $stmt = getDB()->prepare("SELECT * FROM integration_outbox_events WHERE id=? LIMIT 1");
-        $stmt->execute([$id]);
-        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
-    }
-
-    recoverStaleIntegrationOutboxClaims();
-    $workerId = trim($workerId) ?: ('manual-' . getmypid());
-    $claimToken = 'clm_' . bin2hex(random_bytes(24));
-    $timeout = getIntegrationOutboxClaimTimeoutSeconds();
-    $stmt = getDB()->prepare("
-        UPDATE integration_outbox_events
-        SET status='processing',
-            claim_token=?,
-            claimed_at=NOW(),
-            claim_expires_at=DATE_ADD(NOW(), INTERVAL {$timeout} SECOND),
-            worker_id=?,
-            updated_at=NOW()
-        WHERE id=?
-          AND status IN ('pending','failed','dlq')
-          AND (claim_token IS NULL OR claim_expires_at IS NULL OR claim_expires_at < NOW())
-    ");
-    $stmt->execute([$claimToken, $workerId, $id]);
-    if ($stmt->rowCount() !== 1) {
-        return null;
-    }
-
-    $stmt = getDB()->prepare("SELECT * FROM integration_outbox_events WHERE id=? AND claim_token=? LIMIT 1");
-    $stmt->execute([$id, $claimToken]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$row) {
-        return null;
-    }
-    $row['_runtime_claim_token'] = $claimToken;
-    return $row;
+    return integrationOutboxClaimService()->claimById($id, $workerId);
 }
 
 function claimDueIntegrationOutboxEvents(string $siteKey = '', int $limit = 10, bool $includeDlq = false, string $workerId = ''): array {
     if (empty(tableColumns('integration_outbox_events')) || !integrationOutboxSupportsClaims()) {
         return [];
     }
-
-    recoverStaleIntegrationOutboxClaims();
-    $limit = min(50, max(1, $limit));
-    $statuses = $includeDlq ? "'pending','failed','dlq'" : "'pending','failed'";
-    $where = "status IN ($statuses) AND (next_attempt_at IS NULL OR next_attempt_at <= NOW() OR status='dlq')";
-    $params = [];
-    $siteKey = trim($siteKey);
-    if ($siteKey !== '') {
-        $where .= " AND target_site_key=?";
-        $params[] = $siteKey;
-    }
-
-    $stmt = getDB()->prepare("
-        SELECT id
-        FROM integration_outbox_events
-        WHERE $where
-          AND (claim_token IS NULL OR claim_expires_at IS NULL OR claim_expires_at < NOW())
-        ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'failed' THEN 1 ELSE 2 END,
-                 COALESCE(next_attempt_at, created_at) ASC,
-                 id ASC
-        LIMIT $limit
-    ");
-    $stmt->execute($params);
-    $ids = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
-
-    $claimed = [];
-    $workerId = trim($workerId) ?: ('cron-' . getmypid());
-    foreach ($ids as $id) {
-        $row = claimIntegrationOutboxEventById($id, $workerId);
-        if ($row) {
-            $claimed[] = $row;
-        }
-    }
-    return $claimed;
+    return integrationOutboxRepository()->claimDue($siteKey, $limit, $includeDlq, $workerId);
 }
 
 function updateIntegrationOutboxEventAfterAttempt(array $event, array $result): void {
     if (empty(tableColumns('integration_outbox_events'))) {
         return;
     }
-    $db = getDB();
-    $id = (int)($event['id'] ?? 0);
-    if ($id <= 0) {
-        return;
-    }
-
-    $hasClaim = integrationOutboxSupportsClaims();
-    $claimToken = trim((string)($event['_runtime_claim_token'] ?? $event['claim_token'] ?? ''));
-    $claimWhere = ($hasClaim && $claimToken !== '') ? ' AND claim_token=?' : '';
-    $claimParams = ($hasClaim && $claimToken !== '') ? [$claimToken] : [];
-    $claimClearSql = $hasClaim ? ",
-                claim_token=NULL,
-                claimed_at=NULL,
-                claim_expires_at=NULL,
-                worker_id=NULL" : '';
-    $attemptsAfter = (int)($event['attempt_count'] ?? 0) + 1;
-    $maxAttempts = max(1, (int)($event['max_attempts'] ?? 8));
-    $ok = !empty($result['ok']);
-    $error = trim((string)($result['error'] ?? ''));
-    if ($error === '' && !$ok) {
-        $error = 'HTTP ' . (int)($result['status'] ?? 0);
-    }
-
-    if ($ok) {
-        $stmt = $db->prepare("
-            UPDATE integration_outbox_events
-            SET status='succeeded',
-                attempt_count=?,
-                last_attempt_at=NOW(),
-                next_attempt_at=NULL,
-                last_error=NULL,
-                processed_at=NOW(),
-                updated_at=NOW()
-                $claimClearSql
-            WHERE id=?$claimWhere
-        ");
-        $stmt->execute(array_merge([$attemptsAfter, $id], $claimParams));
-        return;
-    }
-
-    if ($attemptsAfter >= $maxAttempts) {
-        $stmt = $db->prepare("
-            UPDATE integration_outbox_events
-            SET status='dlq',
-                attempt_count=?,
-                last_attempt_at=NOW(),
-                next_attempt_at=NULL,
-                last_error=?,
-                updated_at=NOW()
-                $claimClearSql
-            WHERE id=?$claimWhere
-        ");
-        $stmt->execute(array_merge([$attemptsAfter, $error, $id], $claimParams));
-        return;
-    }
-
-    $delayMinutes = min(1440, max(5, (int)(5 * (2 ** min(8, max(0, $attemptsAfter - 1))))));
-    $stmt = $db->prepare("
-        UPDATE integration_outbox_events
-        SET status='failed',
-            attempt_count=?,
-            last_attempt_at=NOW(),
-            next_attempt_at=DATE_ADD(NOW(), INTERVAL {$delayMinutes} MINUTE),
-            last_error=?,
-            updated_at=NOW()
-            $claimClearSql
-        WHERE id=?$claimWhere
-    ");
-    $stmt->execute(array_merge([$attemptsAfter, $error, $id], $claimParams));
+    integrationOutboxRepository()->updateAfterAttempt($event, $result);
 }
 
 function retryIntegrationOutboxEventRow(array $event): array {
@@ -2785,43 +2506,14 @@ function resetIntegrationOutboxEventForRetry(int $id): void {
     if ($id <= 0 || empty(tableColumns('integration_outbox_events'))) {
         return;
     }
-    $claimClearSql = integrationOutboxSupportsClaims() ? "
-            claim_token=NULL,
-            claimed_at=NULL,
-            claim_expires_at=NULL,
-            worker_id=NULL," : '';
-    $stmt = getDB()->prepare("
-        UPDATE integration_outbox_events
-        SET status='failed',
-            next_attempt_at=NOW(),
-            last_error=NULL,
-            processed_at=NULL,
-            $claimClearSql
-            updated_at=NOW()
-        WHERE id=?
-    ");
-    $stmt->execute([$id]);
+    integrationOutboxDeadLetterService()->resetForRetry($id);
 }
 
 function moveIntegrationOutboxEventToDlq(int $id, string $reason = ''): void {
     if ($id <= 0 || empty(tableColumns('integration_outbox_events'))) {
         return;
     }
-    $claimClearSql = integrationOutboxSupportsClaims() ? "
-            claim_token=NULL,
-            claimed_at=NULL,
-            claim_expires_at=NULL,
-            worker_id=NULL," : '';
-    $stmt = getDB()->prepare("
-        UPDATE integration_outbox_events
-        SET status='dlq',
-            next_attempt_at=NULL,
-            $claimClearSql
-            last_error=?,
-            updated_at=NOW()
-        WHERE id=?
-    ");
-    $stmt->execute([$reason !== '' ? $reason : 'Moved to DLQ manually.', $id]);
+    integrationOutboxDeadLetterService()->moveToDeadLetter($id, $reason);
 }
 
 function dispatchExternalPartnerEvent(string $eventType, array $payload, array $options = []): array {
@@ -3342,7 +3034,8 @@ function buildAgencySsoJwt(array $agent, ?string $returnTo = null, ?array $clien
         'exp' => $now + 60,
         'jti' => bin2hex(random_bytes(24)),
         'role_level' => (int)($agent['level'] ?? 1),
-        'role_label' => getLevelLabel((int)($agent['level'] ?? 1)),
+        'role_key' => getAgentRoleKey($agent),
+        'role_label' => getAgentRoleLabel($agent),
         'agency_name' => (string)($agent['agent_name'] ?? ''),
         'contact_name' => (string)($agent['person_name'] ?? ''),
         'contact_email' => (string)($agent['email'] ?? ''),
@@ -3373,6 +3066,402 @@ function buildAgencySsoJwt(array $agent, ?string $returnTo = null, ?array $clien
     $ok = openssl_sign($signingInput, $signature, $settings['private_key'], OPENSSL_ALGO_SHA256);
     if (!$ok) {
         throw new RuntimeException('SSO JWT signing failed.');
+    }
+    $segments[] = base64UrlEncode($signature);
+    return implode('.', $segments);
+}
+
+// Synced legacy production helpers kept for update compatibility.
+
+
+function safeTextLower(string $value): string {
+    return function_exists('mb_strtolower') ? mb_strtolower($value, 'UTF-8') : strtolower($value);
+}
+
+
+
+function safeTextSubstr(string $value, int $start, int $length): string {
+    return function_exists('mb_substr') ? mb_substr($value, $start, $length, 'UTF-8') : substr($value, $start, $length);
+}
+
+
+
+function customerEntitlementTablesReady(): bool {
+    return !empty(tableColumns('customer_entitlements'));
+}
+
+
+
+function normalizeCustomerEntitlementStatus(string $status): string {
+    $status = strtolower(trim($status));
+    return match ($status) {
+        'granted', 'grant', 'paid', 'completed', 'succeeded', 'active', 'available' => 'active',
+        'revoked', 'refund', 'refunded' => 'revoked',
+        'cancelled' => 'canceled',
+        'canceled', 'expired', 'suspended', 'pending' => $status,
+        default => $status !== '' ? $status : 'active',
+    };
+}
+
+
+
+function saveCustomerEntitlement(array $data): array {
+    if (!customerEntitlementTablesReady()) {
+        return [];
+    }
+    $commonUserId = trim((string)($data['common_user_id'] ?? ''));
+    $systemKey = trim((string)($data['system_key'] ?? $data['source_system_key'] ?? $data['service_key'] ?? ''));
+    if ($commonUserId === '' || $systemKey === '') {
+        return [];
+    }
+    $productCode = trim((string)($data['product_code'] ?? $data['product_id'] ?? ''));
+    $orderId = trim((string)($data['order_id'] ?? $data['transaction_id'] ?? ''));
+    if ($productCode === '' && $orderId === '') {
+        return [];
+    }
+
+    $projectKey = trim((string)($data['project_key'] ?? $data['project_slug'] ?? ''));
+    $orderItemId = trim((string)($data['order_item_id'] ?? '')) ?: 'default';
+    $metadataJson = null;
+    if (is_array($data['metadata'] ?? null)) {
+        $metadataJson = json_encode($data['metadata'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+    $status = normalizeCustomerEntitlementStatus((string)($data['status'] ?? $data['entitlement_status'] ?? 'active'));
+    $stmt = getDB()->prepare("
+        INSERT INTO customer_entitlements
+            (common_user_id, system_key, external_user_id, project_key, project_id, product_code,
+             order_id, order_item_id, status, starts_at, expires_at, source_event, metadata_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+            external_user_id=COALESCE(VALUES(external_user_id), external_user_id),
+            project_key=COALESCE(VALUES(project_key), project_key),
+            project_id=COALESCE(VALUES(project_id), project_id),
+            status=VALUES(status),
+            starts_at=COALESCE(VALUES(starts_at), starts_at),
+            expires_at=COALESCE(VALUES(expires_at), expires_at),
+            source_event=COALESCE(VALUES(source_event), source_event),
+            metadata_json=COALESCE(VALUES(metadata_json), metadata_json),
+            updated_at=NOW()
+    ");
+    $stmt->execute([
+        $commonUserId,
+        $systemKey,
+        trim((string)($data['external_user_id'] ?? $data['source_user_id'] ?? $data['service_user_id'] ?? '')) ?: null,
+        $projectKey ?: null,
+        !empty($data['project_id']) ? (int)$data['project_id'] : null,
+        $productCode,
+        $orderId,
+        $orderItemId,
+        $status,
+        trim((string)($data['starts_at'] ?? '')) ?: null,
+        trim((string)($data['expires_at'] ?? '')) ?: null,
+        trim((string)($data['source_event'] ?? $data['event'] ?? '')) ?: null,
+        $metadataJson,
+    ]);
+    $load = getDB()->prepare("
+        SELECT * FROM customer_entitlements
+        WHERE common_user_id=? AND system_key=?
+          AND COALESCE(product_code, '')=COALESCE(?, '')
+          AND COALESCE(order_id, '')=COALESCE(?, '')
+          AND order_item_id=?
+        LIMIT 1
+    ");
+    $load->execute([$commonUserId, $systemKey, $productCode, $orderId, $orderItemId]);
+    return $load->fetch(PDO::FETCH_ASSOC) ?: [];
+}
+
+
+
+function loadCustomerEntitlements(string $commonUserId, ?string $systemKey = null): array {
+    if (trim($commonUserId) === '' || !customerEntitlementTablesReady()) {
+        return [];
+    }
+    $params = [$commonUserId];
+    $where = "common_user_id=?";
+    if ($systemKey !== null && trim($systemKey) !== '') {
+        $where .= " AND system_key=?";
+        $params[] = trim($systemKey);
+    }
+    $stmt = getDB()->prepare("
+        SELECT id, common_user_id, system_key, external_user_id, project_key, project_id,
+               product_code, order_id, order_item_id, status, starts_at, expires_at,
+               source_event, created_at, updated_at
+        FROM customer_entitlements
+        WHERE {$where}
+        ORDER BY updated_at DESC, id DESC
+    ");
+    $stmt->execute($params);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+
+
+function lpAiReadableUrlFromSeo(array $seo): string {
+    $canonical = (string)($seo['canonical'] ?? '');
+    if ($canonical === '') {
+        $canonical = getSiteBaseUrl() . ($_SERVER['REQUEST_URI'] ?? '/');
+    }
+    return appendUrlQueryParams($canonical, ['format' => 'ai']);
+}
+
+
+
+function injectLpAiReadableHeadLink(string $html, array $seo): string {
+    if (stripos($html, 'type="text/markdown"') !== false || stripos($html, "type='text/markdown'") !== false) {
+        return $html;
+    }
+    $tag = '<link rel="alternate" type="text/markdown" title="AI-readable page summary" href="' . h(lpAiReadableUrlFromSeo($seo)) . '">' . "\n";
+    $html = preg_replace('/(<\/head>)/i', $tag . '$1', $html, 1, $count);
+    return $count ? $html : $tag . $html;
+}
+
+
+
+function isLpAiReadableRequest(): bool {
+    $format = strtolower(trim((string)($_GET['format'] ?? '')));
+    return $format === 'ai'
+        || $format === 'markdown'
+        || (string)($_GET['ai'] ?? '') === '1'
+        || (string)($_GET['llms'] ?? '') === '1';
+}
+
+
+
+function lpReadableTextFromHtml(string $html): string {
+    $html = preg_replace('/<script\b[^>]*>.*?<\/script>/is', ' ', $html) ?? $html;
+    $html = preg_replace('/<style\b[^>]*>.*?<\/style>/is', ' ', $html) ?? $html;
+    $html = preg_replace('/<(br|hr)\b[^>]*>/i', "\n", $html) ?? $html;
+    $html = preg_replace('/<\/(p|div|section|article|header|footer|h[1-6]|li|tr)>/i', "\n", $html) ?? $html;
+    $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $text = preg_replace('/[ \t]+/u', ' ', $text) ?? $text;
+    $text = preg_replace('/\R{3,}/u', "\n\n", $text) ?? $text;
+    return trim($text);
+}
+
+
+
+function buildLpAiReadableMarkdown(string $html, array $agent, array $fields): string {
+    $seo = buildLpSeoMeta($agent, $fields);
+    $title = lpPlainText((string)($seo['title'] ?? 'LP'), 120);
+    $description = lpPlainText((string)($seo['description'] ?? ''), 240);
+    $canonical = (string)($seo['canonical'] ?? '');
+    $image = (string)($seo['image'] ?? '');
+    $projectName = lpPlainText((string)($seo['project_name'] ?? ''), 120);
+    $templateName = lpPlainText((string)($seo['template_name'] ?? ''), 120);
+    $body = lpReadableTextFromHtml($html);
+
+    $lines = [
+        '# ' . $title,
+        '',
+        $description,
+        '',
+        '## Page Metadata',
+        '- URL: ' . $canonical,
+        '- AI-readable URL: ' . lpAiReadableUrlFromSeo($seo),
+        '- Language: ja',
+    ];
+    if ($projectName !== '') {
+        $lines[] = '- Project: ' . $projectName;
+    }
+    if ($templateName !== '') {
+        $lines[] = '- LP template: ' . $templateName;
+    }
+    if (!empty($agent['agent_code'])) {
+        $lines[] = '- Agent code: ' . (string)$agent['agent_code'];
+    }
+    if (!empty($agent['agent_name'])) {
+        $lines[] = '- Agency name: ' . lpPlainText((string)$agent['agent_name'], 120);
+    }
+    if (!empty($agent['person_name'])) {
+        $lines[] = '- Contact person: ' . lpPlainText((string)$agent['person_name'], 120);
+    }
+    if ($image !== '') {
+        $lines[] = '- Main image: ' . $image;
+    }
+
+    $lines[] = '';
+    $lines[] = '## Contact';
+    if (!empty($agent['show_line_btn']) && !empty($agent['line_url'])) {
+        $lines[] = '- LINE: ' . (string)$agent['line_url'];
+    }
+    if (!empty($agent['show_form'])) {
+        $lines[] = '- Inquiry form: available on the page';
+    }
+    $lines[] = '';
+    $lines[] = '## Page Text';
+    $lines[] = $body !== '' ? $body : $description;
+    $lines[] = '';
+
+    return implode("\n", $lines);
+}
+
+
+
+function respondLpAiReadable(string $html, array $agent): void {
+    $templateId = (int)($agent['default_template_id'] ?? 0);
+    $fields = getLpTemplateFields($templateId);
+    if (!headers_sent()) {
+        header('Content-Type: text/markdown; charset=UTF-8');
+        header('X-Robots-Tag: index, follow');
+    }
+    echo buildLpAiReadableMarkdown($html, $agent, $fields);
+    exit;
+}
+
+
+
+function buildExternalPartnerAgencyEndpoint(array $site): string {
+    $endpoint = '';
+    if (tableHasColumn('external_partner_sites', 'agency_sync_endpoint')) {
+        $endpoint = trim((string)($site['agency_sync_endpoint'] ?? ''));
+    }
+    return $endpoint !== '' ? buildExternalPartnerEndpoint($endpoint) : buildExternalPartnerEndpoint((string)($site['base_url'] ?? ''));
+}
+
+
+
+function buildExternalPartnerEventEndpoint(array $site): string {
+    $endpoint = '';
+    if (tableHasColumn('external_partner_sites', 'common_event_endpoint')) {
+        $endpoint = trim((string)($site['common_event_endpoint'] ?? ''));
+    }
+    if ($endpoint === '') {
+        $endpoint = (string)($site['base_url'] ?? '');
+    }
+    $endpoint = rtrim(trim($endpoint), '/');
+    if ($endpoint === '') {
+        return '';
+    }
+    if (preg_match('#/api/integrations/events$#', $endpoint) === 1) {
+        return $endpoint;
+    }
+    if (preg_match('#/api/integrations/agencies$#', $endpoint) === 1) {
+        return preg_replace('#/api/integrations/agencies$#', '/api/integrations/events', $endpoint) ?: $endpoint;
+    }
+    return $endpoint . '/api/integrations/events';
+}
+
+
+
+function externalPartnerEventUsesAgencyEndpoint(string $eventType): bool {
+    $eventType = strtolower(trim($eventType));
+    if ($eventType === '' || $eventType === 'upsert' || $eventType === 'connection_test') {
+        return true;
+    }
+    return str_starts_with($eventType, 'agency.')
+        || str_starts_with($eventType, 'agent.')
+        || in_array($eventType, ['create', 'created', 'update', 'updated', 'delete', 'deleted', 'suspend', 'suspended'], true);
+}
+
+
+
+function buildExternalPartnerEndpointForEvent(array $site, string $eventType): string {
+    if (externalPartnerEventUsesAgencyEndpoint($eventType)) {
+        return buildExternalPartnerAgencyEndpoint($site);
+    }
+    return buildExternalPartnerEventEndpoint($site);
+}
+
+
+
+function buildCustomerSsoJwt(array $profile, array $client, ?string $returnTo = null, array $extra = []): string {
+    $settings = getAgencySsoSettings();
+    if ($settings['private_key'] === '' || $settings['key_id'] === '') {
+        throw new RuntimeException('SSO key pair is not configured.');
+    }
+    if (($client['status'] ?? '') !== 'active') {
+        throw new RuntimeException('SSO client is inactive.');
+    }
+    $audience = trim((string)($client['audience'] ?? ''));
+    if ($audience === '') {
+        throw new RuntimeException('SSO audience is empty.');
+    }
+    $commonUser = is_array($profile['common_user'] ?? null) ? $profile['common_user'] : [];
+    $commonUserId = trim((string)($commonUser['common_user_id'] ?? $profile['common_user_id'] ?? ''));
+    if ($commonUserId === '') {
+        throw new RuntimeException('Common user id is empty.');
+    }
+
+    $targetSystemKey = trim((string)($extra['target_system_key'] ?? $client['client_key'] ?? ''));
+    $displayName = '';
+    $walletAddress = '';
+    $systemLinks = [];
+    foreach ((array)($profile['system_links'] ?? []) as $link) {
+        if (!is_array($link)) {
+            continue;
+        }
+        $systemLinks[] = [
+            'system_key' => (string)($link['system_key'] ?? $link['service_key'] ?? ''),
+            'external_user_id' => (string)($link['external_user_id'] ?? $link['service_user_id'] ?? ''),
+            'display_name' => (string)($link['display_name'] ?? ''),
+            'role_name' => (string)($link['role_name'] ?? ''),
+            'status' => (string)($link['status'] ?? ''),
+        ];
+        if ($displayName === '' && trim((string)($link['display_name'] ?? '')) !== '') {
+            $displayName = trim((string)$link['display_name']);
+        }
+        if ($walletAddress === '' && trim((string)($link['wallet_address'] ?? '')) !== '') {
+            $walletAddress = trim((string)$link['wallet_address']);
+        }
+    }
+
+    $entitlements = [];
+    foreach ((array)($profile['entitlements'] ?? []) as $entitlement) {
+        if (!is_array($entitlement)) {
+            continue;
+        }
+        if ($targetSystemKey !== '' && (string)($entitlement['system_key'] ?? '') !== $targetSystemKey) {
+            continue;
+        }
+        $entitlements[] = [
+            'system_key' => (string)($entitlement['system_key'] ?? ''),
+            'project_key' => (string)($entitlement['project_key'] ?? ''),
+            'product_code' => (string)($entitlement['product_code'] ?? ''),
+            'status' => (string)($entitlement['status'] ?? ''),
+            'starts_at' => $entitlement['starts_at'] ?? null,
+            'expires_at' => $entitlement['expires_at'] ?? null,
+        ];
+    }
+
+    $now = time();
+    $payload = [
+        'iss' => $settings['issuer'],
+        'sub' => $commonUserId,
+        'common_user_id' => $commonUserId,
+        'aud' => $audience,
+        'iat' => $now,
+        'exp' => $now + 120,
+        'jti' => bin2hex(random_bytes(24)),
+        'actor_type' => 'customer',
+        'client_key' => (string)($client['client_key'] ?? ''),
+        'client_name' => (string)($client['name'] ?? ''),
+        'display_name' => $displayName,
+        'wallet_address' => $walletAddress,
+        'system_links' => $systemLinks,
+        'agency_relations' => $profile['agency_relations'] ?? [],
+        'entitlements' => $entitlements,
+    ];
+    if ($returnTo && strpos($returnTo, '/') === 0 && strpos($returnTo, '//') !== 0) {
+        $payload['return_to'] = $returnTo;
+    }
+    if (!empty($extra['source_system_key'])) {
+        $payload['source_system_key'] = (string)$extra['source_system_key'];
+    }
+
+    $header = [
+        'typ' => 'JWT',
+        'alg' => 'RS256',
+        'kid' => $settings['key_id'],
+    ];
+    $segments = [
+        base64UrlEncode(json_encode($header, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
+        base64UrlEncode(json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
+    ];
+    $signingInput = implode('.', $segments);
+    $signature = '';
+    $ok = openssl_sign($signingInput, $signature, $settings['private_key'], OPENSSL_ALGO_SHA256);
+    if (!$ok) {
+        throw new RuntimeException('Customer SSO JWT signing failed.');
     }
     $segments[] = base64UrlEncode($signature);
     return implode('.', $segments);

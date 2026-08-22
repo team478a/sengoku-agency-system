@@ -19,6 +19,31 @@ function integrationLogShort(?string $value, int $length = 120): string {
     return strlen($value) > $length ? substr($value, 0, $length) . '...' : $value;
 }
 
+function integrationLogEventLabel(?string $eventType): string {
+    $eventType = trim((string)$eventType);
+    $labels = [
+        'connection_test' => '基本接続',
+        'purchase.completed' => '購入完了',
+        'purchase.created' => '購入作成',
+        'purchase.updated' => '購入更新',
+        'entitlement.granted' => '権限付与',
+        'entitlement.updated' => '権限更新',
+        'entitlement.revoked' => '権限取消',
+        'customer_sso.token_issued' => '顧客SSO発行',
+        'parent_updated' => '親子紐づけ変更',
+        'lead_created' => '問い合わせ発生',
+        'common_user.merged' => '共通顧客統合',
+        'common_user.assigned_agent.updated' => '顧客担当代理店更新',
+    ];
+    return $labels[$eventType] ?? ($eventType !== '' ? $eventType : '-');
+}
+
+function integrationLogCategoryUrl(string $category, array $base = []): string {
+    $base['category'] = $category;
+    unset($base['page']);
+    return '/admin/integration_logs.php?' . http_build_query(array_filter($base, fn($v) => $v !== ''));
+}
+
 if ($hasLogsTable && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
         $error = '操作トークンが無効です。ページを再読み込みしてからもう一度お試しください。';
@@ -71,6 +96,7 @@ $direction = sanitizeInput($_GET['direction'] ?? '');
 $success = sanitizeInput($_GET['success'] ?? '');
 $siteKey = sanitizeInput($_GET['site_key'] ?? '');
 $eventType = sanitizeInput($_GET['event_type'] ?? '');
+$category = sanitizeInput($_GET['category'] ?? '');
 $status = sanitizeInput($_GET['http_status'] ?? '');
 $q = sanitizeInput($_GET['q'] ?? '');
 $page = max(1, (int)($_GET['page'] ?? 1));
@@ -134,6 +160,15 @@ if ($hasLogsTable) {
         $where[] = 'l.event_type = ?';
         $params[] = $eventType;
     }
+    if ($category === 'purchase') {
+        $where[] = "l.event_type IN ('purchase.completed','purchase.created','purchase.updated','entitlement.granted','entitlement.updated','entitlement.revoked')";
+    } elseif ($category === 'sso') {
+        $where[] = "l.event_type LIKE '%sso%'";
+    } elseif ($category === 'customer') {
+        $where[] = "l.event_type LIKE 'common_user.%'";
+    } elseif ($category === 'failed') {
+        $where[] = 'l.success = 0';
+    }
     if ($status !== '' && ctype_digit($status)) {
         $where[] = 'l.http_status = ?';
         $params[] = (int)$status;
@@ -171,6 +206,7 @@ $baseQuery = [
     'success' => $success,
     'site_key' => $siteKey,
     'event_type' => $eventType,
+    'category' => $category,
     'http_status' => $status,
     'q' => $q,
 ];
@@ -184,8 +220,23 @@ $retryCronUrl = $retryCronToken !== ''
 <?php if ($error): ?><div class="alert alert-error"><?= h($error) ?></div><?php endif; ?>
 
 <?php if (!$hasLogsTable): ?>
-<div class="alert alert-error">螟夜Κ騾｣謳ｺ繝ｭ繧ｰ縺ｮDB繝槭う繧ｰ繝ｬ繝ｼ繧ｷ繝ｧ繝ｳ縺梧悴驕ｩ逕ｨ縺ｧ縺吶ゅい繝・・繝・・繝育判髱｢縺九ｉDB繝槭う繧ｰ繝ｬ繝ｼ繧ｷ繝ｧ繝ｳ繧帝←逕ｨ縺励※縺上□縺輔＞縲・/div>
+<div class="alert alert-error">外部連携ログのDBマイグレーションが未適用です。アップデート画面からDBマイグレーションを適用してください。</div>
 <?php else: ?>
+<div class="card" style="background:rgba(201,168,76,.07);">
+    <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;flex-wrap:wrap;">
+        <div>
+            <p class="card-title">親子紐づけ変更の外部連携チェック</p>
+            <p style="color:var(--text-muted);font-size:.9rem;line-height:1.7;margin:0;">
+                親子紐づけを変更した後、外部システムへ「parent_updated」が送信されたか確認できます。
+                失敗ログがある場合は、この画面から再送できます。
+            </p>
+        </div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+            <a href="/admin/integration_logs.php?event_type=parent_updated" class="btn btn-outline">親子変更ログ</a>
+            <a href="/admin/integration_logs.php?event_type=parent_updated&direction=outbound&success=0" class="btn btn-gold">失敗のみ確認</a>
+        </div>
+    </div>
+</div>
 <div class="card">
     <p class="card-title">自動再送URL</p>
     <p style="color:var(--text-muted);margin-top:-.25rem;">サーバーのcronからこのURLを定期実行すると、失敗した外部送信ログを最大10件ずつ再送できます。</p>
@@ -271,37 +322,45 @@ $retryCronUrl = $retryCronToken !== ''
     </form>
 </div>
 <div class="card">
-    <p class="card-title">螟夜Κ騾｣謳ｺ繝ｭ繧ｰ讀懃ｴ｢</p>
+    <p class="card-title">外部連携ログ検索</p>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;">
+        <a class="btn btn-outline btn-sm" href="<?= h(integrationLogCategoryUrl('purchase', $baseQuery)) ?>">購入・権限</a>
+        <a class="btn btn-outline btn-sm" href="<?= h(integrationLogCategoryUrl('sso', $baseQuery)) ?>">SSO</a>
+        <a class="btn btn-outline btn-sm" href="<?= h(integrationLogCategoryUrl('customer', $baseQuery)) ?>">共通顧客</a>
+        <a class="btn btn-outline btn-sm" href="<?= h(integrationLogCategoryUrl('failed', $baseQuery)) ?>">失敗のみ</a>
+        <?php if ($category !== ''): ?><a class="btn btn-sm" href="/admin/integration_logs.php">絞り込み解除</a><?php endif; ?>
+    </div>
     <form method="get" style="display:grid;grid-template-columns:repeat(6,minmax(120px,1fr));gap:.75rem;align-items:end;">
+        <input type="hidden" name="category" value="<?= h($category) ?>">
         <div class="form-group" style="margin:0;">
-            <label>譁ｹ蜷・/label>
+            <label>方向</label>
             <select name="direction">
-                <option value="">縺吶∋縺ｦ</option>
-                <option value="outbound" <?= $direction === 'outbound' ? 'selected' : '' ?>>騾∽ｿ｡</option>
-                <option value="inbound" <?= $direction === 'inbound' ? 'selected' : '' ?>>蜿嶺ｿ｡</option>
+                <option value="">すべて</option>
+                <option value="outbound" <?= $direction === 'outbound' ? 'selected' : '' ?>>送信</option>
+                <option value="inbound" <?= $direction === 'inbound' ? 'selected' : '' ?>>受信</option>
             </select>
         </div>
         <div class="form-group" style="margin:0;">
-            <label>邨先棡</label>
+            <label>結果</label>
             <select name="success">
-                <option value="">縺吶∋縺ｦ</option>
-                <option value="1" <?= $success === '1' ? 'selected' : '' ?>>謌仙粥</option>
-                <option value="0" <?= $success === '0' ? 'selected' : '' ?>>螟ｱ謨・/option>
+                <option value="">すべて</option>
+                <option value="1" <?= $success === '1' ? 'selected' : '' ?>>成功</option>
+                <option value="0" <?= $success === '0' ? 'selected' : '' ?>>失敗</option>
             </select>
         </div>
         <div class="form-group" style="margin:0;">
-            <label>騾｣謳ｺ蜈・/label>
+            <label>連携先</label>
             <select name="site_key">
-                <option value="">縺吶∋縺ｦ</option>
+                <option value="">すべて</option>
                 <?php foreach ($siteOptions as $option): ?>
                     <option value="<?= h($option) ?>" <?= $siteKey === $option ? 'selected' : '' ?>><?= h($option) ?></option>
                 <?php endforeach; ?>
             </select>
         </div>
         <div class="form-group" style="margin:0;">
-            <label>繧､繝吶Φ繝・/label>
+            <label>イベント</label>
             <select name="event_type">
-                <option value="">縺吶∋縺ｦ</option>
+                <option value="">すべて</option>
                 <?php foreach ($eventOptions as $option): ?>
                     <option value="<?= h($option) ?>" <?= $eventType === $option ? 'selected' : '' ?>><?= h($option) ?></option>
                 <?php endforeach; ?>
@@ -309,37 +368,37 @@ $retryCronUrl = $retryCronToken !== ''
         </div>
         <div class="form-group" style="margin:0;">
             <label>HTTP</label>
-            <input type="text" name="http_status" value="<?= h($status) ?>" placeholder="萓・ 500">
+            <input type="text" name="http_status" value="<?= h($status) ?>" placeholder="例: 500">
         </div>
         <div class="form-group" style="margin:0;">
-            <label>讀懃ｴ｢</label>
-            <input type="text" name="q" value="<?= h($q) ?>" placeholder="莉｣逅・ｺ励・蜈ｱ騾唔D繝ｻ繧ｨ繝ｩ繝ｼ">
+            <label>検索</label>
+            <input type="text" name="q" value="<?= h($q) ?>" placeholder="代理店コード・共通ID・エラー">
         </div>
         <div style="grid-column:1/-1;display:flex;gap:.5rem;">
-            <button type="submit" class="btn btn-gold">邨槭ｊ霎ｼ縺ｿ</button>
-            <a href="/admin/integration_logs.php" class="btn btn-outline">繝ｪ繧ｻ繝・ヨ</a>
+            <button type="submit" class="btn btn-gold">絞り込み</button>
+            <a href="/admin/integration_logs.php" class="btn btn-outline">リセット</a>
         </div>
     </form>
 </div>
 
 <div class="card" style="padding:0;overflow:hidden;">
     <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:1rem;align-items:center;">
-        <p class="card-title" style="margin:0;border:none;padding:0;">繝ｭ繧ｰ荳隕ｧ</p>
-        <span style="font-size:.78rem;color:var(--text-muted);">蜈ｨ <?= number_format((int)$pag['total']) ?> 莉ｶ</span>
+        <p class="card-title" style="margin:0;border:none;padding:0;">ログ一覧</p>
+        <span style="font-size:.78rem;color:var(--text-muted);">全 <?= number_format((int)$pag['total']) ?> 件</span>
     </div>
     <div style="overflow-x:auto;">
         <table>
             <thead>
                 <tr>
-                    <th>譌･譎・/th>
-                    <th>譁ｹ蜷・/th>
-                    <th>騾｣謳ｺ蜈・/th>
-                    <th>繧､繝吶Φ繝・/th>
+                    <th>日時</th>
+                    <th>方向</th>
+                    <th>連携先</th>
+                    <th>イベント</th>
                     <th>HTTP</th>
-                    <th>邨先棡</th>
-                    <th>莉｣逅・ｺ・/ 蜈ｱ騾唔D</th>
-                    <th>隧ｳ邏ｰ</th>
-                    <th>謫堺ｽ・/th>
+                    <th>結果</th>
+                    <th>代理店 / 共通ID</th>
+                    <th>詳細</th>
+                    <th>操作</th>
                 </tr>
             </thead>
             <tbody>
@@ -353,9 +412,14 @@ $retryCronUrl = $retryCronToken !== ''
                 ?>
                 <tr>
                     <td style="white-space:nowrap;font-size:.78rem;color:var(--text-muted);"><?= h(date('Y/m/d H:i', strtotime($log['created_at']))) ?></td>
-                    <td><?= (string)$log['direction'] === 'outbound' ? '騾∽ｿ｡' : '蜿嶺ｿ｡' ?></td>
+                    <td><?= (string)$log['direction'] === 'outbound' ? '送信' : '受信' ?></td>
                     <td style="font-size:.82rem;"><?= h($log['site_key'] ?: '-') ?></td>
-                    <td style="font-size:.82rem;"><?= h($log['event_type'] ?: '-') ?></td>
+                    <td style="font-size:.82rem;">
+                        <strong><?= h(integrationLogEventLabel($log['event_type'] ?? '')) ?></strong>
+                        <?php if (!empty($log['event_type']) && integrationLogEventLabel($log['event_type']) !== $log['event_type']): ?>
+                            <br><span style="color:var(--text-muted);font-size:.72rem;"><?= h($log['event_type']) ?></span>
+                        <?php endif; ?>
+                    </td>
                     <td style="white-space:nowrap;"><?= h($log['http_status'] ?: '-') ?></td>
                     <td>
                         <span style="display:inline-block;padding:.2rem .55rem;border-radius:999px;font-size:.72rem;font-weight:700;<?= $isSuccess ? 'background:rgba(44,143,99,.18);color:#2c8f63;' : 'background:rgba(180,55,55,.18);color:#b43737;' ?>">
@@ -379,13 +443,13 @@ $retryCronUrl = $retryCronToken !== ''
                             <div style="color:var(--text-muted);"><?= h(integrationLogShort($log['endpoint'] ?? '', 120)) ?></div>
                         <?php endif; ?>
                         <details style="margin-top:.35rem;">
-                            <summary style="cursor:pointer;color:var(--gold);">JSON隧ｳ邏ｰ</summary>
+                            <summary style="cursor:pointer;color:var(--gold);">JSON詳細</summary>
                             <div style="margin-top:.4rem;">
-                                <p style="margin:.35rem 0;color:var(--text-muted);">騾∽ｿ｡蜈・/p>
+                                <p style="margin:.35rem 0;color:var(--text-muted);">送信先</p>
                                 <pre style="white-space:pre-wrap;word-break:break-word;font-size:.72rem;background:rgba(0,0,0,.05);padding:.6rem;"><?= h($log['endpoint'] ?? '') ?></pre>
-                                <p style="margin:.35rem 0;color:var(--text-muted);">繝ｪ繧ｯ繧ｨ繧ｹ繝・/p>
+                                <p style="margin:.35rem 0;color:var(--text-muted);">リクエスト</p>
                                 <pre style="white-space:pre-wrap;word-break:break-word;font-size:.72rem;background:rgba(0,0,0,.05);padding:.6rem;"><?= h($log['request_body'] ?? '') ?></pre>
-                                <p style="margin:.35rem 0;color:var(--text-muted);">繝ｬ繧ｹ繝昴Φ繧ｹ</p>
+                                <p style="margin:.35rem 0;color:var(--text-muted);">レスポンス</p>
                                 <pre style="white-space:pre-wrap;word-break:break-word;font-size:.72rem;background:rgba(0,0,0,.05);padding:.6rem;"><?= h($log['response_body'] ?? '') ?></pre>
                             </div>
                         </details>
@@ -404,7 +468,7 @@ $retryCronUrl = $retryCronToken !== ''
                     </td>
                 </tr>
             <?php endforeach; else: ?>
-                <tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:2.5rem;">螟夜Κ騾｣謳ｺ繝ｭ繧ｰ縺ｯ縺ゅｊ縺ｾ縺帙ｓ縲・/td></tr>
+                <tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:2.5rem;">外部連携ログはありません。</td></tr>
             <?php endif; ?>
             </tbody>
         </table>

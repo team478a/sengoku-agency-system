@@ -100,6 +100,7 @@ Idempotency-Key: 任意の一意キー
   "service_key": "cart",
   "service_user_id": "cart_customer_456",
   "agent_code": "dir260b6d6e",
+  "project_key": "ai-art-school",
   "project_slug": "ai-art-school",
   "relation_type": "referral",
   "referral_source": "lp_to_cart",
@@ -109,7 +110,7 @@ Idempotency-Key: 任意の一意キー
 
 `common_user_id` が未指定でも、`service_key` + `service_user_id` の紐づけが既にあれば利用します。紐づけがない場合は新規発行します。
 
-同じ `common_user_id`、`relation_type`、`project_slug/project_id` の紹介関係が既にあり、`locked=1` の場合は、別代理店で上書きしません。
+同じ `common_user_id`、`relation_type`、`project_key/project_slug/project_id` の紹介関係が既にあり、`locked=1` の場合は、別代理店で上書きしません。外部仕様では `project_key` を正式名とし、`project_slug` は既存互換として扱います。
 
 ## 4. 紹介関係取得
 
@@ -137,6 +138,7 @@ Content-Type: application/json
 ```json
 {
   "agent_code": "dir260b6d6e",
+  "project_key": "ai-art-school",
   "project_slug": "ai-art-school",
   "token_type": "cart",
   "destination_service_key": "cart",

@@ -33,12 +33,16 @@ if (!in_array($currentFile, $noAuthPages)) {
 
 $agentRoleLabel = 'マイページ';
 if (!empty($currentAgent)) {
-    $level = (int)($currentAgent['level'] ?? 1);
-    if ($level === 1) {
-        $agentRoleLabel = getAdvisorPositionLabel($currentAgent['position_type'] ?? null, $currentAgent['position_label'] ?? null);
+    if (function_exists('getAgentRoleLabel')) {
+        $agentRoleLabel = getAgentRoleLabel($currentAgent);
     } else {
-        $levelLabels = getLevelLabels();
-        $agentRoleLabel = $levelLabels[$level] ?? 'メンバー';
+        $level = (int)($currentAgent['level'] ?? 1);
+        if ($level === 1) {
+            $agentRoleLabel = getAdvisorPositionLabel($currentAgent['position_type'] ?? null, $currentAgent['position_label'] ?? null);
+        } else {
+            $levelLabels = getLevelLabels();
+            $agentRoleLabel = $levelLabels[$level] ?? 'メンバー';
+        }
     }
 }
 $agentPortalLabel = $agentRoleLabel === 'マイページ' ? 'マイページ' : $agentRoleLabel . 'マイページ';
@@ -102,7 +106,8 @@ if (!empty($currentAgent)) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title><?= h($pageTitle ?? 'マイページ') ?> | 戦国経済圏 <?= h($agentRoleLabel) ?></title>
+<title><?= h($pageTitle ?? 'マイページ') ?> | 千ノ国代理店システム <?= h($agentRoleLabel) ?></title>
+<?php renderAppIconLinks(); ?>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700;900&family=Noto+Sans+JP:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -666,7 +671,7 @@ body[data-theme="light"] .btn-danger { background: #b02a2a !important; color: #f
 
 <aside class="sidebar" id="agentSidebar">
   <div class="sidebar-logo">
-    <a href="/agent/dashboard.php" class="brand">⚔ 戦国経済圏</a>
+    <a href="/agent/dashboard.php" class="brand">⚔ 千ノ国代理店システム</a>
     <p class="sub"><?= h($agentPortalLabel) ?></p>
   </div>
   <?php if (!empty($currentAgent)): ?>
@@ -707,6 +712,7 @@ body[data-theme="light"] .btn-danger { background: #b02a2a !important; color: #f
     }
     agentNavLink('/agent/dashboard.php', '📊', 'ダッシュボード');
     agentNavLink('/agent/reports.php', '📈', '活動レポート');
+    agentNavLink('/agent/organization_map.php', '🧭', '傘下組織図');
     if (!empty($currentAgent) && (int)($currentAgent['level'] ?? 1) >= 2) {
         agentNavLink('/agent/downline_activity.php', '📊', '配下活動');
     }

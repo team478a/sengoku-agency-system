@@ -1,0 +1,142 @@
+# Implementation History
+
+## 2026-07-28 Phase 23
+
+- Added characterization tests for `LandingPageRenderer`.
+- Covered template file resolution, token-render callback execution, `$csrfToken` template scope, and preview-bar injection fallback behavior.
+- Checked GitHub CLI and local Composer constraints for CI follow-up.
+
+## 2026-07-28 Phase 22
+
+- Added `LandingPageRenderer` for shared LP template rendering.
+- Routed normal LP display and LP preview output through the renderer.
+- Moved remaining LP template lookup in `lp.php` to `LandingPageTemplateRepository`.
+- Preserved token replacement, SEO injection, preview bar injection, referral context, and access logging behavior.
+
+## 2026-07-28 Phase 21
+
+- Added `LandingPageTemplateRepository` for LP template persistence and lookup.
+- Routed active template lookup, project-specific template resolution, field loading, field saving, SEO source lookup, and admin template CRUD through the repository.
+- Kept LP URLs, template field keys, upload paths, database schema, and external API contracts unchanged.
+
+## 2026-07-28 Phase 20
+
+- Added notification channel classes for email, LINE, Chatwork, and Slack.
+- Added `LeadNotifier` and `LeadNotificationMessageBuilder`.
+- Routed the legacy `Notifier` compatibility class through the new notification services.
+
+## 2026-07-28 Phase 19
+
+- Added `AccessLogRecorder` for shared access log persistence.
+- Routed the legacy `logAccess()` helper through the Activity service without changing call sites or stored columns.
+- Preserved project lookup and referral tracking fields for LP access analysis.
+
+## 2026-07-24 Phase 18
+
+- Added `SeoMetadataBuilder` for LP SEO and AIO-oriented metadata generation.
+- Routed existing LP SEO helper functions through the shared LandingPage service.
+- Added characterization coverage for title, canonical URL, OG image, and JSON-LD injection.
+
+## 2026-07-24 Phase 17
+
+- Added `ActivityTrendService` for the dashboard 30-day activity series.
+- Added `ActivityDownlineRankingService` for downline activity report rows and rankings.
+- Routed dashboard trend and report ranking generation through Activity services without changing page output contracts.
+
+## 2026-07-24 Phase 16
+
+- Added `ActivitySummaryCards` for shared activity summary card definitions.
+- Routed admin and downline activity summary cards through the shared presenter.
+- Added characterization tests for the summary card contract.
+
+## 2026-07-24 Phase 15
+
+- Added MariaDB-backed CSV contract test execution to GitHub Actions.
+- Configured CI environment variables for `composer test:csv-contract`.
+- Kept production runtime behavior unchanged.
+
+## 2026-07-24 Phase 14
+
+- Added a DB-backed CSV contract test runner for the extracted CSV services.
+- Used connection-local temporary tables so the test runner does not modify production tables.
+- Added `composer test:csv-contract`.
+
+## 2026-07-24 Phase 13
+
+- Added `LoginLogCsvExportService` for shared login-log CSV row generation.
+- Routed `admin/export_csv.php?type=login_logs` through the service without changing CSV URL, filename, or column order.
+- Kept database schema unchanged.
+
+## 2026-07-24 Phase 12
+
+- Added `TemplateReportCsvExportService` for shared template report CSV row generation.
+- Routed `admin/export_csv.php?type=template_reports` through the service without changing CSV URL, filename, or column order.
+- Kept database schema unchanged.
+
+## 2026-07-24 Phase 11
+
+- Added `RecruitmentLinkCsvExportService` for shared recruitment-link CSV row generation.
+- Routed `agent/export_csv.php?type=recruitment_links` through the service without changing CSV URL, filename, or column order.
+- Kept database schema unchanged.
+
+## 2026-07-24 Phase 10
+
+- Added `SubAgentCsvExportService` for shared sub-agent CSV row generation.
+- Routed `agent/export_csv.php?type=sub_agents` through the service without changing CSV URL, filename, or column order.
+- Kept database schema unchanged.
+
+## 2026-07-24 Phase 9
+
+- Added `LeadCsvExportService` for shared lead CSV row generation.
+- Routed admin and agent lead CSV exports through the service without changing CSV URLs, filenames, or column order.
+- Kept database schema unchanged.
+
+## 2026-07-24 Phase 8
+
+- Routed activity CSV exports through the shared Activity query service.
+- Preserved existing CSV endpoint URLs and column order.
+- Kept database schema unchanged.
+
+## 2026-07-24 Phase 7
+
+- Added Activity foundation class for shared agent/downline activity aggregation.
+- Preserved existing admin and agent activity page URLs, filters, sort options, pagination, and output fields.
+- Kept database schema unchanged.
+
+## 2026-07-24 Phase 6
+
+- Added LandingPage foundation classes for LP URL building, query parameter handling, plain-text normalization, and responsive image HTML.
+- Added Notification foundation class for mail/template variable replacement.
+- Preserved existing LP helper function names, LP URL shape, template tags, and mail variable names while routing internals through `src/`.
+- Kept database schema unchanged.
+
+## 2026-07-24 Phase 5
+
+- Added Admin foundation classes for shared formatting, badge rendering, and operations query access.
+- Preserved existing admin page function names while routing internals through `src/Admin`.
+- Kept page URLs, POST action names, and database schema unchanged.
+
+## 2026-07-24 Phase 4
+
+- Added CommonIdentity module classes for common user API input normalization.
+- Added Referral module classes for referral token resolution and touchpoint fingerprinting.
+- Preserved current common user, referral, and legacy function contracts while moving reusable logic into `src/`.
+- Kept database schema unchanged.
+
+## 2026-07-24 Phase 3
+
+- Added Outbox module classes for claim locking, retry policy, retry state updates, and DLQ operations.
+- Preserved legacy function names so existing admin and cron screens continue to call the same functions.
+- Kept database schema unchanged.
+
+## 2026-07-24 Phase 2
+
+- Added shared API authentication and authorization modules.
+- Routed duplicate legacy API authentication helpers through shared classes while preserving function names.
+- Added common Shared classes requested by the modular monolith refactoring instructions.
+
+## 2026-07-24
+
+- Started Phase 0 and Phase 1 from `MODULAR_MONOLITH_REFACTORING_INSTRUCTIONS.md`.
+- Created the modular-monolith foundation branch.
+- Added development tooling without changing production PHP entrypoints.

@@ -1,3 +1,218 @@
+## v3.6.152 (2026-08-18)
+- Added an administrator purchase entitlement screen with filters, status summary, common customer links, and CSV export.
+- Added external partner test buttons for purchase events, entitlement grants, and customer SSO token notifications in addition to the basic connection test.
+- Improved external integration logs with Japanese event labels and quick filters for purchase/entitlement, SSO, common customer, and failed logs.
+- Updated the external developer guide with the purchase entitlement, customer SSO, test, and log operations.
+- Kept database schema unchanged.
+
+## v3.6.151 (2026-08-18)
+- Fixed the update screen so successfully executed migration files are always recorded in `schema_migrations`.
+- Added a safe marker migration so `3.6.150` no longer remains in the pending migration list after it has run.
+
+## v3.6.150 (2026-08-18)
+- Added `customer_entitlements` to store product access granted by purchases, applications, and entitlement events.
+- Updated referral confirm and external event ingestion so purchase completion can save both transaction history and customer entitlement state.
+- Added a customer SSO token API at `POST /api/sso/customer-token` using the existing RS256/JWKS SSO signing model.
+- Added entitlement data to common customer profile responses and expanded the admin integration guide for purchase provisioning and customer SSO.
+
+## v3.6.149 (2026-08-17)
+- Added safe text helper fallbacks so runtime code does not fatal when `mbstring` is unavailable.
+- Updated external integration setup logging to use the safe text truncation helper.
+- Tightened update ZIP extraction path validation with a directory-boundary check.
+- Kept database schema unchanged.
+
+## v3.6.148 (2026-08-17)
+- Updated the external integration guide page so admins start from the setup wizard.
+- Added direct shortcuts for project_key confirmation, detailed external API settings, SSO settings, logs, outbox, and developer document downloads.
+- Added a handoff checklist for external developers covering base URL, site_key, API key, project_key, API URLs, and SSO information.
+- Kept database schema unchanged.
+
+## v3.6.147 (2026-08-17)
+- Strengthened the external integration setup wizard so admins can hand off all required API URLs to external developers.
+- Added common user resolve, referral capture, referral confirm, agency sync, common event, hierarchy, SSO launch, and JWKS URLs to the wizard handoff flow.
+- Added a project_key confirmation link and clarified that one external service should use one API key while products are separated by `project_key` and `product_code`.
+- Kept database schema unchanged.
+
+## v3.6.146 (2026-08-17)
+- Enhanced the organization map detail panel with LP URL, copy action, lead list link, direct child count, and total downstream member count.
+- Added parent link change follow-up links for failed `parent_updated` external integration logs.
+- Cleaned up the external integration log search/list labels and added a `parent_updated` check shortcut.
+- Kept database schema unchanged.
+
+## v3.6.145 (2026-08-17)
+- Added impact preview information to the parent-child link change screen.
+- Shows direct children, total downstream members, PV, leads, and unhandled leads before changing a parent link.
+- Strengthened the confirmation message so admins understand that downstream reports and external integrations are affected.
+- Updated the administrator guide for parent link changes.
+- Kept database schema unchanged.
+
+## v3.6.144 (2026-08-17)
+- Added the parent-child link change operation flow for agency members.
+- Added admin navigation to the parent link change screen and organization map.
+- Added post-change links to confirm the updated organization map and external integration logs.
+- Added administrator documentation for parent link changes, validation rules, audit logs, and `parent_updated` sync checks.
+- Kept database schema unchanged.
+
+## v3.6.112 (2026-07-29)
+- Removed request-time DDL from the agency integration API and replaced it with a migration-required schema check.
+- Split agency integration lookups for `external_id` and legacy `agency_id`/`agent_code` so they are no longer queried through a combined OR condition.
+- Added characterization checks to keep DDL out of the agency integration API and preserve separated lookup functions.
+- Added a Purchase Provisioning readiness note documenting the instruction prerequisites and remaining branch/CI steps before starting the main implementation.
+- Kept existing agency integration endpoint URLs, authentication behavior, legacy `agency_id` input compatibility, database migrations, and response shape unchanged.
+
+## v3.6.111 (2026-07-29)
+- Added an admin "外部連携ガイド" page that explains the external integration setup flow step by step.
+- Added a sidebar link to the guide near SSO and external API integration management.
+- Documented integration direction, per-partner API key responsibilities, SSO setup, connection testing, logs, Outbox checks, and developer handoff information.
+- Kept database schema, existing API URLs, webhook behavior, SSO contracts, and existing external partner settings behavior unchanged.
+
+## v3.6.110 (2026-07-29)
+- Fixed PHPStan warning in `HttpClient` by initializing `$http_response_header` before `file_get_contents()`.
+- Confirmed CI had reached PHPStan after Composer, lint, PHPUnit, MariaDB readiness, and CSV contract tests passed.
+- Kept HTTP client response contract, database schema, existing API URLs, and existing page behavior unchanged.
+
+## v3.6.109 (2026-07-29)
+- Corrected the outbox retry characterization test to match the current capped exponential backoff contract.
+- Kept the existing `RetryPolicy` runtime behavior unchanged.
+- Kept database schema, existing API URLs, and existing page behavior unchanged.
+
+## v3.6.108 (2026-07-29)
+- Explicitly enabled `mbstring` in the CI PHP setup for PHPUnit 11.
+- Confirmed local PHPUnit PHAR startup fails without `mbstring`, matching the likely CI PHPUnit failure cause.
+- Kept runtime PHP files, database schema, existing API URLs, and existing page behavior unchanged.
+
+## v3.6.107 (2026-07-29)
+- Removed the GitHub Actions service-container health check that failed during MariaDB startup.
+- Added an explicit PHP/PDO MariaDB readiness wait before DB-backed CSV contract tests.
+- Kept runtime PHP files, database schema, existing API URLs, and existing page behavior unchanged.
+
+## v3.6.106 (2026-07-29)
+- Updated GitHub Actions MariaDB health check to use the official MariaDB `healthcheck.sh` command.
+- Explicitly enabled `pdo_mysql` in the CI PHP setup for DB-backed CSV contract tests.
+- Kept runtime PHP files, database schema, existing API URLs, and existing page behavior unchanged.
+
+## v3.6.105 (2026-07-29)
+- Added Phase 0-2 fixed-name handoff documents for implementation status, test results, API authentication compatibility, module dependencies, and rollback.
+- Documented the current API authentication compatibility behavior for legacy keys and partner-specific inbound API keys.
+- Kept runtime PHP files, database schema, existing API URLs, and existing page behavior unchanged.
+
+## v3.6.104 (2026-07-28)
+- Added characterization coverage for `LandingPageRenderer` template rendering and preview-bar injection.
+- Confirmed local CI visibility constraints: GitHub CLI is not authenticated, local PHP lacks OpenSSL and PDO database drivers, and Composer dependencies are not installed locally.
+- Kept production runtime behavior, database schema, LP URLs, and external API contracts unchanged.
+
+## v3.6.103 (2026-07-28)
+- Added `LandingPageRenderer` for shared LP template file rendering and preview-bar injection.
+- Routed normal LP display and LP preview rendering through the renderer.
+- Routed remaining LP template lookup in `lp.php` through `LandingPageTemplateRepository`.
+- Kept LP URLs, preview URLs, fallback template behavior, token replacement, SEO injection, referral tracking, and access logging unchanged.
+
+## v3.6.102 (2026-07-28)
+- Added `LandingPageTemplateRepository` for LP template lookup, admin list retrieval, CRUD, field persistence, and SEO source lookup.
+- Routed existing LP template helper functions, template management, and template display customization through the repository.
+- Kept database schema, admin URLs, LP template field keys, uploaded file paths, LP URLs, and external API contracts unchanged.
+
+## v3.6.101 (2026-07-28)
+- Added dedicated notification channel classes for email, LINE, Chatwork, and Slack lead notifications.
+- Added `LeadNotifier`, `LeadNotificationMessageBuilder`, and `JsonWebhookClient` to coordinate notification delivery.
+- Kept the existing `Notifier` class, `new Notifier(...)->send()` call sites, notification settings, message text, and webhook/API behavior stable.
+
+## v3.6.100 (2026-07-28)
+- Added `AccessLogRecorder` for shared LP access and LINE click logging.
+- Routed the existing `logAccess()` helper through the Activity service while keeping the public helper name, saved columns, project lookup, and referral context behavior stable.
+- Kept database schema, API contracts, webhook behavior, LP URLs, and activity report output unchanged.
+
+## v3.6.99 (2026-07-24)
+- Added `SeoMetadataBuilder` for LP title, description, canonical, Open Graph, Twitter Card, and JSON-LD generation.
+- Routed existing LP SEO helper functions through the shared LandingPage service while keeping existing function names and LP template calls stable.
+- Added characterization coverage for LP SEO metadata and head injection.
+
+## v3.6.98 (2026-07-24)
+- Added `ActivityTrendService` for the agent dashboard 30-day PV and lead trend series.
+- Added `ActivityDownlineRankingService` for downline activity report row and ranking generation.
+- Routed `agent/dashboard.php` and `agent/reports.php` through the new Activity services while keeping page URLs, filters, labels, and graph/ranking data shape stable.
+
+## v3.6.97 (2026-07-24)
+- Added `ActivitySummaryCards` for shared admin and downline activity summary card definitions.
+- Routed `admin/agent_activity.php` and `agent/downline_activity.php` summary cards through the shared Activity presenter while keeping page URLs, queries, labels, and values stable.
+- Added characterization tests for the activity summary card labels, values, and warning tone.
+
+## v3.6.96 (2026-07-24)
+- Added MariaDB-backed CSV contract test execution to GitHub Actions CI.
+- Configured the CI workflow to run `composer test:csv-contract` against a temporary MariaDB service.
+- Kept production database schema, API contracts, webhook behavior, and runtime PHP entrypoints unchanged.
+
+## v3.6.95 (2026-07-24)
+- Added a DB-backed CSV contract test runner for the extracted CSV services.
+- Covered lead, sub-agent, recruitment-link, template report, and login-log CSV row contracts using connection-local temporary tables.
+- Added `composer test:csv-contract` while keeping production database schema, API contracts, and webhook behavior unchanged.
+
+## v3.6.94 (2026-07-24)
+- Added the Phase 13 Audit CSV foundation service for login-log export row generation.
+- Routed `admin/export_csv.php?type=login_logs` through `LoginLogCsvExportService` while keeping CSV URL and column order stable.
+- Kept database schema, API contracts, webhook behavior, and login-log management screens unchanged.
+
+## v3.6.93 (2026-07-24)
+- Added the Phase 12 Reporting CSV foundation service for template report export row generation.
+- Routed `admin/export_csv.php?type=template_reports` through `TemplateReportCsvExportService` while keeping CSV URL and column order stable.
+- Kept database schema, API contracts, webhook behavior, and report screens unchanged.
+
+## v3.6.92 (2026-07-24)
+- Added the Phase 11 Agency recruitment-link CSV foundation service.
+- Routed `agent/export_csv.php?type=recruitment_links` through `RecruitmentLinkCsvExportService` while keeping CSV URL and column order stable.
+- Kept database schema, API contracts, webhook behavior, and recruitment-link management screens unchanged.
+
+## v3.6.91 (2026-07-24)
+- Added the Phase 10 Agency CSV foundation service for sub-agent export row generation.
+- Routed `agent/export_csv.php?type=sub_agents` through `SubAgentCsvExportService` while keeping CSV URL and column order stable.
+- Kept database schema, API contracts, webhook behavior, and sub-agent management screens unchanged.
+
+## v3.6.90 (2026-07-24)
+- Added the Phase 9 Lead CSV foundation service for shared inquiry export row generation.
+- Routed admin lead CSV and agent lead CSV exports through `LeadCsvExportService` while keeping CSV URLs and column order stable.
+- Kept database schema, API contracts, webhook behavior, and lead management screens unchanged.
+
+## v3.6.89 (2026-07-24)
+- Routed admin agent activity CSV and agent downline activity CSV through the shared Activity foundation service.
+- Added all-row export support to `ActivityQueryService` so activity screens and CSV exports use the same aggregation rules.
+- Kept database schema, CSV URLs, CSV column order, API contracts, and webhook behavior unchanged.
+
+## v3.6.88 (2026-07-24)
+- Added the Phase 7 Activity foundation module for shared agent/downline activity aggregation.
+- Routed admin agent activity and agent downline activity pages through the shared activity query service while keeping page URLs, filters, sort options, and display output stable.
+- Kept database schema, API contracts, and webhook behavior unchanged.
+
+## v3.6.87 (2026-07-24)
+- Added the Phase 6 LandingPage / Notification foundation modules for LP URL building, query parameter handling, plain-text SEO normalization, responsive image HTML, and notification template variable replacement.
+- Routed existing LP helper functions and mail template replacement through the new foundation classes while keeping current LP URLs, template tags, and mail variable names stable.
+- Added characterization tests for LP URL generation, responsive image output, text normalization, and notification variable replacement.
+
+## v3.6.86 (2026-07-24)
+- Added the Phase 5 Admin foundation modules for shared date formatting, text shortening, badge rendering, and operations dashboard queries.
+- Routed the Outbox and operations admin screens through the new admin foundation classes while keeping current page URLs and helper names stable.
+- Added characterization tests for the admin formatting and badge rendering contracts.
+
+## v3.6.85 (2026-07-24)
+- Added the Phase 4 CommonIdentity / Referral foundation modules for common user input normalization, referral token resolution, and touchpoint fingerprinting.
+- Routed existing common user and referral API code through the new foundation classes while preserving current endpoint URLs and response contracts.
+- Added characterization tests for common user input aliases, identity checks, referral alias resolution, and touchpoint hash behavior.
+
+## v3.6.84 (2026-07-24)
+- Added the Phase 3 Integration / Outbox foundation modules for claim handling, retry policy, repository updates, and DLQ operations.
+- Routed existing Outbox compatibility functions through the new Outbox services while keeping admin and cron call sites stable.
+- Added characterization tests for the existing Outbox retry backoff and DLQ threshold contract.
+
+## v3.6.83 (2026-07-24)
+- Added the Phase 2 Shared foundation for API key authentication, scope authorization, IP restrictions, schema checks, JSON helpers, HTTP dispatch, logging, and clock access.
+- Routed the existing hierarchy API, agency sync API, and API v2 bootstrap authentication wrappers through the shared API authenticator while keeping legacy function names and API URLs.
+- Added characterization tests for shared scope, IP, and JSON helper behavior.
+
+## v3.6.82 (2026-07-24)
+- Added the Phase 0/1 modular monolith foundation without changing runtime behavior.
+- Added Composer metadata, PSR-4 autoloading for `SenNoKuni\\`, PHPUnit, PHPStan, syntax lint, and GitHub Actions CI.
+- Added initial characterization tests for legacy entrypoints and critical compatibility functions.
+- Added initial `src/Shared` foundation classes and refactoring status documents.
+
 ## v3.6.81 (2026-07-22)
 - Added claim-token based processing locks for external integration Outbox retries.
 - Added stale `processing` Outbox recovery so interrupted workers can be returned to retry.

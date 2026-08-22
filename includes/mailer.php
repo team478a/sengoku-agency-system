@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/shared_bootstrap.php';
+
 /**
  * Resend APIを使ったメール送信クラス
  */
@@ -17,7 +19,7 @@ class Mailer {
         }
         $this->apiKey = $settings['resend_api_key'] ?? '';
         $this->from = $settings['mail_from'] ?? '';
-        $this->fromName = $settings['mail_from_name'] ?? '戦国経済圏';
+        $this->fromName = $settings['mail_from_name'] ?? '千ノ国代理店システム';
     }
 
     public function send(string $to, string $subject, string $html, string $text = ''): bool {
@@ -69,7 +71,7 @@ class Mailer {
     public function sendApplicationNotice(array $applicant, string $adminEmail): bool {
         $targetLabel = $this->applicantTargetLabel($applicant);
         $adminUrl = $this->getSiteUrl() . '/admin/applicants.php';
-        $subject = '【戦国経済圏】新規' . $targetLabel . '申請が届きました';
+        $subject = '【千ノ国代理店システム】新規' . $targetLabel . '申請が届きました';
 
         $html = $this->wrapHtml($subject, '
             <p>新しい' . h($targetLabel) . '申請が届きました。管理画面から内容を確認してください。</p>
@@ -96,7 +98,7 @@ class Mailer {
         $manualUrl = $siteUrl . '/manual';
         $roleLabel = $this->agentRoleLabel($agent);
 
-        $subject = $this->getTpl('mail_tpl_approval_subject', '【戦国経済圏】' . $roleLabel . 'として承認されました');
+        $subject = $this->getTpl('mail_tpl_approval_subject', '【千ノ国代理店システム】' . $roleLabel . 'として承認されました');
         $body = $this->getTpl('mail_tpl_approval_body', '');
         if ($body === '') {
             $body = "{person_name} 様\n\n"
@@ -117,8 +119,8 @@ class Mailer {
             '{mypage_url}' => $mypageUrl,
             '{manual_url}' => $manualUrl,
         ];
-        $subject = str_replace(array_keys($vars), array_values($vars), $subject);
-        $body = str_replace(array_keys($vars), array_values($vars), $body);
+        $subject = $this->replaceTemplateVariables($subject, $vars);
+        $body = $this->replaceTemplateVariables($body, $vars);
         $bodyHtml = $this->linkifyUrl(nl2br(h($body)), $setupUrl);
 
         $html = $this->wrapHtml($subject,
@@ -133,7 +135,7 @@ class Mailer {
 
     public function sendRejectionNotice(array $applicant): bool {
         $targetLabel = $this->applicantTargetLabel($applicant);
-        $subject = $this->getTpl('mail_tpl_rejection_subject', '【戦国経済圏】' . $targetLabel . '申請について');
+        $subject = $this->getTpl('mail_tpl_rejection_subject', '【千ノ国代理店システム】' . $targetLabel . '申請について');
         $body = $this->getTpl('mail_tpl_rejection_body', '');
         if ($body === '') {
             $body = "{person_name} 様\n\n"
@@ -144,8 +146,8 @@ class Mailer {
             '{person_name}' => $applicant['person_name'] ?? '',
             '{role_label}' => $targetLabel,
         ];
-        $subject = str_replace(array_keys($vars), array_values($vars), $subject);
-        $body = str_replace(array_keys($vars), array_values($vars), $body);
+        $subject = $this->replaceTemplateVariables($subject, $vars);
+        $body = $this->replaceTemplateVariables($body, $vars);
         $html = $this->wrapHtml($subject, '<p style="white-space:pre-line;line-height:1.9;">' . nl2br(h($body)) . '</p>');
         return $this->send($applicant['email'], $subject, $html);
     }
@@ -155,7 +157,7 @@ class Mailer {
         $mypageUrl = $siteUrl . '/agent/promotion_requests.php';
         $labels = function_exists('getLevelLabels') ? getLevelLabels() : [1 => 'アドバイザー', 2 => 'ディレクター', 3 => 'エージェント'];
 
-        $subject = $this->getTpl('mail_tpl_promo_request_subject', '【戦国経済圏】昇格申請が届きました');
+        $subject = $this->getTpl('mail_tpl_promo_request_subject', '【千ノ国代理店システム】昇格申請が届きました');
         $body = $this->getTpl('mail_tpl_promo_request_body', '');
         if ($body === '') {
             $body = "{person_name} さんから昇格申請が届きました。\n\nメッセージ：\n{message}\n\n{mypage_url}";
@@ -169,8 +171,8 @@ class Mailer {
             '{label_level2}' => $labels[2] ?? 'ディレクター',
             '{label_level3}' => $labels[3] ?? 'エージェント',
         ];
-        $body = str_replace(array_keys($vars), array_values($vars), $body);
-        $subject = str_replace(array_keys($vars), array_values($vars), $subject);
+        $body = $this->replaceTemplateVariables($body, $vars);
+        $subject = $this->replaceTemplateVariables($subject, $vars);
         $html = $this->wrapHtml($subject,
             '<p style="white-space:pre-line;line-height:1.9;">' . nl2br(h($body)) . '</p>
             <div style="text-align:center;margin:2rem 0;">
@@ -187,7 +189,7 @@ class Mailer {
         $labels = function_exists('getLevelLabels') ? getLevelLabels() : [1 => 'アドバイザー', 2 => 'ディレクター', 3 => 'エージェント'];
         $roleLabel = $this->agentRoleLabel($agent);
 
-        $subject = $this->getTpl('mail_tpl_promotion_subject', '【戦国経済圏】' . $roleLabel . 'に昇格しました');
+        $subject = $this->getTpl('mail_tpl_promotion_subject', '【千ノ国代理店システム】' . $roleLabel . 'に昇格しました');
         $body = $this->getTpl('mail_tpl_promotion_body', '');
         if ($body === '') {
             $body = "{person_name} 様\n\nあなたの区分が{role_label}に変更されました。\n\nLP URL：{lp_url}\nマイページ：{mypage_url}";
@@ -202,8 +204,8 @@ class Mailer {
             '{label_level2}' => $labels[2] ?? 'ディレクター',
             '{label_level3}' => $labels[3] ?? 'エージェント',
         ];
-        $body = str_replace(array_keys($vars), array_values($vars), $body);
-        $subject = str_replace(array_keys($vars), array_values($vars), $subject);
+        $body = $this->replaceTemplateVariables($body, $vars);
+        $subject = $this->replaceTemplateVariables($subject, $vars);
         $html = $this->wrapHtml($subject,
             '<p style="white-space:pre-line;line-height:1.9;">' . nl2br(h($body)) . '</p>
             <div style="text-align:center;margin:2rem 0;">
@@ -219,7 +221,7 @@ class Mailer {
         $mypageUrl = $siteUrl . '/agent/login.php';
         $roleLabel = $this->agentRoleLabel($agent);
 
-        $subject = '【戦国経済圏】権限が変更されました';
+        $subject = '【千ノ国代理店システム】権限が変更されました';
         $body = ($agent['person_name'] ?? '') . " 様\n\n"
               . "管理者により、あなたの区分が「{$roleLabel}」に変更されました。\n\n"
               . "LP URL：{$lpUrl}\n"
@@ -262,7 +264,7 @@ class Mailer {
 
         $label2 = $cfg['label_level2'] ?? 'ディレクター';
         $label3 = $cfg['label_level3'] ?? 'エージェント';
-        $subject = '【戦国経済圏】昇格推薦が届きました（要承認）';
+        $subject = '【千ノ国代理店システム】昇格推薦が届きました（要承認）';
         $html = $this->wrapHtml($subject, '
             <p style="margin-bottom:1.5rem;">' . h($approver['person_name'] ?? '') . ' エージェントから昇格推薦が届きました。管理画面で最終承認を行ってください。</p>
             ' . $this->infoTable([
@@ -279,6 +281,9 @@ class Mailer {
     }
 
     private function agentRoleLabel(array $agent): string {
+        if (function_exists('getAgentRoleLabel')) {
+            return getAgentRoleLabel($agent);
+        }
         $level = (int)($agent['level'] ?? 1);
         if ($level === 1 && function_exists('getAdvisorPositionLabel')) {
             return getAdvisorPositionLabel($agent['position_type'] ?? null, $agent['position_label'] ?? null);
@@ -291,6 +296,9 @@ class Mailer {
         $level = (int)($applicant['target_level'] ?? 1);
         if ($level === 1 && function_exists('getAdvisorPositionLabel')) {
             return getAdvisorPositionLabel($applicant['position_type'] ?? null, $applicant['position_label'] ?? null);
+        }
+        if ($level === 3 && ($applicant['position_type'] ?? '') === 'agent_candidate' && function_exists('getAgentCandidateLabel')) {
+            return getAgentCandidateLabel($applicant['position_label'] ?? null);
         }
         $labels = function_exists('getLevelLabels') ? getLevelLabels() : [1 => 'アドバイザー', 2 => 'ディレクター', 3 => 'エージェント'];
         return $labels[$level] ?? 'アドバイザー';
@@ -314,6 +322,14 @@ class Mailer {
         );
     }
 
+    private function replaceTemplateVariables(string $template, array $vars): string {
+        static $replacer = null;
+        if ($replacer === null) {
+            $replacer = new \SenNoKuni\Notification\TemplateVariableReplacer();
+        }
+        return $replacer->replace($template, $vars);
+    }
+
     private function getTpl(string $key, string $default): string {
         try {
             $db = getDB();
@@ -335,14 +351,14 @@ class Mailer {
 <tr><td align="center">
 <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);">
     <tr><td style="background:linear-gradient(135deg,#13100D,#1a1510);padding:1.5rem 2rem;text-align:center;">
-        <p style="font-family:serif;font-size:1.1rem;font-weight:700;color:#E2C87A;letter-spacing:.1em;margin:0;">戦国経済圏</p>
+        <p style="font-family:serif;font-size:1.1rem;font-weight:700;color:#E2C87A;letter-spacing:.1em;margin:0;">千ノ国代理店システム</p>
     </td></tr>
     <tr><td style="padding:2rem;">
         <h1 style="font-size:1.1rem;font-weight:700;color:#13100D;margin:0 0 1.5rem;padding-bottom:1rem;border-bottom:2px solid #C9A84C;">' . h($title) . '</h1>'
         . $body .
     '</td></tr>
     <tr><td style="background:#f9f7f3;padding:1rem 2rem;text-align:center;font-size:.75rem;color:#9ca3af;">
-        &copy; 戦国経済圏 &nbsp;|&nbsp; このメールに心当たりがない場合は破棄してください。
+        &copy; 千ノ国代理店システム &nbsp;|&nbsp; このメールに心当たりがない場合は破棄してください。
     </td></tr>
 </table>
 </td></tr>

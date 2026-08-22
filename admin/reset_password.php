@@ -47,7 +47,7 @@ $displayName = $admin ? (($admin['display_name'] ?? '') ?: $admin['username']) :
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>管理者パスワード再設定 | 戦国経済圏</title>
+<title>管理者パスワード再設定 | 千ノ国代理店システム</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -56,7 +56,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:#1a1410;color:#f5f0e8;min-
 </head>
 <body>
 <div class="wrap">
-    <div class="logo"><p>⚔ 戦国経済圏</p><small>管理パネル</small></div>
+    <div class="logo"><p>⚔ 千ノ国代理店システム</p><small>管理パネル</small></div>
     <div class="card">
         <?php if (!$admin): ?>
             <h1>リンクが無効です</h1>

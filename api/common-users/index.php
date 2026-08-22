@@ -25,18 +25,23 @@ function commonUsersApiTail(): string {
 }
 
 function commonUsersApiInputSystemKey(array $data, array $auth): string {
-    $systemKey = trim((string)($data['system_key'] ?? $data['service_key'] ?? ''));
-    if ($systemKey === '') {
-        $systemKey = (string)($auth['site_key'] ?? '');
+    return commonUsersApiInputNormalizer()->normalize($data, (string)($auth['site_key'] ?? ''))->systemKey;
+}
+
+function commonUsersApiInputNormalizer(): \SenNoKuni\CommonIdentity\CommonUserInputNormalizer {
+    static $normalizer = null;
+    if ($normalizer === null) {
+        $normalizer = new \SenNoKuni\CommonIdentity\CommonUserInputNormalizer();
     }
-    return $systemKey;
+    return $normalizer;
 }
 
 function commonUsersApiResolve(array $data, array $auth): array {
     $db = getDB();
-    $systemKey = commonUsersApiInputSystemKey($data, $auth);
-    $externalUserId = trim((string)($data['external_user_id'] ?? $data['service_user_id'] ?? ''));
-    $commonUserId = trim((string)($data['common_user_id'] ?? ''));
+    $input = commonUsersApiInputNormalizer()->normalize($data, (string)($auth['site_key'] ?? ''));
+    $systemKey = $input->systemKey;
+    $externalUserId = $input->externalUserId;
+    $commonUserId = $input->commonUserId;
     $created = false;
     $matchedBy = null;
     $unverifiedIdentityCandidateCount = 0;
@@ -63,13 +68,7 @@ function commonUsersApiResolve(array $data, array $auth): array {
         }
     }
 
-    $identityChecks = [
-        ['line', trim((string)($data['line_user_id'] ?? '')), ''],
-        ['email', trim((string)($data['email'] ?? '')), ''],
-        ['email', trim((string)($data['login_email'] ?? '')), 'login'],
-        ['phone', trim((string)($data['phone'] ?? '')), ''],
-        ['wallet', trim((string)($data['wallet_address'] ?? '')), ''],
-    ];
+    $identityChecks = $input->identityChecks;
     foreach ($identityChecks as [$type, $value, $provider]) {
         if ($matchedBy !== null || $value === '') {
             continue;
