@@ -1,0 +1,79 @@
+schema_version: 1
+
+project:
+  id: sengoku-agency-system
+  name: Sen-no-Kuni Agency System
+  repository: team478a/sengoku-agency-system
+  default_branch: main
+  integration_branch: feature/v3.6.82-modular-monolith-foundation
+  role: common_identity_and_agency_hub
+  criticality: high
+
+technology:
+  primary_language: php
+  database_family: mysql
+  architecture_state: modular_monolith_transition
+  validation_discovery: required
+
+capabilities:
+  - common_customer_identity
+  - external_system_account_mapping
+  - agency_and_referral_relationships
+  - common_user_merge_and_repair
+  - external_api_and_webhook_integration
+  - integration_outbox_retry_and_audit
+
+protected_contracts:
+  - common_user_id
+  - referral_attribution
+  - agency_relationship_history
+  - external_api_backward_compatibility
+  - integration_event_audit_history
+  - outbox_retry_semantics
+
+agent_policy:
+  manager_pattern: agents_as_tools
+  max_parallel_implementation_tasks: 2
+  same_file_parallel_edits: forbidden
+  direct_main_commit: forbidden
+  draft_pull_request: required
+  production_access: forbidden
+  secrets_in_prompt_or_logs: forbidden
+
+approval_gates:
+  merge_protected_branch: required
+  production_deploy: required
+  production_database_change: required
+  destructive_data_change: required
+  authentication_or_sso_change: required
+  identity_contract_change: required
+  referral_contract_change: required
+  payment_or_commission_change: required
+  external_breaking_change: required
+
+workflow:
+  - intake
+  - repository_status
+  - plan
+  - independent_plan_review
+  - approval_check
+  - implementation
+  - validation
+  - independent_diff_review
+  - draft_pull_request
+  - human_decision
+
+orchestrator_contracts:
+  task_request_schema: docs/orchestrator/task-request.schema.json
+  task_result_schema: docs/orchestrator/task-result.schema.json
+  repository_instructions: AGENTS.md
+
+skills:
+  - skills/project-status/SKILL.md
+  - skills/plan-review/SKILL.md
+  - skills/codex-task-dispatch/SKILL.md
+
+notes:
+  - Validation commands must be discovered from repository files before execution.
+  - Development, staging, and production schemas must not be assumed identical.
+  - This manifest defines orchestration policy; it does not grant runtime credentials or production access.
