@@ -597,6 +597,7 @@ window.toggleTheme = toggleTheme;
             ['/admin/template_reports.php', '&#128200;', 'LP成果分析'],
             ['/admin/agent_activity.php', '&#128202;', '代理店活動'],
             ['/admin/leads.php', '&#128229;', '問い合わせ管理'],
+            ['/admin/rewards.php', '&#128176;', '報酬CSV'],
         ], $current);
         $navGroup('外部連携', [
             ['/admin/external_partner_wizard.php', '&#129513;', '連携セットアップ'],

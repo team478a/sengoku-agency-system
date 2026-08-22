@@ -780,9 +780,29 @@ function externalProductRulesTableReady(): bool {
     return !empty(tableColumns('external_product_rules'));
 }
 
+function rewardLedgerTablesReady(): bool {
+    return !empty(tableColumns('reward_import_batches')) && !empty(tableColumns('agent_reward_ledger'));
+}
+
 function normalizeRewardEligibilityStatus(?string $status): string {
     $status = strtoupper(trim((string)$status));
     return in_array($status, ['ELIGIBLE', 'NOT_ELIGIBLE', 'UNKNOWN'], true) ? $status : 'UNKNOWN';
+}
+
+function normalizeRewardLedgerStatus(?string $status): string {
+    $status = strtolower(trim((string)$status));
+    $aliases = [
+        '確定' => 'confirmed',
+        '確定済み' => 'confirmed',
+        '取消' => 'cancelled',
+        '取り消し' => 'cancelled',
+        'キャンセル' => 'cancelled',
+        '調整' => 'adjustment',
+    ];
+    if (isset($aliases[$status])) {
+        $status = $aliases[$status];
+    }
+    return in_array($status, ['confirmed', 'cancelled', 'adjustment'], true) ? $status : 'confirmed';
 }
 
 function normalizeRefundPolicy(?string $policy): string {
