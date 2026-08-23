@@ -593,35 +593,35 @@ window.toggleTheme = toggleTheme;
             ['/admin/materials.php', '&#128230;', '紹介素材管理'],
             ['/admin/notices.php', '&#128226;', 'お知らせ管理'],
         ], $current, in_array($current, ['projects.php', 'product_rules.php', 'templates.php', 'materials.php', 'notices.php'], true));
-        $navGroup('成果・問い合わせ', [
+        $navGroup('成果・報酬', [
             ['/admin/template_reports.php', '&#128200;', 'LP成果分析'],
             ['/admin/agent_activity.php', '&#128202;', '代理店活動'],
+            ['/admin/rewards.php', '&#128176;', '報酬CSV取込'],
             ['/admin/leads.php', '&#128229;', '問い合わせ管理'],
-            ['/admin/rewards.php', '&#128176;', '報酬CSV'],
         ], $current);
-        $navGroup('外部連携', [
-            ['/admin/external_partner_wizard.php', '&#129513;', '連携セットアップ'],
-            ['/admin/integration_guide.php', '&#128214;', '連携ガイド'],
-            ['/admin/external_partners.php', '&#128268;', '連携先管理'],
+        $navGroup('外部サービス連携', [
+            ['/admin/external_partner_wizard.php', '&#129513;', 'かんたん連携設定'],
+            ['/admin/integration_guide.php', '&#128214;', '開発者向けガイド'],
+            ['/admin/external_partners.php', '&#128268;', '連携先一覧'],
         ], $current);
-        $navGroup('共通顧客HUB', [
-            ['/admin/common_hub.php', '&#128101;', '顧客HUB'],
-            ['/admin/common_id_mappings.php', '&#128269;', '共通ID検索'],
-            ['/admin/customer_entitlements.php', '&#128179;', '購入権限'],
+        $navGroup('顧客・購入権限', [
+            ['/admin/common_hub.php', '&#128101;', '顧客一覧'],
+            ['/admin/common_id_mappings.php', '&#128269;', 'ID紐づけ検索'],
+            ['/admin/customer_entitlements.php', '&#128179;', '購入・利用権'],
         ], $current);
         $systemItems = [
             ['/admin/operations.php', '&#128680;', '運用チェック'],
             ['/admin/broadcast.php', '&#128231;', '一斉メール送信'],
             ['/admin/integration_logs.php', '&#128225;', '外部連携ログ'],
-            ['/admin/integration_outbox.php', '&#128228;', '送信待ち'],
-            ['/admin/common_hub_alerts.php', '&#9888;', 'HUB確認'],
+            ['/admin/integration_outbox.php', '&#128228;', '外部送信待ち'],
+            ['/admin/common_hub_alerts.php', '&#9888;', '顧客HUB確認'],
             ['/admin/action_logs.php', '&#128336;', '操作ログ'],
             ['/admin/login_logs.php', '&#128273;', 'ログイン記録'],
         ];
         if (isSuperAdmin()) {
             $systemItems[] = ['/admin/staff.php', '&#128188;', '管理スタッフ'];
         }
-        $systemItems[] = ['/admin/sso_settings.php', '&#128274;', 'SSO連携'];
+        $systemItems[] = ['/admin/sso_settings.php', '&#128274;', '外部ログイン連携'];
         $systemItems[] = ['/admin/settings.php', '&#9881;', 'システム設定'];
         $systemItems[] = ['/admin/update.php', '&#128260;', 'アップデート'];
         $navGroup('運用・設定', $systemItems, $current);
