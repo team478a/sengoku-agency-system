@@ -138,6 +138,89 @@ HTML;
     return $phpHeader . $html;
 }
 
+function adminTemplateFallbackForDeactivation(PDO $db, array $template, bool $hasProject, int $defaultProjectId): ?array {
+    $templateId = (int)($template['id'] ?? 0);
+
+    if ($hasProject) {
+        $projectId = (int)($template['project_id'] ?? 0);
+        if ($projectId <= 0) {
+            $projectId = $defaultProjectId;
+        }
+
+        $stmt = $db->prepare("
+            SELECT *
+            FROM lp_templates
+            WHERE status = 'active'
+              AND id <> ?
+              AND project_id = ?
+            ORDER BY sort_order ASC, id ASC
+            LIMIT 1
+        ");
+        $stmt->execute([$templateId, $projectId]);
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
+
+    $stmt = $db->prepare("
+        SELECT *
+        FROM lp_templates
+        WHERE status = 'active'
+          AND id <> ?
+        ORDER BY sort_order ASC, id ASC
+        LIMIT 1
+    ");
+    $stmt->execute([$templateId]);
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+}
+
+function adminTemplateSwitchAssignments(PDO $db, int $oldTemplateId, array $fallbackTemplate): array {
+    $fallbackId = (int)($fallbackTemplate['id'] ?? 0);
+    $fallbackProjectId = (int)($fallbackTemplate['project_id'] ?? 0);
+    $agentsHasUpdatedAt = tableHasColumn('agents', 'updated_at');
+    $agentSql = 'UPDATE agents SET default_template_id = ?'
+        . ($agentsHasUpdatedAt ? ', updated_at = NOW()' : '')
+        . ' WHERE default_template_id = ?';
+    $agentStmt = $db->prepare($agentSql);
+    $agentStmt->execute([$fallbackId, $oldTemplateId]);
+
+    $projectRows = 0;
+    $mapColumns = tableColumns('agent_project_templates');
+    if (!empty($mapColumns)) {
+        $mapSql = 'UPDATE agent_project_templates SET template_id = ?'
+            . (!empty($mapColumns['updated_at']) ? ', updated_at = NOW()' : '')
+            . ' WHERE template_id = ?';
+        $params = [$fallbackId, $oldTemplateId];
+        if (!empty($mapColumns['project_id']) && $fallbackProjectId > 0) {
+            $mapSql .= ' AND project_id = ?';
+            $params[] = $fallbackProjectId;
+        }
+
+        $mapStmt = $db->prepare($mapSql);
+        $mapStmt->execute($params);
+        $projectRows = (int)$mapStmt->rowCount();
+    }
+
+    $agentRows = (int)$agentStmt->rowCount();
+    return [
+        'agent_defaults' => $agentRows,
+        'project_settings' => $projectRows,
+        'total' => $agentRows + $projectRows,
+    ];
+}
+
+function adminTemplateUsageCount(PDO $db, int $templateId): int {
+    $defaultStmt = $db->prepare('SELECT COUNT(*) FROM agents WHERE default_template_id = ?');
+    $defaultStmt->execute([$templateId]);
+    $count = (int)$defaultStmt->fetchColumn();
+
+    if (!empty(tableColumns('agent_project_templates'))) {
+        $mapStmt = $db->prepare('SELECT COUNT(*) FROM agent_project_templates WHERE template_id = ?');
+        $mapStmt->execute([$templateId]);
+        $count += (int)$mapStmt->fetchColumn();
+    }
+
+    return $count;
+}
+
 // ─────────────────────────────────────────
 // 削除
 // ─────────────────────────────────────────
@@ -146,10 +229,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
         $msg = '不正なリクエストです。'; $msgType = 'error';
     } else {
         $id = (int)$_POST['id'];
-        $inUse = $db->prepare("SELECT COUNT(*) FROM agents WHERE default_template_id=?");
-        $inUse->execute([$id]);
-        if ($inUse->fetchColumn() > 0) {
-            $msg = 'このテンプレートを使用しているアドバイザーがいるため削除できません。'; $msgType = 'error';
+        if (adminTemplateUsageCount($db, $id) > 0) {
+            $msg = 'このテンプレートを使用している設定があるため削除できません。'; $msgType = 'error';
         } else {
             $tpl = $templateRepository->find($id);
             if ($tpl) {
@@ -169,9 +250,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
 // 公開/非公開切替
 // ─────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'toggle') {
-    if (verifyCsrfToken($_POST['csrf_token'] ?? '')) {
-        $templateRepository->toggleStatus((int)$_POST['id']);
-        $msg = 'ステータスを変更しました。';
+    if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
+        $msg = '不正なリクエストです。'; $msgType = 'error';
+    } else {
+        $id = (int)$_POST['id'];
+        $tpl = $templateRepository->find($id);
+        if (!$tpl) {
+            $msg = 'テンプレートが見つかりません。'; $msgType = 'error';
+        } elseif (($tpl['status'] ?? '') === 'active') {
+            $fallback = adminTemplateFallbackForDeactivation($db, $tpl, $templateHasProject, $defaultProjectId);
+            if (!$fallback) {
+                $msg = '公開中の代替LPがないため、このテンプレートは非公開にできません。同じプロジェクトで公開中LPを先に追加してください。';
+                $msgType = 'error';
+            } else {
+                try {
+                    $db->beginTransaction();
+                    $switched = adminTemplateSwitchAssignments($db, $id, $fallback);
+                    $statusSql = 'UPDATE lp_templates SET status = ?'
+                        . (tableHasColumn('lp_templates', 'updated_at') ? ', updated_at = NOW()' : '')
+                        . ' WHERE id = ?';
+                    $statusStmt = $db->prepare($statusSql);
+                    $statusStmt->execute(['inactive', $id]);
+                    $db->commit();
+
+                    $msg = 'テンプレートを非公開にしました。使用中の設定 '
+                        . (int)$switched['total']
+                        . '件を「' . (string)$fallback['name'] . '」へ切り替えました。';
+                } catch (Throwable $e) {
+                    if ($db->inTransaction()) {
+                        $db->rollBack();
+                    }
+                    error_log('LP template fallback switch failed: ' . $e->getMessage());
+                    $msg = 'テンプレートの切り替えに失敗しました。時間をおいて再度お試しください。';
+                    $msgType = 'error';
+                }
+            }
+        } else {
+            $templateRepository->toggleStatus($id);
+            $msg = 'テンプレートを公開しました。';
+        }
     }
 }
 
@@ -383,9 +500,7 @@ $templates = $templateRepository->adminList();
         <tbody>
         <?php foreach ($templates as $tpl): ?>
             <?php
-            $useCount = $db->prepare("SELECT COUNT(*) FROM agents WHERE default_template_id=?");
-            $useCount->execute([$tpl['id']]);
-            $cnt = $useCount->fetchColumn();
+            $cnt = adminTemplateUsageCount($db, (int)$tpl['id']);
             // 実ファイル存在確認
             $tplDir   = __DIR__ . '/../templates/' . $tpl['slug'] . '/' . $tpl['html_file'];
             $fileExists = file_exists($tplDir);

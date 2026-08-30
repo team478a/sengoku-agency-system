@@ -1,3 +1,23 @@
+## v3.6.170 (2026-08-30)
+- Added a default-off ORLY seminar attendance point campaign for attendee, direct referrer, and upper director award candidates.
+- Added `POST /api/points/seminar-attendance` to record seminar attendance as a separate point event from signup.
+- Added deterministic attendance keys so the same attendee is not counted twice for the same seminar.
+
+## v3.6.169 (2026-08-29)
+- Added the default-off ORLY point referral foundation tables for campaigns, campaign versions, award events, adjustments, and setting audit logs.
+- Added ORLY feature flags so point campaigns, award creation, and Wallet delivery can be enabled separately after approval.
+- Seeded an inactive draft ORLY referral signup campaign with the proposed 3000/3000/1000 point split without changing existing referral or reward behavior.
+
+## v3.6.168 (2026-08-24)
+- Added automatic fallback when a published LP template is made private, switching current agent LP settings to a published LP in the same project.
+- Blocked private switching when no published replacement LP exists, so active agent URLs do not lose their display template.
+- Updated template usage counts and delete protection to include project-specific LP selections.
+
+## v3.6.167 (2026-08-24)
+- Added four new Sen no Kuni Influencer LP templates for women, men, women in their 30s-40s, and activity introduction.
+- Connected the new LP templates to the existing agent-specific inquiry form and LINE inquiry flow.
+- Added migration and setup seed entries so the templates appear under the existing `sengoku-influencer` project.
+
 ## v3.6.152 (2026-08-18)
 - Added an administrator purchase entitlement screen with filters, status summary, common customer links, and CSV export.
 - Added external partner test buttons for purchase events, entitlement grants, and customer SSO token notifications in addition to the basic connection test.
@@ -839,10 +859,6 @@
 - 莉｣逅・ｺ有P閾ｪ蜍慕函謌舌す繧ｹ繝・Β
 - 邂｡逅・判髱｢・井ｻ｣逅・ｺ励・繝・Φ繝励Ξ繝ｼ繝医・蝠上＞蜷医ｏ縺帷ｮ｡逅・ｼ・- LP陦ｨ遉ｺ・・a/{agent_code}・・- 蝠上＞蜷医ｏ縺帙ヵ繧ｩ繝ｼ繝繝ｻ騾夂衍讖溯・
 - 繧ｷ繧ｹ繝・Β繧｢繝・・繝・・繝域ｩ溯・
-
-
-
-
 
 
 

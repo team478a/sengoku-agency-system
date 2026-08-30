@@ -204,6 +204,7 @@ if ($method === 'POST' && ($tail === 'confirm' || (($_GET['action'] ?? '') === '
     $externalUserId = trim((string)($data['external_user_id'] ?? $data['service_user_id'] ?? ''));
 
     $db = getDB();
+    $orlyPointAwardResult = ['status' => 'disabled'];
     try {
         $db->beginTransaction();
         $commonUserId = referralsApiResolveCommonUser($data, $auth);
@@ -286,6 +287,28 @@ if ($method === 'POST' && ($tail === 'confirm' || (($_GET['action'] ?? '') === '
                 'metadata' => is_array($data['metadata'] ?? null) ? $data['metadata'] : [],
             ]);
         }
+        $flags = function_exists('getCommonIdFeatureFlags') ? getCommonIdFeatureFlags() : [];
+        if (
+            !empty($flags['orly_point_campaign_enabled'])
+            && !empty($flags['orly_point_award_enabled'])
+            && class_exists(\SenNoKuni\Point\OrlyReferralPointAwardService::class)
+        ) {
+            $orlyPointAwardResult = (new \SenNoKuni\Point\OrlyReferralPointAwardService($db))->recordReferralConfirmed([
+                'target_common_user_id' => $commonUserId,
+                'direct_referrer_agent_id' => (int)$tokenRow['agent_id'],
+                'project_id' => (int)($tokenRow['project_id'] ?? 0),
+                'project_key' => $data['project_key'] ?? $data['project_slug'] ?? ($tokenRow['project_slug'] ?? ''),
+                'referral_token_id' => (int)$tokenRow['id'],
+                'referral_session_key' => $sessionKey,
+                'source_system_key' => $systemKey,
+                'trigger_event_id' => $idempotencyKey,
+                'correlation_id' => trim((string)($_SERVER['HTTP_X_CORRELATION_ID'] ?? '')),
+                'occurred_at' => date('Y-m-d H:i:s'),
+            ]);
+            if (empty($orlyPointAwardResult['ok'])) {
+                throw new RuntimeException('ORLY point award conflict.');
+            }
+        }
         $db->commit();
     } catch (Throwable $e) {
         if ($db->inTransaction()) {
@@ -320,6 +343,9 @@ if ($method === 'POST' && ($tail === 'confirm' || (($_GET['action'] ?? '') === '
         'agency_relations' => $profile['agency_relations'] ?? [],
         'entitlements' => $profile['entitlements'] ?? [],
     ];
+    if (($orlyPointAwardResult['status'] ?? 'disabled') !== 'disabled') {
+        $response['orly_point_awards'] = $orlyPointAwardResult;
+    }
     logIntegrationEvent([
         'direction' => 'inbound',
         'site_key' => $auth['site_key'] ?? null,
